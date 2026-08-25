@@ -84,16 +84,6 @@ export const createInitialShop = async (userId: string, shopName = 'My Shop', pa
     throw error;
   }
 
-  // Create default starter items in Supabase
-  const defaultItems = [
-    { id: 'it_' + generateId(), shop_id: newShop.id, name: 'Black Tea', price: 40, created_at: now },
-    { id: 'it_' + generateId(), shop_id: newShop.id, name: 'Milk Tea', price: 60, created_at: now },
-    { id: 'it_' + generateId(), shop_id: newShop.id, name: 'Samosa', price: 30, created_at: now },
-    { id: 'it_' + generateId(), shop_id: newShop.id, name: 'Cold Drink 300ml', price: 80, created_at: now }
-  ];
-
-  await supabase.from('items').insert(defaultItems);
-
   return (data as Shop) || newShop;
 };
 

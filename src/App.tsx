@@ -21,6 +21,7 @@ import {
 } from './lib/dbService';
 import { signOutBusiness, getActiveUser } from './lib/authService';
 import AuthScreen from './components/AuthScreen';
+import { LumaSpin } from '@/components/ui/luma-spin';
 
 // Formatters
 const formatDateTime = (isoString: string) => {
@@ -490,19 +491,32 @@ export default function App() {
     }
   };
 
-  // Render Loading / Connection Screen if Supabase isn't reachable on cold start
+  // Render Loading / Connection Screen with LumaSpin component
   if (isLoadingData) {
     return (
       <div className="min-h-screen bg-[#f2f2f2] flex items-center justify-center font-[Inter,system-ui,sans-serif]">
         <div className="w-full max-w-[430px] bg-[#fcfcfc] min-h-screen flex flex-col items-center justify-center p-6 text-center shadow-lg">
-          <div className="w-14 h-14 rounded-2xl bg-black text-white flex items-center justify-center serif text-2xl mb-4 animate-pulse">
-            D
+          <div className="mb-8 flex items-center justify-center">
+            <LumaSpin />
           </div>
-          <h2 className="serif text-xl font-medium tracking-tight mb-2">Connecting to Supabase</h2>
-          <p className="text-xs text-zinc-500 max-w-[260px] leading-relaxed mb-6">
-            Loading real-time shop records and live database bills...
+          <h2 className="serif text-xl font-medium tracking-tight mb-2">DigiBill</h2>
+          <p className="text-xs text-zinc-500 max-w-[260px] leading-relaxed">
+            Initializing your digital chit & cloud workspace...
           </p>
-          <Loader2 className="w-6 h-6 animate-spin text-zinc-900" />
+        </div>
+      </div>
+    );
+  }
+
+  // Render Auth Screen directly when unauthenticated
+  if (showAuthScreen && !shop) {
+    return (
+      <div className="min-h-screen bg-[#f2f2f2] flex justify-center font-[Inter,system-ui,sans-serif]">
+        <div className="w-full max-w-[430px] bg-[#fcfcfc] min-h-screen relative flex flex-col shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_20px_60px_rgba(0,0,0,0.12)] overflow-hidden">
+          <AuthScreen 
+            initialMode={authInitialMode}
+            onSuccess={handleAuthSuccess}
+          />
         </div>
       </div>
     );
@@ -1264,12 +1278,12 @@ export default function App() {
           </div>
         )}
 
-        {/* AUTH SCREEN (LOGIN / REGISTER BUSINESS) */}
-        {showAuthScreen && (
+        {/* AUTH SCREEN (MODAL OVERLAY FOR LOGGED-IN SHOP SWITCHING) */}
+        {showAuthScreen && shop && (
           <div className="absolute inset-0 z-[60] bg-[#fcfcfc] flex flex-col animate-slideUp">
             <AuthScreen 
               initialMode={authInitialMode}
-              onClose={shop ? () => setShowAuthScreen(false) : undefined}
+              onClose={() => setShowAuthScreen(false)}
               onSuccess={handleAuthSuccess}
             />
           </div>

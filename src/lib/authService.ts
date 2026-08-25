@@ -125,22 +125,13 @@ export const registerBusiness = async (params: RegisterParams): Promise<AuthResu
       console.warn('Shop database insert warning:', dbError);
     }
 
-    // Insert starter items in Supabase
-    const defaultItems = [
-      { id: 'it_' + generateId(), shop_id: newShop.id, name: 'Black Tea', price: 40, created_at: now },
-      { id: 'it_' + generateId(), shop_id: newShop.id, name: 'Milk Tea', price: 60, created_at: now },
-      { id: 'it_' + generateId(), shop_id: newShop.id, name: 'Samosa', price: 30, created_at: now },
-      { id: 'it_' + generateId(), shop_id: newShop.id, name: 'Cold Drink 300ml', price: 80, created_at: now }
-    ];
-    await supabase.from('items').insert(defaultItems);
-
     return {
       success: true,
       message: 'Business registered successfully in Supabase cloud!',
       user: authData.user,
       session: authData.session,
       shop: (insertedShop as Shop) || newShop,
-      items: defaultItems as Item[],
+      items: [],
       bills: []
     };
   } catch (err: any) {

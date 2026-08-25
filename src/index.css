@@ -5,14 +5,6 @@
 }
 
 @layer base {
-  @font-face {
-    font-family: "Instrument Serif";
-    font-style: normal;
-    font-weight: 400;
-    font-display: swap;
-    src: url("https://fonts.gstatic.com/s/instrumentserif/v2/XoHm2X49tY2-B4V91wCD-iGjLg88a100Kik.woff2") format("woff2");
-  }
-
   * {
     font-family: 'Inter', sans-serif;
   }
@@ -38,9 +30,48 @@
   }
 }
 
+@keyframes loaderAnim {
+  0% {
+    inset: 0 35px 35px 0;
+  }
+  12.5% {
+    inset: 0 35px 0 0;
+  }
+  25% {
+    inset: 35px 35px 0 0;
+  }
+  37.5% {
+    inset: 35px 0 0 0;
+  }
+  50% {
+    inset: 35px 0 0 35px;
+  }
+  62.5% {
+    inset: 0 0 0 35px;
+  }
+  75% {
+    inset: 0 0 35px 35px;
+  }
+  87.5% {
+    inset: 0 0 35px 0;
+  }
+  100% {
+    inset: 0 35px 35px 0;
+  }
+}
+
 @utility animate-slideUp {
   animation: slideUp 0.25s ease forwards;
 }
+
+@utility animate-loaderAnim {
+  animation: loaderAnim 2.5s infinite;
+}
+
+@utility animation-delay {
+  animation-delay: -1.25s;
+}
+
 
 /* Thermal Receipt Utilities */
 .receipt-font {

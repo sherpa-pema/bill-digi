@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { registerBusiness, loginBusiness } from '../lib/authService';
 import type { Shop, Item, Bill } from '../types';
+import sanoBillLogo from '../assets/sano-bill-logo.png';
 
 interface AuthScreenProps {
   initialMode?: 'login' | 'register';
@@ -164,11 +165,15 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
           
           {/* Header Brand */}
           <div className="text-center mb-6">
-            <div className="w-14 h-14 mx-auto rounded-[18px] bg-black text-white flex items-center justify-center serif text-[26px] shadow-sm">
-              D
+            <div className="w-16 h-16 mx-auto rounded-[18px] overflow-hidden flex items-center justify-center shadow-sm">
+              <img 
+                src={sanoBillLogo} 
+                alt="Sano Bills" 
+                className="w-full h-full object-contain"
+              />
             </div>
             <h1 className="serif text-[32px] mt-3.5 tracking-tight text-zinc-900 leading-tight">
-              {mode === 'login' ? 'Welcome Back' : 'Register Business'}
+              {mode === 'login' ? 'Sano Bills' : 'Register Business'}
             </h1>
             <p className="text-[13px] text-zinc-500 mt-1">
               {mode === 'login' 
