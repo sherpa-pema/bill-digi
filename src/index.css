@@ -41,3 +41,43 @@
 @utility animate-slideUp {
   animation: slideUp 0.25s ease forwards;
 }
+
+/* Thermal Receipt Utilities */
+.receipt-font {
+  font-family: 'Space Mono', 'Courier Prime', monospace;
+}
+
+.receipt-edge-top {
+  position: relative;
+}
+.receipt-edge-top::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background-size: 12px 100%;
+  background-image: linear-gradient(135deg, #fff 25%, transparent 25%), linear-gradient(225deg, #fff 25%, transparent 25%);
+  background-position: 0 0;
+}
+
+.receipt-edge-bottom {
+  position: relative;
+}
+.receipt-edge-bottom::after {
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background-size: 12px 100%;
+  background-image: linear-gradient(45deg, #fff 25%, transparent 25%), linear-gradient(315deg, #fff 25%, transparent 25%);
+  background-position: 0 0;
+}
+
+.receipt-dash-border {
+  border-bottom: 2px dashed #000;
+  opacity: 0.3;
+}

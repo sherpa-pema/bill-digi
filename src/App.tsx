@@ -206,11 +206,15 @@ export default function App() {
         });
       }
 
+      const newStartingBill = Number(setupStartingBill) || shop.starting_bill_number;
+      const newNextBill = newStartingBill !== shop.starting_bill_number ? newStartingBill : shop.next_bill_number;
+
       const updatedShopData: Shop = {
         ...shop,
         shop_name: setupShopName.trim(),
         pan_number: setupPanNumber,
-        starting_bill_number: Number(setupStartingBill) || shop.starting_bill_number,
+        starting_bill_number: newStartingBill,
+        next_bill_number: newNextBill,
         updated_at: new Date().toISOString()
       };
 
@@ -543,22 +547,6 @@ export default function App() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <button 
-                    onClick={handleManualRefresh}
-                    disabled={isRefreshing || !isOnline}
-                    className="w-9 h-9 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-700 flex items-center justify-center active:scale-95 transition disabled:opacity-40"
-                    title="Refresh from Supabase"
-                  >
-                    <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                  </button>
-                  <button 
-                    onClick={() => { setAuthInitialMode('login'); setShowAuthScreen(true); }} 
-                    className="h-9 px-3 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-700 flex items-center gap-1.5 text-[12px] font-medium active:scale-95 transition"
-                    title="Account / Cloud Sign In"
-                  >
-                    <User className="w-3.5 h-3.5" />
-                    <span>Account</span>
-                  </button>
                   <button onClick={openShopSettings} className="w-9 h-9 rounded-full bg-zinc-100 flex items-center justify-center active:scale-95 transition" title="Settings">
                     <Settings className="w-4 h-4" />
                   </button>
@@ -568,22 +556,6 @@ export default function App() {
               <div className="flex items-center justify-between">
                 <h1 className="serif text-[26px] tracking-tight">History</h1>
                 <div className="flex items-center gap-1.5">
-                  <button 
-                    onClick={handleManualRefresh}
-                    disabled={isRefreshing || !isOnline}
-                    className="w-9 h-9 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-700 flex items-center justify-center active:scale-95 transition disabled:opacity-40"
-                    title="Refresh from Supabase"
-                  >
-                    <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                  </button>
-                  <button 
-                    onClick={() => { setAuthInitialMode('login'); setShowAuthScreen(true); }} 
-                    className="h-9 px-3 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-700 flex items-center gap-1.5 text-[12px] font-medium active:scale-95 transition"
-                    title="Account / Cloud Sign In"
-                  >
-                    <User className="w-3.5 h-3.5" />
-                    <span>Account</span>
-                  </button>
                   <button onClick={openShopSettings} className="w-9 h-9 rounded-full bg-zinc-100 flex items-center justify-center active:scale-95 transition" title="Settings">
                     <Settings className="w-4 h-4" />
                   </button>
@@ -834,42 +806,89 @@ export default function App() {
                   </div>
                   
                   <div className="flex-1 p-4">
-                    <div className="rounded-[24px] bg-white border border-zinc-100 shadow-[0_8px_40px_rgba(0,0,0,0.06)] p-6">
-                      <div className="text-center">
-                        <h2 className="serif text-[24px] leading-tight">{shop?.shop_name}</h2>
-                        <p className="mt-1 text-[12px] tracking-[0.14em] uppercase text-zinc-500">PAN: {shop?.pan_number}</p>
-                      </div>
-                      
-                      <div className="mt-6 grid grid-cols-2 gap-3 text-[12px]">
-                        <div className="rounded-[12px] bg-zinc-50 p-3">
-                          <p className="text-zinc-400 text-[10px] uppercase tracking-widest font-semibold">Bill No</p>
-                          <p className="font-semibold text-[14px] mt-0.5">#{generatedBill.bill_number}</p>
+                    <div className="relative mx-auto w-full max-w-[380px]">
+                      <div className="receipt-edge-top bg-white px-5 pt-8 pb-8 shadow-[0_10px_40px_rgba(0,0,0,0.08)] text-zinc-950 receipt-font">
+                        <div className="text-center mb-4">
+                          <h2 className="text-[20px] font-bold leading-tight uppercase tracking-wider">{shop?.shop_name}</h2>
+                          <p className="mt-1 text-[12px] uppercase">PAN: {shop?.pan_number}</p>
+                          <p className="mt-1 text-[11px] uppercase font-bold">*** TAX INVOICE ***</p>
                         </div>
-                        <div className="rounded-[12px] bg-zinc-50 p-3">
-                          <p className="text-zinc-400 text-[10px] uppercase tracking-widest font-semibold">Date</p>
-                          <p className="font-medium text-[12px] mt-0.5 leading-tight">{formatDateTime(generatedBill.created_at)}</p>
+                        
+                        <div className="receipt-dash-border mb-3"></div>
+                        
+                        <div className="text-[12px] leading-[1.6] mb-3">
+                          <div className="flex justify-between"><span>BILL NO:</span> <span className="font-bold">#{generatedBill.bill_number}</span></div>
+                          <div className="flex justify-between"><span>DATE:</span> <span>{formatShortDateTime(generatedBill.created_at)}</span></div>
                         </div>
-                      </div>
 
-                      <div className="my-6 h-[1px] bg-[repeating-linear-gradient(90deg,#e5e5e5_0_6px,transparent_6px_12px)]"></div>
-                      
-                      <div className="space-y-2.5">
-                        {generatedBill.items.map(v => (
-                          <div key={v.id} className="flex justify-between text-[13px]">
-                            <span className="text-zinc-600 truncate pr-4">{v.name} {v.qty > 1 ? `x${v.qty}` : ''}</span>
-                            <span className="font-medium">Rs {v.line_total}</span>
+                        <div className="receipt-dash-border mb-3"></div>
+                        
+                        <div className="text-[12px] font-bold flex justify-between mb-2">
+                          <span>ITEM</span>
+                          <span className="text-right">AMOUNT</span>
+                        </div>
+                        
+                        <div className="receipt-dash-border mb-3"></div>
+                        
+                        <div className="space-y-2 text-[12px]">
+                          {generatedBill.items.map(v => (
+                            <div key={v.id} className="flex justify-between items-start">
+                              <span className="pr-2 leading-[1.4] break-words flex-1">
+                                {v.name}
+                                {v.qty > 1 && <span className="block text-[11px] text-zinc-500">{v.qty} x Rs {v.unit_price}</span>}
+                              </span>
+                              <span className="font-bold whitespace-nowrap">{v.line_total.toFixed(2)}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="receipt-dash-border mt-3 mb-3"></div>
+                        
+                        <div className="text-[12px] leading-[1.6] mb-3">
+                          <div className="flex justify-between">
+                            <span>TOTAL ITEMS: {generatedBill.items.length}</span>
+                            <span>QTY: {generatedBill.items.reduce((acc, i) => acc + i.qty, 0)}</span>
                           </div>
-                        ))}
-                      </div>
+                          <div className="flex justify-between">
+                            <span>SUBTOTAL:</span>
+                            <span>Rs {generatedBill.total_amount.toFixed(2)}</span>
+                          </div>
+                        </div>
 
-                      <div className="mt-6 rounded-[14px] bg-zinc-900 text-white p-4 flex items-center justify-between">
-                        <span className="text-[12px] tracking-[0.12em] uppercase opacity-70">Total</span>
-                        <span className="serif text-[28px] leading-none">Rs {generatedBill.total_amount}</span>
+                        <div className="border-y-[3px] border-double border-zinc-900 py-2 mb-6">
+                          <div className="flex justify-between items-center text-[16px] font-bold">
+                            <span>TOTAL</span>
+                            <span>Rs {generatedBill.total_amount.toFixed(2)}</span>
+                          </div>
+                        </div>
+                        
+                        <div className="text-center text-[11px] leading-relaxed">
+                          <p className="font-bold mb-1">*** THANK YOU! ***</p>
+                          <div className="mt-4 flex justify-center opacity-60">
+                            <svg width="120" height="30" viewBox="0 0 120 30" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                              <rect x="0" y="0" width="4" height="30"/>
+                              <rect x="6" y="0" width="2" height="30"/>
+                              <rect x="10" y="0" width="6" height="30"/>
+                              <rect x="18" y="0" width="2" height="30"/>
+                              <rect x="22" y="0" width="4" height="30"/>
+                              <rect x="28" y="0" width="8" height="30"/>
+                              <rect x="40" y="0" width="2" height="30"/>
+                              <rect x="44" y="0" width="6" height="30"/>
+                              <rect x="52" y="0" width="2" height="30"/>
+                              <rect x="56" y="0" width="4" height="30"/>
+                              <rect x="62" y="0" width="8" height="30"/>
+                              <rect x="74" y="0" width="4" height="30"/>
+                              <rect x="80" y="0" width="2" height="30"/>
+                              <rect x="84" y="0" width="6" height="30"/>
+                              <rect x="92" y="0" width="2" height="30"/>
+                              <rect x="96" y="0" width="4" height="30"/>
+                              <rect x="102" y="0" width="8" height="30"/>
+                              <rect x="114" y="0" width="6" height="30"/>
+                            </svg>
+                          </div>
+                        </div>
                       </div>
-                      
-                      <p className="mt-4 text-[11px] text-center text-zinc-500 leading-relaxed">
-                        Thank you! Save for lottery at <span className="font-medium text-zinc-700">prize.ird.gov.np</span>
-                      </p>
+                      <div className="receipt-edge-bottom bg-white w-full h-[6px] shadow-[0_10px_40px_rgba(0,0,0,0.08)]"></div>
                     </div>
 
                     <div className="mt-5 grid grid-cols-3 gap-3">
@@ -1142,25 +1161,73 @@ export default function App() {
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto px-4 pb-4">
-                <div className="rounded-[20px] bg-white border border-zinc-100 p-5">
-                  <div className="flex justify-between text-[11px] text-zinc-400 uppercase tracking-widest font-semibold">
-                    <span>{shop?.shop_name}</span>
-                    <span>PAN {shop?.pan_number}</span>
-                  </div>
-                  <div className="mt-3 text-[12px] text-zinc-500">{formatDateTime(billDetailSheet.created_at)}</div>
-                  <div className="my-4 h-[1px] bg-zinc-100"></div>
-                  <div className="space-y-2">
-                    {billDetailSheet.items.map(v => (
-                      <div key={v.id} className="flex justify-between text-[13px]">
-                        <span className="text-zinc-600">{v.name} {v.qty > 1 ? `x${v.qty}` : ''}</span>
-                        <span className="font-medium">Rs {v.line_total}</span>
+                <div className="relative mx-auto w-full">
+                  <div className="receipt-edge-top bg-white px-5 pt-8 pb-8 shadow-sm text-zinc-950 receipt-font">
+                    <div className="text-center mb-4">
+                      <h2 className="text-[18px] font-bold leading-tight uppercase tracking-wider">{shop?.shop_name}</h2>
+                      <p className="mt-1 text-[11px] uppercase">PAN: {shop?.pan_number}</p>
+                      <p className="mt-1 text-[10px] uppercase font-bold">*** TAX INVOICE ***</p>
+                    </div>
+                    
+                    <div className="receipt-dash-border mb-3"></div>
+                    
+                    <div className="text-[11px] leading-[1.6] mb-3">
+                      <div className="flex justify-between"><span>BILL NO:</span> <span className="font-bold">#{billDetailSheet.bill_number}</span></div>
+                      <div className="flex justify-between"><span>DATE:</span> <span>{formatShortDateTime(billDetailSheet.created_at)}</span></div>
+                      <div className="flex justify-between"><span>TYPE:</span> <span>{billDetailSheet.bill_type.toUpperCase()}</span></div>
+                    </div>
+
+                    <div className="receipt-dash-border mb-3"></div>
+                    
+                    <div className="text-[11px] font-bold flex justify-between mb-2">
+                      <span>ITEM</span>
+                      <span className="text-right">AMOUNT</span>
+                    </div>
+                    
+                    <div className="receipt-dash-border mb-3"></div>
+                    
+                    <div className="space-y-2 text-[11px]">
+                      {billDetailSheet.items.map(v => (
+                        <div key={v.id} className="flex justify-between items-start">
+                          <span className="pr-2 leading-[1.4] break-words flex-1">
+                            {v.name}
+                            {v.qty > 1 && <span className="block text-[10px] text-zinc-500">{v.qty} x Rs {v.unit_price}</span>}
+                          </span>
+                          <span className="font-bold whitespace-nowrap">{v.line_total.toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="receipt-dash-border mt-3 mb-3"></div>
+                    
+                    <div className="text-[11px] leading-[1.6] mb-3">
+                      <div className="flex justify-between">
+                        <span>ITEMS: {billDetailSheet.items.length}</span>
+                        <span>QTY: {billDetailSheet.items.reduce((acc, i) => acc + i.qty, 0)}</span>
                       </div>
-                    ))}
+                      <div className="flex justify-between">
+                        <span>SUBTOTAL:</span>
+                        <span>Rs {billDetailSheet.total_amount.toFixed(2)}</span>
+                      </div>
+                    </div>
+
+                    <div className="border-y-[3px] border-double border-zinc-900 py-2 mb-4">
+                      <div className="flex justify-between items-center text-[15px] font-bold">
+                        <span>TOTAL</span>
+                        <span>Rs {billDetailSheet.total_amount.toFixed(2)}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="text-center text-[10px] leading-relaxed">
+                      <p className="font-bold mb-1">*** THANK YOU! ***</p>
+                      <div className="mt-3 flex justify-center opacity-60">
+                        <svg width="100" height="24" viewBox="0 0 120 30" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                          <rect x="0" y="0" width="4" height="30"/><rect x="6" y="0" width="2" height="30"/><rect x="10" y="0" width="6" height="30"/><rect x="18" y="0" width="2" height="30"/><rect x="22" y="0" width="4" height="30"/><rect x="28" y="0" width="8" height="30"/><rect x="40" y="0" width="2" height="30"/><rect x="44" y="0" width="6" height="30"/><rect x="52" y="0" width="2" height="30"/><rect x="56" y="0" width="4" height="30"/><rect x="62" y="0" width="8" height="30"/><rect x="74" y="0" width="4" height="30"/><rect x="80" y="0" width="2" height="30"/><rect x="84" y="0" width="6" height="30"/><rect x="92" y="0" width="2" height="30"/><rect x="96" y="0" width="4" height="30"/><rect x="102" y="0" width="8" height="30"/><rect x="114" y="0" width="6" height="30"/>
+                        </svg>
+                      </div>
+                    </div>
                   </div>
-                  <div className="mt-4 rounded-[12px] bg-zinc-900 text-white p-3 flex justify-between items-center">
-                    <span className="text-[11px] uppercase tracking-widest opacity-70">Total</span>
-                    <span className="serif text-[22px]">Rs {billDetailSheet.total_amount}</span>
-                  </div>
+                  <div className="receipt-edge-bottom bg-white w-full h-[6px] shadow-sm"></div>
                 </div>
                 <div className="mt-4 grid grid-cols-3 gap-2">
                   <button onClick={() => window.open(`sms:?&body=${encodeURIComponent(generateBillText(billDetailSheet))}`, '_blank')} className="h-[64px] rounded-[16px] bg-white border flex flex-col items-center justify-center gap-1 active:scale-95">
