@@ -55,5 +55,16 @@ npm run build
 
 ---
 
+## 🚀 Deploy to Vercel
+
+1. **Import the repository** on [Vercel](https://vercel.com/new).
+2. Framework Preset: **Vite** (automatically detected via `vercel.json`).
+3. Set the following **Environment Variables** in your Vercel Project Settings:
+   - `VITE_SUPABASE_URL`: `https://your-project.supabase.co`
+   - `VITE_SUPABASE_ANON_KEY`: `your-supabase-anon-key`
+4. Click **Deploy**.
+
+---
+
 ## License
 MIT
