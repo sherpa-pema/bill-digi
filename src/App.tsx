@@ -105,11 +105,22 @@ export default function App() {
       
       if (!activeShop) {
         const user = await getActiveUser();
-        let loadedShop = await fetchShop(user?.id);
+        if (!user) {
+          // If unauthenticated / no user_id, navigate to login screen and clear state
+          setShop(null);
+          setItems([]);
+          setBills([]);
+          setAuthInitialMode('login');
+          setShowAuthScreen(true);
+          setIsLoadingData(false);
+          return;
+        }
+
+        let loadedShop = await fetchShop(user.id);
         
         if (!loadedShop) {
-          // If no shop exists on Supabase at all, create an initial shop
-          loadedShop = await createInitialShop(user?.id);
+          // If no shop exists on Supabase for this user, create an initial shop
+          loadedShop = await createInitialShop(user.id);
         }
         activeShop = loadedShop;
         setShop(activeShop);
@@ -1124,6 +1135,11 @@ export default function App() {
                       type="button" 
                       onClick={async () => {
                         await signOutBusiness();
+                        setShop(null);
+                        setItems([]);
+                        setBills([]);
+                        setBasket([]);
+                        setSimpleAmount('0');
                         setIsSetupMode(false);
                         setIsEditingShop(false);
                         setAuthInitialMode('login');
@@ -1253,7 +1269,7 @@ export default function App() {
           <div className="absolute inset-0 z-[60] bg-[#fcfcfc] flex flex-col animate-slideUp">
             <AuthScreen 
               initialMode={authInitialMode}
-              onClose={() => setShowAuthScreen(false)}
+              onClose={shop ? () => setShowAuthScreen(false) : undefined}
               onSuccess={handleAuthSuccess}
             />
           </div>

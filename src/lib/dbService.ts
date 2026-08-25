@@ -10,7 +10,7 @@ export const checkIsOnline = (): boolean => {
 };
 
 /**
- * Fetch the active shop for the authenticated user or first accessible shop
+ * Fetch the active shop for the authenticated user
  */
 export const fetchShop = async (userId?: string): Promise<Shop | null> => {
   const supabase = getSupabaseClient();
@@ -18,36 +18,22 @@ export const fetchShop = async (userId?: string): Promise<Shop | null> => {
     throw new Error('Supabase client is not configured.');
   }
 
-  if (userId) {
-    const { data, error } = await supabase
-      .from('shops')
-      .select('*')
-      .eq('user_id', userId)
-      .limit(1);
-
-    if (error) {
-      console.error('Error fetching user shop from Supabase:', error);
-      throw error;
-    }
-    if (data && data.length > 0) {
-      return data[0] as Shop;
-    }
+  if (!userId) {
+    return null;
   }
 
-  // If no user_id or none found, fetch the most recently updated shop
-  const { data: latestShops, error: latestError } = await supabase
+  const { data, error } = await supabase
     .from('shops')
     .select('*')
-    .order('updated_at', { ascending: false })
+    .eq('user_id', userId)
     .limit(1);
 
-  if (latestError) {
-    console.error('Error fetching fallback shop:', latestError);
-    throw latestError;
+  if (error) {
+    console.error('Error fetching user shop from Supabase:', error);
+    throw error;
   }
-
-  if (latestShops && latestShops.length > 0) {
-    return latestShops[0] as Shop;
+  if (data && data.length > 0) {
+    return data[0] as Shop;
   }
 
   return null;
@@ -56,16 +42,20 @@ export const fetchShop = async (userId?: string): Promise<Shop | null> => {
 /**
  * Create a new default shop in Supabase if none exists
  */
-export const createInitialShop = async (userId?: string, shopName = 'My Shop', panNumber = '123456789'): Promise<Shop> => {
+export const createInitialShop = async (userId: string, shopName = 'My Shop', panNumber = '123456789'): Promise<Shop> => {
   const supabase = getSupabaseClient();
   if (!supabase) {
     throw new Error('Supabase client is not configured.');
   }
 
+  if (!userId) {
+    throw new Error('User ID is required to create a shop.');
+  }
+
   const now = new Date().toISOString();
   const newShop: Shop = {
     id: 'shop_' + generateId(),
-    user_id: userId || undefined,
+    user_id: userId,
     shop_name: shopName,
     pan_number: panNumber,
     starting_bill_number: 1,
