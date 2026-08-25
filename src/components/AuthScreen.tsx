@@ -145,7 +145,7 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
         <div className="px-5 pt-5 pb-2 flex items-center justify-between">
           <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-zinc-100 border border-zinc-200/60 text-[11px] font-medium text-zinc-700">
             <ShieldCheck className="w-3.5 h-3.5 text-zinc-900" />
-            <span>Digital Chit Cloud</span>
+            <span>Sano Bill Cloud</span>
           </div>
 
           {onClose && (
@@ -168,17 +168,17 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
             <div className="w-16 h-16 mx-auto rounded-[18px] overflow-hidden flex items-center justify-center shadow-sm">
               <img 
                 src={sanoBillLogo} 
-                alt="Sano Bills" 
+                alt="Sano Bill" 
                 className="w-full h-full object-contain"
               />
             </div>
             <h1 className="serif text-[32px] mt-3.5 tracking-tight text-zinc-900 leading-tight">
-              {mode === 'login' ? 'Sano Bills' : 'Register Business'}
+              {mode === 'login' ? 'Sano Bill' : 'Register Business'}
             </h1>
             <p className="text-[13px] text-zinc-500 mt-1">
               {mode === 'login' 
                 ? 'Sign in to access your shop & cloud sync' 
-                : 'Create your digital chit account to start billing'}
+                : 'Create your Sano Bill account to start billing'}
             </p>
           </div>
 

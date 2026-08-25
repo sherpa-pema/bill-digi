@@ -22,6 +22,7 @@ import {
 import { signOutBusiness, getActiveUser } from './lib/authService';
 import AuthScreen from './components/AuthScreen';
 import { LumaSpin } from '@/components/ui/luma-spin';
+import sanoBillLogo from './assets/sano-bill-logo.png';
 
 // Formatters
 const formatDateTime = (isoString: string) => {
@@ -499,9 +500,9 @@ export default function App() {
           <div className="mb-8 flex items-center justify-center">
             <LumaSpin />
           </div>
-          <h2 className="serif text-xl font-medium tracking-tight mb-2">DigiBill</h2>
+          <h2 className="serif text-xl font-medium tracking-tight mb-2">Sano Bill</h2>
           <p className="text-xs text-zinc-500 max-w-[260px] leading-relaxed">
-            Initializing your digital chit & cloud workspace...
+            Initializing your Sano Bill & cloud workspace...
           </p>
         </div>
       </div>
@@ -565,7 +566,7 @@ export default function App() {
             {activeTab === 'newBill' ? (
               <div className="flex items-start justify-between">
                 <div>
-                  <h1 className="text-[13px] font-semibold tracking-[0.14em] uppercase text-zinc-500">Digital Chit</h1>
+                  <h1 className="text-[13px] font-semibold tracking-[0.14em] uppercase text-zinc-500">Sano Bill</h1>
                   <p className="serif text-[22px] leading-none mt-1 tracking-tight">{shop?.shop_name || 'My Shop'}</p>
                   <div className="mt-2 inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-zinc-900 text-white text-[11px] font-medium">
                     <Hash className="w-3 h-3" /> Bill No: <span className="font-bold">{shop?.next_bill_number ?? '-'}</span>
@@ -1051,8 +1052,14 @@ export default function App() {
             <div className="flex-1 p-5 pb-10">
               <div className="w-full max-w-[360px] mx-auto">
                 <div className="text-center mb-6">
-                  <div className="w-14 h-14 mx-auto rounded-[16px] bg-black text-white flex items-center justify-center serif text-[24px]">D</div>
-                  <h1 className="serif text-[32px] mt-4 tracking-tight">Digital Chit</h1>
+                  <div className="w-16 h-16 mx-auto rounded-[18px] overflow-hidden flex items-center justify-center shadow-sm">
+                    <img 
+                      src={sanoBillLogo} 
+                      alt="Sano Bill" 
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <h1 className="serif text-[32px] mt-3.5 tracking-tight text-zinc-900 leading-tight">Sano Bill</h1>
                   <p className="text-[13px] text-zinc-500 mt-1">{isEditingShop ? 'Edit shop & cloud settings' : 'Set up your shop to start billing'}</p>
                 </div>
                 
