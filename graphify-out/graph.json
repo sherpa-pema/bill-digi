@@ -50,6 +50,54 @@
   },
   "nodes": [
     {
+      "id": "src_components_authscreen_authscreenprops",
+      "label": "AuthScreenProps",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 0,
+      "file_type": "code",
+      "norm_label": "authscreenprops",
+      "source_file": "src/components/AuthScreen.tsx",
+      "source_location": "L22"
+    },
+    {
+      "id": "src_lib_authservice_authresult",
+      "label": "AuthResult",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 0,
+      "file_type": "code",
+      "norm_label": "authresult",
+      "source_file": "src/lib/authService.ts",
+      "source_location": "L18"
+    },
+    {
+      "id": "src_lib_authservice_loginparams",
+      "label": "LoginParams",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 0,
+      "file_type": "code",
+      "norm_label": "loginparams",
+      "source_file": "src/lib/authService.ts",
+      "source_location": "L13"
+    },
+    {
+      "id": "src_lib_authservice_registerparams",
+      "label": "RegisterParams",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 0,
+      "file_type": "code",
+      "norm_label": "registerparams",
+      "source_file": "src/lib/authService.ts",
+      "source_location": "L5"
+    },
+    {
       "id": "src_types_index_basketitem",
       "label": "BasketItem",
       "_callable": true,
@@ -62,60 +110,12 @@
       "source_location": "L24"
     },
     {
-      "id": "src_components_authscreen_authscreenprops",
-      "label": "AuthScreenProps",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "community": 4,
-      "file_type": "code",
-      "norm_label": "authscreenprops",
-      "source_file": "src/components/AuthScreen.tsx",
-      "source_location": "L22"
-    },
-    {
-      "id": "src_lib_authservice_authresult",
-      "label": "AuthResult",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "community": 4,
-      "file_type": "code",
-      "norm_label": "authresult",
-      "source_file": "src/lib/authService.ts",
-      "source_location": "L18"
-    },
-    {
-      "id": "src_lib_authservice_loginparams",
-      "label": "LoginParams",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "community": 4,
-      "file_type": "code",
-      "norm_label": "loginparams",
-      "source_file": "src/lib/authService.ts",
-      "source_location": "L13"
-    },
-    {
-      "id": "src_lib_authservice_registerparams",
-      "label": "RegisterParams",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "community": 4,
-      "file_type": "code",
-      "norm_label": "registerparams",
-      "source_file": "src/lib/authService.ts",
-      "source_location": "L5"
-    },
-    {
       "id": "src_types_index_bill",
       "label": "Bill",
       "_callable": true,
       "_callable_class": true,
       "_origin": "ast",
-      "community": 4,
+      "community": 0,
       "file_type": "code",
       "norm_label": "bill",
       "source_file": "src/types/index.ts",
@@ -127,7 +127,7 @@
       "_callable": true,
       "_callable_class": true,
       "_origin": "ast",
-      "community": 4,
+      "community": 0,
       "file_type": "code",
       "norm_label": "item",
       "source_file": "src/types/index.ts",
@@ -139,7 +139,7 @@
       "_callable": true,
       "_callable_class": true,
       "_origin": "ast",
-      "community": 4,
+      "community": 0,
       "file_type": "code",
       "norm_label": "shop",
       "source_file": "src/types/index.ts",
@@ -151,11 +151,11 @@
       "_callable": true,
       "_callable_class": true,
       "_origin": "ast",
-      "community": 4,
+      "community": 0,
       "file_type": "code",
       "norm_label": "syncconfig",
       "source_file": "src/types/index.ts",
-      "source_location": "L44"
+      "source_location": "L47"
     },
     {
       "id": "src_app_app",
@@ -166,7 +166,7 @@
       "file_type": "code",
       "norm_label": "app()",
       "source_file": "src/App.tsx",
-      "source_location": "L42"
+      "source_location": "L60"
     },
     {
       "id": "src_app_formatdatetime",
@@ -191,6 +191,28 @@
       "source_location": "L36"
     },
     {
+      "id": "src_app_getbillbreakdown",
+      "label": "getBillBreakdown()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 0,
+      "file_type": "code",
+      "norm_label": "getbillbreakdown()",
+      "source_file": "src/App.tsx",
+      "source_location": "L43"
+    },
+    {
+      "id": "src_components_authscreen_authscreen",
+      "label": "AuthScreen()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 0,
+      "file_type": "code",
+      "norm_label": "authscreen()",
+      "source_file": "src/components/AuthScreen.tsx",
+      "source_location": "L28"
+    },
+    {
       "id": "src_lib_authservice_getactiveuser",
       "label": "getActiveUser()",
       "_callable": true,
@@ -199,7 +221,29 @@
       "file_type": "code",
       "norm_label": "getactiveuser()",
       "source_file": "src/lib/authService.ts",
-      "source_location": "L264"
+      "source_location": "L303"
+    },
+    {
+      "id": "src_lib_authservice_loginbusiness",
+      "label": "loginBusiness()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 0,
+      "file_type": "code",
+      "norm_label": "loginbusiness()",
+      "source_file": "src/lib/authService.ts",
+      "source_location": "L154"
+    },
+    {
+      "id": "src_lib_authservice_registerbusiness",
+      "label": "registerBusiness()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 0,
+      "file_type": "code",
+      "norm_label": "registerbusiness()",
+      "source_file": "src/lib/authService.ts",
+      "source_location": "L31"
     },
     {
       "id": "src_lib_authservice_signoutbusiness",
@@ -210,7 +254,7 @@
       "file_type": "code",
       "norm_label": "signoutbusiness()",
       "source_file": "src/lib/authService.ts",
-      "source_location": "L254"
+      "source_location": "L293"
     },
     {
       "id": "src_lib_dbservice_checkisonline",
@@ -334,55 +378,11 @@
       "source_location": "L31"
     },
     {
-      "id": "src_lib_storage_getitem",
-      "label": "getItem()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 0,
-      "file_type": "code",
-      "norm_label": "getitem()",
-      "source_file": "src/lib/storage.ts",
-      "source_location": "L5"
-    },
-    {
-      "id": "src_lib_storage_removeitem",
-      "label": "removeItem()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 0,
-      "file_type": "code",
-      "norm_label": "removeitem()",
-      "source_file": "src/lib/storage.ts",
-      "source_location": "L23"
-    },
-    {
-      "id": "src_lib_storage_setitem",
-      "label": "setItem()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 0,
-      "file_type": "code",
-      "norm_label": "setitem()",
-      "source_file": "src/lib/storage.ts",
-      "source_location": "L15"
-    },
-    {
-      "id": "src_lib_supabase_getsupabaseclient",
-      "label": "getSupabaseClient()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 0,
-      "file_type": "code",
-      "norm_label": "getsupabaseclient()",
-      "source_file": "src/lib/supabase.ts",
-      "source_location": "L7"
-    },
-    {
       "id": "src_components_ui_demo_demoone",
       "label": "DemoOne()",
       "_callable": true,
       "_origin": "ast",
-      "community": 10,
+      "community": 12,
       "file_type": "code",
       "norm_label": "demoone()",
       "source_file": "src/components/ui/demo.tsx",
@@ -393,55 +393,11 @@
       "label": "Component()",
       "_callable": true,
       "_origin": "ast",
-      "community": 10,
+      "community": 12,
       "file_type": "code",
       "norm_label": "component()",
       "source_file": "src/components/ui/luma-spin.tsx",
       "source_location": "L1"
-    },
-    {
-      "id": "src_components_authscreen_authscreen",
-      "label": "AuthScreen()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 4,
-      "file_type": "code",
-      "norm_label": "authscreen()",
-      "source_file": "src/components/AuthScreen.tsx",
-      "source_location": "L28"
-    },
-    {
-      "id": "src_lib_authservice_loginbusiness",
-      "label": "loginBusiness()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 4,
-      "file_type": "code",
-      "norm_label": "loginbusiness()",
-      "source_file": "src/lib/authService.ts",
-      "source_location": "L146"
-    },
-    {
-      "id": "src_lib_authservice_registerbusiness",
-      "label": "registerBusiness()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 4,
-      "file_type": "code",
-      "norm_label": "registerbusiness()",
-      "source_file": "src/lib/authService.ts",
-      "source_location": "L31"
-    },
-    {
-      "id": "src_lib_supabase_resetsupabaseclient",
-      "label": "resetSupabaseClient()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 4,
-      "file_type": "code",
-      "norm_label": "resetsupabaseclient()",
-      "source_file": "src/lib/supabase.ts",
-      "source_location": "L29"
     },
     {
       "id": "src_lib_utils_cn",
@@ -455,6 +411,145 @@
       "source_location": "L4"
     },
     {
+      "id": "src_lib_storage_getitem",
+      "label": "getItem()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 8,
+      "file_type": "code",
+      "norm_label": "getitem()",
+      "source_file": "src/lib/storage.ts",
+      "source_location": "L5"
+    },
+    {
+      "id": "src_lib_storage_removeitem",
+      "label": "removeItem()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 8,
+      "file_type": "code",
+      "norm_label": "removeitem()",
+      "source_file": "src/lib/storage.ts",
+      "source_location": "L23"
+    },
+    {
+      "id": "src_lib_storage_setitem",
+      "label": "setItem()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 8,
+      "file_type": "code",
+      "norm_label": "setitem()",
+      "source_file": "src/lib/storage.ts",
+      "source_location": "L15"
+    },
+    {
+      "id": "src_lib_supabase_getsupabaseclient",
+      "label": "getSupabaseClient()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 8,
+      "file_type": "code",
+      "norm_label": "getsupabaseclient()",
+      "source_file": "src/lib/supabase.ts",
+      "source_location": "L7"
+    },
+    {
+      "id": "src_lib_supabase_resetsupabaseclient",
+      "label": "resetSupabaseClient()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 8,
+      "file_type": "code",
+      "norm_label": "resetsupabaseclient()",
+      "source_file": "src/lib/supabase.ts",
+      "source_location": "L29"
+    },
+    {
+      "id": "digi_bill_html_bundle",
+      "label": "DigiBill Standalone Prototype",
+      "_origin": "ast",
+      "author": null,
+      "captured_at": null,
+      "community": 0,
+      "contributor": null,
+      "file_type": "document",
+      "norm_label": "digibill standalone prototype",
+      "source_file": "digi-bill.html",
+      "source_location": "L1-L56",
+      "source_url": null
+    },
+    {
+      "id": "readme_digibill",
+      "label": "DigiBill POS & Chit System",
+      "_origin": "ast",
+      "author": null,
+      "captured_at": null,
+      "community": 0,
+      "contributor": null,
+      "file_type": "document",
+      "norm_label": "digibill pos & chit system",
+      "source_file": "README.md",
+      "source_location": "L1-L5",
+      "source_url": null
+    },
+    {
+      "id": "readme_features",
+      "label": "DigiBill Key Features",
+      "_origin": "ast",
+      "author": null,
+      "captured_at": null,
+      "community": 0,
+      "contributor": null,
+      "file_type": "document",
+      "norm_label": "digibill key features",
+      "source_file": "README.md",
+      "source_location": "L7-L16",
+      "source_url": null
+    },
+    {
+      "id": "readme_tech_stack",
+      "label": "DigiBill Tech Stack",
+      "_origin": "ast",
+      "author": null,
+      "captured_at": null,
+      "community": 4,
+      "contributor": null,
+      "file_type": "document",
+      "norm_label": "digibill tech stack",
+      "source_file": "README.md",
+      "source_location": "L18-L25",
+      "source_url": null
+    },
+    {
+      "id": "index_html_app_entry",
+      "label": "Vite Web Index Entry",
+      "_origin": "ast",
+      "author": null,
+      "captured_at": null,
+      "community": 7,
+      "contributor": null,
+      "file_type": "document",
+      "norm_label": "vite web index entry",
+      "source_file": "index.html",
+      "source_location": "L1-L18",
+      "source_url": null
+    },
+    {
+      "id": "readme_deploy_vercel",
+      "label": "Vercel Deployment Flow",
+      "_origin": "ast",
+      "author": null,
+      "captured_at": null,
+      "community": 8,
+      "contributor": null,
+      "file_type": "document",
+      "norm_label": "vercel deployment flow",
+      "source_file": "README.md",
+      "source_location": "L58-L67",
+      "source_url": null
+    },
+    {
       "id": "src_app",
       "label": "App.tsx",
       "_origin": "ast",
@@ -462,6 +557,26 @@
       "file_type": "code",
       "norm_label": "app.tsx",
       "source_file": "src/App.tsx",
+      "source_location": "L1"
+    },
+    {
+      "id": "src_components_authscreen",
+      "label": "AuthScreen.tsx",
+      "_origin": "ast",
+      "community": 0,
+      "file_type": "code",
+      "norm_label": "authscreen.tsx",
+      "source_file": "src/components/AuthScreen.tsx",
+      "source_location": "L1"
+    },
+    {
+      "id": "src_lib_authservice",
+      "label": "authService.ts",
+      "_origin": "ast",
+      "community": 0,
+      "file_type": "code",
+      "norm_label": "authservice.ts",
+      "source_file": "src/lib/authService.ts",
       "source_location": "L1"
     },
     {
@@ -475,33 +590,13 @@
       "source_location": "L1"
     },
     {
-      "id": "src_lib_storage",
-      "label": "storage.ts",
+      "id": "src_types_index",
+      "label": "index.ts",
       "_origin": "ast",
       "community": 0,
       "file_type": "code",
-      "norm_label": "storage.ts",
-      "source_file": "src/lib/storage.ts",
-      "source_location": "L1"
-    },
-    {
-      "id": "src_lib_storage_storage_keys",
-      "label": "STORAGE_KEYS",
-      "_origin": "ast",
-      "community": 0,
-      "file_type": "code",
-      "norm_label": "storage_keys",
-      "source_file": "src/lib/storage.ts",
-      "source_location": "L1"
-    },
-    {
-      "id": "src_main",
-      "label": "main.tsx",
-      "_origin": "ast",
-      "community": 0,
-      "file_type": "code",
-      "norm_label": "main.tsx",
-      "source_file": "src/main.tsx",
+      "norm_label": "index.ts",
+      "source_file": "src/types/index.ts",
       "source_location": "L1"
     },
     {
@@ -755,10 +850,70 @@
       "source_location": "L5"
     },
     {
+      "id": "vercel",
+      "label": "vercel.json",
+      "_origin": "ast",
+      "community": 10,
+      "file_type": "code",
+      "norm_label": "vercel.json",
+      "source_file": "vercel.json",
+      "source_location": "L1"
+    },
+    {
+      "id": "vercel_buildcommand",
+      "label": "buildCommand",
+      "_origin": "ast",
+      "community": 10,
+      "file_type": "code",
+      "norm_label": "buildcommand",
+      "source_file": "vercel.json",
+      "source_location": "L3"
+    },
+    {
+      "id": "vercel_framework",
+      "label": "framework",
+      "_origin": "ast",
+      "community": 10,
+      "file_type": "code",
+      "norm_label": "framework",
+      "source_file": "vercel.json",
+      "source_location": "L2"
+    },
+    {
+      "id": "vercel_headers",
+      "label": "headers",
+      "_origin": "ast",
+      "community": 10,
+      "file_type": "code",
+      "norm_label": "headers",
+      "source_file": "vercel.json",
+      "source_location": "L11"
+    },
+    {
+      "id": "vercel_outputdirectory",
+      "label": "outputDirectory",
+      "_origin": "ast",
+      "community": 10,
+      "file_type": "code",
+      "norm_label": "outputdirectory",
+      "source_file": "vercel.json",
+      "source_location": "L4"
+    },
+    {
+      "id": "vercel_rewrites",
+      "label": "rewrites",
+      "_origin": "ast",
+      "community": 10,
+      "file_type": "code",
+      "norm_label": "rewrites",
+      "source_file": "vercel.json",
+      "source_location": "L5"
+    },
+    {
       "id": "src_components_ui_demo",
       "label": "demo.tsx",
       "_origin": "ast",
-      "community": 10,
+      "community": 12,
       "file_type": "code",
       "norm_label": "demo.tsx",
       "source_file": "src/components/ui/demo.tsx",
@@ -768,7 +923,7 @@
       "id": "src_components_ui_luma_spin",
       "label": "luma-spin.tsx",
       "_origin": "ast",
-      "community": 10,
+      "community": 12,
       "file_type": "code",
       "norm_label": "luma-spin.tsx",
       "source_file": "src/components/ui/luma-spin.tsx",
@@ -778,7 +933,7 @@
       "id": "src_components_ui_luma_spin_lumaspin",
       "label": "LumaSpin",
       "_origin": "ast",
-      "community": 10,
+      "community": 12,
       "file_type": "code",
       "norm_label": "lumaspin",
       "source_file": "src/components/ui/luma-spin.tsx",
@@ -788,7 +943,7 @@
       "id": "tsconfig",
       "label": "tsconfig.json",
       "_origin": "ast",
-      "community": 11,
+      "community": 13,
       "file_type": "code",
       "norm_label": "tsconfig.json",
       "source_file": "tsconfig.json",
@@ -798,7 +953,7 @@
       "id": "tsconfig_files",
       "label": "files",
       "_origin": "ast",
-      "community": 11,
+      "community": 13,
       "file_type": "code",
       "norm_label": "files",
       "source_file": "tsconfig.json",
@@ -808,7 +963,7 @@
       "id": "tsconfig_references",
       "label": "references",
       "_origin": "ast",
-      "community": 11,
+      "community": 13,
       "file_type": "code",
       "norm_label": "references",
       "source_file": "tsconfig.json",
@@ -818,7 +973,7 @@
       "id": "src_vite_env_d",
       "label": "vite-env.d.ts",
       "_origin": "ast",
-      "community": 16,
+      "community": 19,
       "file_type": "code",
       "norm_label": "vite-env.d.ts",
       "source_file": "src/vite-env.d.ts",
@@ -993,16 +1148,6 @@
       "norm_label": "@types/react-dom",
       "source_file": "package.json",
       "source_location": "L25"
-    },
-    {
-      "id": "typescript",
-      "label": "typescript",
-      "_origin": "ast",
-      "community": 2,
-      "file_type": "concept",
-      "norm_label": "typescript",
-      "source_file": "package.json",
-      "source_location": "L29"
     },
     {
       "id": "vite",
@@ -1225,44 +1370,174 @@
       "source_location": "L5"
     },
     {
-      "id": "src_components_authscreen",
-      "label": "AuthScreen.tsx",
+      "id": "auth_users",
+      "label": "auth.users",
       "_origin": "ast",
       "community": 4,
       "file_type": "code",
-      "norm_label": "authscreen.tsx",
-      "source_file": "src/components/AuthScreen.tsx",
+      "norm_label": "auth.users",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "package",
+      "label": "package.json",
+      "_origin": "ast",
+      "community": 4,
+      "file_type": "code",
+      "norm_label": "package.json",
+      "source_file": "package.json",
       "source_location": "L1"
     },
     {
-      "id": "src_lib_authservice",
-      "label": "authService.ts",
+      "id": "package_name",
+      "label": "name",
       "_origin": "ast",
       "community": 4,
       "file_type": "code",
-      "norm_label": "authservice.ts",
-      "source_file": "src/lib/authService.ts",
-      "source_location": "L1"
+      "norm_label": "name",
+      "source_file": "package.json",
+      "source_location": "L2"
     },
     {
-      "id": "src_lib_supabase",
-      "label": "supabase.ts",
+      "id": "package_private",
+      "label": "private",
       "_origin": "ast",
       "community": 4,
       "file_type": "code",
-      "norm_label": "supabase.ts",
-      "source_file": "src/lib/supabase.ts",
-      "source_location": "L1"
+      "norm_label": "private",
+      "source_file": "package.json",
+      "source_location": "L3"
     },
     {
-      "id": "src_types_index",
-      "label": "index.ts",
+      "id": "package_scripts",
+      "label": "scripts",
       "_origin": "ast",
       "community": 4,
       "file_type": "code",
-      "norm_label": "index.ts",
-      "source_file": "src/types/index.ts",
-      "source_location": "L1"
+      "norm_label": "scripts",
+      "source_file": "package.json",
+      "source_location": "L6"
+    },
+    {
+      "id": "package_scripts_build",
+      "label": "build",
+      "_origin": "ast",
+      "community": 4,
+      "file_type": "code",
+      "norm_label": "build",
+      "source_file": "package.json",
+      "source_location": "L8"
+    },
+    {
+      "id": "package_scripts_dev",
+      "label": "dev",
+      "_origin": "ast",
+      "community": 4,
+      "file_type": "code",
+      "norm_label": "dev",
+      "source_file": "package.json",
+      "source_location": "L7"
+    },
+    {
+      "id": "package_scripts_lint",
+      "label": "lint",
+      "_origin": "ast",
+      "community": 4,
+      "file_type": "code",
+      "norm_label": "lint",
+      "source_file": "package.json",
+      "source_location": "L9"
+    },
+    {
+      "id": "package_scripts_preview",
+      "label": "preview",
+      "_origin": "ast",
+      "community": 4,
+      "file_type": "code",
+      "norm_label": "preview",
+      "source_file": "package.json",
+      "source_location": "L10"
+    },
+    {
+      "id": "package_type",
+      "label": "type",
+      "_origin": "ast",
+      "community": 4,
+      "file_type": "code",
+      "norm_label": "type",
+      "source_file": "package.json",
+      "source_location": "L5"
+    },
+    {
+      "id": "package_version",
+      "label": "version",
+      "_origin": "ast",
+      "community": 4,
+      "file_type": "code",
+      "norm_label": "version",
+      "source_file": "package.json",
+      "source_location": "L4"
+    },
+    {
+      "id": "public_shops",
+      "label": "public.shops",
+      "_origin": "ast",
+      "community": 4,
+      "file_type": "code",
+      "norm_label": "public.shops",
+      "source_file": "",
+      "source_location": ""
+    },
+    {
+      "id": "supabase_schema",
+      "label": "schema.sql",
+      "_origin": "ast",
+      "community": 4,
+      "file_type": "code",
+      "norm_label": "schema.sql",
+      "source_file": "supabase/schema.sql",
+      "source_location": null
+    },
+    {
+      "id": "supabase_schema_bills",
+      "label": "bills",
+      "_origin": "ast",
+      "community": 4,
+      "file_type": "code",
+      "norm_label": "bills",
+      "source_file": "supabase/schema.sql",
+      "source_location": "L52"
+    },
+    {
+      "id": "supabase_schema_items",
+      "label": "items",
+      "_origin": "ast",
+      "community": 4,
+      "file_type": "code",
+      "norm_label": "items",
+      "source_file": "supabase/schema.sql",
+      "source_location": "L42"
+    },
+    {
+      "id": "supabase_schema_public_handle_new_user_shop",
+      "label": "public.handle_new_user_shop()",
+      "_origin": "ast",
+      "community": 4,
+      "file_type": "code",
+      "norm_label": "public.handle_new_user_shop()",
+      "source_file": "supabase/schema.sql",
+      "source_location": "L249"
+    },
+    {
+      "id": "supabase_schema_shops",
+      "label": "shops",
+      "_origin": "ast",
+      "community": 4,
+      "file_type": "code",
+      "norm_label": "shops",
+      "source_file": "supabase/schema.sql",
+      "source_location": "L10"
     },
     {
       "id": "package_dependencies",
@@ -1595,160 +1870,10 @@
       "source_location": "L5"
     },
     {
-      "id": "auth_users",
-      "label": "auth.users",
-      "_origin": "ast",
-      "community": 7,
-      "file_type": "code",
-      "norm_label": "auth.users",
-      "source_file": "",
-      "source_location": ""
-    },
-    {
-      "id": "package",
-      "label": "package.json",
-      "_origin": "ast",
-      "community": 7,
-      "file_type": "code",
-      "norm_label": "package.json",
-      "source_file": "package.json",
-      "source_location": "L1"
-    },
-    {
-      "id": "package_name",
-      "label": "name",
-      "_origin": "ast",
-      "community": 7,
-      "file_type": "code",
-      "norm_label": "name",
-      "source_file": "package.json",
-      "source_location": "L2"
-    },
-    {
-      "id": "package_private",
-      "label": "private",
-      "_origin": "ast",
-      "community": 7,
-      "file_type": "code",
-      "norm_label": "private",
-      "source_file": "package.json",
-      "source_location": "L3"
-    },
-    {
-      "id": "package_scripts",
-      "label": "scripts",
-      "_origin": "ast",
-      "community": 7,
-      "file_type": "code",
-      "norm_label": "scripts",
-      "source_file": "package.json",
-      "source_location": "L6"
-    },
-    {
-      "id": "package_scripts_build",
-      "label": "build",
-      "_origin": "ast",
-      "community": 7,
-      "file_type": "code",
-      "norm_label": "build",
-      "source_file": "package.json",
-      "source_location": "L8"
-    },
-    {
-      "id": "package_scripts_dev",
-      "label": "dev",
-      "_origin": "ast",
-      "community": 7,
-      "file_type": "code",
-      "norm_label": "dev",
-      "source_file": "package.json",
-      "source_location": "L7"
-    },
-    {
-      "id": "package_scripts_lint",
-      "label": "lint",
-      "_origin": "ast",
-      "community": 7,
-      "file_type": "code",
-      "norm_label": "lint",
-      "source_file": "package.json",
-      "source_location": "L9"
-    },
-    {
-      "id": "package_scripts_preview",
-      "label": "preview",
-      "_origin": "ast",
-      "community": 7,
-      "file_type": "code",
-      "norm_label": "preview",
-      "source_file": "package.json",
-      "source_location": "L10"
-    },
-    {
-      "id": "package_type",
-      "label": "type",
-      "_origin": "ast",
-      "community": 7,
-      "file_type": "code",
-      "norm_label": "type",
-      "source_file": "package.json",
-      "source_location": "L5"
-    },
-    {
-      "id": "package_version",
-      "label": "version",
-      "_origin": "ast",
-      "community": 7,
-      "file_type": "code",
-      "norm_label": "version",
-      "source_file": "package.json",
-      "source_location": "L4"
-    },
-    {
-      "id": "supabase_schema",
-      "label": "schema.sql",
-      "_origin": "ast",
-      "community": 7,
-      "file_type": "code",
-      "norm_label": "schema.sql",
-      "source_file": "supabase/schema.sql",
-      "source_location": null
-    },
-    {
-      "id": "supabase_schema_bills",
-      "label": "bills",
-      "_origin": "ast",
-      "community": 7,
-      "file_type": "code",
-      "norm_label": "bills",
-      "source_file": "supabase/schema.sql",
-      "source_location": "L52"
-    },
-    {
-      "id": "supabase_schema_items",
-      "label": "items",
-      "_origin": "ast",
-      "community": 7,
-      "file_type": "code",
-      "norm_label": "items",
-      "source_file": "supabase/schema.sql",
-      "source_location": "L42"
-    },
-    {
-      "id": "supabase_schema_shops",
-      "label": "shops",
-      "_origin": "ast",
-      "community": 7,
-      "file_type": "code",
-      "norm_label": "shops",
-      "source_file": "supabase/schema.sql",
-      "source_location": "L10"
-    },
-    {
       "id": "oxlintrc",
       "label": ".oxlintrc.json",
       "_origin": "ast",
-      "community": 8,
+      "community": 7,
       "file_type": "code",
       "norm_label": ".oxlintrc.json",
       "source_file": ".oxlintrc.json",
@@ -1758,7 +1883,7 @@
       "id": "oxlintrc_plugins",
       "label": "plugins",
       "_origin": "ast",
-      "community": 8,
+      "community": 7,
       "file_type": "code",
       "norm_label": "plugins",
       "source_file": ".oxlintrc.json",
@@ -1768,7 +1893,7 @@
       "id": "oxlintrc_rules",
       "label": "rules",
       "_origin": "ast",
-      "community": 8,
+      "community": 7,
       "file_type": "code",
       "norm_label": "rules",
       "source_file": ".oxlintrc.json",
@@ -1778,7 +1903,7 @@
       "id": "oxlintrc_rules_react_only_export_components",
       "label": "react/only-export-components",
       "_origin": "ast",
-      "community": 8,
+      "community": 7,
       "file_type": "code",
       "norm_label": "react/only-export-components",
       "source_file": ".oxlintrc.json",
@@ -1788,7 +1913,7 @@
       "id": "oxlintrc_rules_react_rules_of_hooks",
       "label": "react/rules-of-hooks",
       "_origin": "ast",
-      "community": 8,
+      "community": 7,
       "file_type": "code",
       "norm_label": "react/rules-of-hooks",
       "source_file": ".oxlintrc.json",
@@ -1798,17 +1923,27 @@
       "id": "oxlintrc_schema",
       "label": "$schema",
       "_origin": "ast",
-      "community": 8,
+      "community": 7,
       "file_type": "code",
       "norm_label": "$schema",
       "source_file": ".oxlintrc.json",
       "source_location": "L2"
     },
     {
+      "id": "src_main",
+      "label": "main.tsx",
+      "_origin": "ast",
+      "community": 7,
+      "file_type": "code",
+      "norm_label": "main.tsx",
+      "source_file": "src/main.tsx",
+      "source_location": "L1"
+    },
+    {
       "id": "ref_oxc",
       "label": "oxc",
       "_origin": "ast",
-      "community": 8,
+      "community": 7,
       "file_type": "concept",
       "norm_label": "oxc",
       "source_file": ".oxlintrc.json",
@@ -1818,19 +1953,9 @@
       "id": "ref_react",
       "label": "react",
       "_origin": "ast",
-      "community": 8,
+      "community": 7,
       "file_type": "concept",
       "norm_label": "react",
-      "source_file": ".oxlintrc.json",
-      "source_location": "L3"
-    },
-    {
-      "id": "ref_typescript",
-      "label": "typescript",
-      "_origin": "ast",
-      "community": 8,
-      "file_type": "concept",
-      "norm_label": "typescript",
       "source_file": ".oxlintrc.json",
       "source_location": "L3"
     },
@@ -1838,140 +1963,70 @@
       "id": "ref_warn",
       "label": "warn",
       "_origin": "ast",
-      "community": 8,
+      "community": 7,
       "file_type": "concept",
       "norm_label": "warn",
       "source_file": ".oxlintrc.json",
       "source_location": "L6"
     },
     {
-      "id": "vercel",
-      "label": "vercel.json",
+      "id": "typescript",
+      "label": "typescript",
       "_origin": "ast",
-      "community": 9,
+      "community": 7,
+      "file_type": "concept",
+      "norm_label": "typescript",
+      "source_file": "package.json",
+      "source_location": "L29"
+    },
+    {
+      "id": "src_lib_storage",
+      "label": "storage.ts",
+      "_origin": "ast",
+      "community": 8,
       "file_type": "code",
-      "norm_label": "vercel.json",
-      "source_file": "vercel.json",
+      "norm_label": "storage.ts",
+      "source_file": "src/lib/storage.ts",
       "source_location": "L1"
     },
     {
-      "id": "vercel_buildcommand",
-      "label": "buildCommand",
+      "id": "src_lib_storage_storage_keys",
+      "label": "STORAGE_KEYS",
       "_origin": "ast",
-      "community": 9,
+      "community": 8,
       "file_type": "code",
-      "norm_label": "buildcommand",
-      "source_file": "vercel.json",
-      "source_location": "L3"
+      "norm_label": "storage_keys",
+      "source_file": "src/lib/storage.ts",
+      "source_location": "L1"
     },
     {
-      "id": "vercel_framework",
-      "label": "framework",
+      "id": "src_lib_supabase",
+      "label": "supabase.ts",
       "_origin": "ast",
-      "community": 9,
+      "community": 8,
       "file_type": "code",
-      "norm_label": "framework",
-      "source_file": "vercel.json",
-      "source_location": "L2"
+      "norm_label": "supabase.ts",
+      "source_file": "src/lib/supabase.ts",
+      "source_location": "L1"
     },
     {
-      "id": "vercel_headers",
-      "label": "headers",
-      "_origin": "ast",
-      "community": 9,
-      "file_type": "code",
-      "norm_label": "headers",
-      "source_file": "vercel.json",
-      "source_location": "L11"
-    },
-    {
-      "id": "vercel_outputdirectory",
-      "label": "outputDirectory",
-      "_origin": "ast",
-      "community": 9,
-      "file_type": "code",
-      "norm_label": "outputdirectory",
-      "source_file": "vercel.json",
-      "source_location": "L4"
-    },
-    {
-      "id": "vercel_rewrites",
-      "label": "rewrites",
-      "_origin": "ast",
-      "community": 9,
-      "file_type": "code",
-      "norm_label": "rewrites",
-      "source_file": "vercel.json",
-      "source_location": "L5"
-    },
-    {
-      "id": "src_index",
-      "label": "index.css",
+      "id": "src_assets_hero_png",
+      "label": "Auth Hero Banner Image",
+      "_origin": "semantic",
       "author": null,
       "captured_at": null,
       "community": 0,
       "contributor": null,
-      "file_type": "code",
-      "norm_label": "index.css",
-      "source_file": "src/index.css",
+      "file_type": "image",
+      "norm_label": "auth hero banner image",
+      "source_file": "src/assets/hero.png",
       "source_location": null,
-      "source_url": null
-    },
-    {
-      "id": "react_dom_client",
-      "label": "react-dom/client",
-      "author": null,
-      "captured_at": null,
-      "community": 0,
-      "contributor": null,
-      "file_type": "concept",
-      "norm_label": "react-dom/client",
-      "source_file": "package.json",
-      "source_location": null,
-      "source_url": null
-    },
-    {
-      "id": "digi_bill_html_bundle",
-      "label": "DigiBill Standalone Prototype",
-      "author": null,
-      "captured_at": null,
-      "community": 0,
-      "contributor": null,
-      "file_type": "document",
-      "norm_label": "digibill standalone prototype",
-      "source_file": "digi-bill.html",
-      "source_location": "L1-L56",
-      "source_url": null
-    },
-    {
-      "id": "readme_digibill",
-      "label": "DigiBill POS & Chit System",
-      "author": null,
-      "captured_at": null,
-      "community": 0,
-      "contributor": null,
-      "file_type": "document",
-      "norm_label": "digibill pos & chit system",
-      "source_file": "README.md",
-      "source_location": "L1-L5",
-      "source_url": null
-    },
-    {
-      "id": "readme_features",
-      "label": "DigiBill Key Features",
-      "author": null,
-      "captured_at": null,
-      "community": 0,
-      "contributor": null,
-      "file_type": "document",
-      "norm_label": "digibill key features",
-      "source_file": "README.md",
-      "source_location": "L7-L16",
       "source_url": null
     },
     {
       "id": "src_assets_sano_bill_logo_png",
       "label": "React Component Logo PNG",
+      "_origin": "semantic",
       "author": null,
       "captured_at": null,
       "community": 0,
@@ -1983,37 +2038,12 @@
       "source_url": null
     },
     {
-      "id": "index_html_app_entry",
-      "label": "Vite Web Index Entry",
-      "author": null,
-      "captured_at": null,
-      "community": 12,
-      "contributor": null,
-      "file_type": "document",
-      "norm_label": "vite web index entry",
-      "source_file": "index.html",
-      "source_location": "L1-L18",
-      "source_url": null
-    },
-    {
-      "id": "public_favicon_svg",
-      "label": "Favicon Vector",
-      "author": null,
-      "captured_at": null,
-      "community": 12,
-      "contributor": null,
-      "file_type": "image",
-      "norm_label": "favicon vector",
-      "source_file": "public/favicon.svg",
-      "source_location": null,
-      "source_url": null
-    },
-    {
       "id": "assets_sano_bill_logo_png",
       "label": "Sano Bill Logo Graphic",
+      "_origin": "semantic",
       "author": null,
       "captured_at": null,
-      "community": 13,
+      "community": 14,
       "contributor": null,
       "file_type": "image",
       "norm_label": "sano bill logo graphic",
@@ -2024,9 +2054,10 @@
     {
       "id": "public_icons_svg",
       "label": "App SVG Icons",
+      "_origin": "semantic",
       "author": null,
       "captured_at": null,
-      "community": 14,
+      "community": 15,
       "contributor": null,
       "file_type": "image",
       "norm_label": "app svg icons",
@@ -2037,9 +2068,10 @@
     {
       "id": "public_sano_bill_logo_png",
       "label": "Public Brand Logo PNG",
+      "_origin": "semantic",
       "author": null,
       "captured_at": null,
-      "community": 15,
+      "community": 16,
       "contributor": null,
       "file_type": "image",
       "norm_label": "public brand logo png",
@@ -2050,6 +2082,7 @@
     {
       "id": "path",
       "label": "node:path",
+      "_origin": "semantic",
       "author": null,
       "captured_at": null,
       "community": 2,
@@ -2061,46 +2094,230 @@
       "source_url": null
     },
     {
-      "id": "readme_deploy_vercel",
-      "label": "Vercel Deployment Flow",
-      "author": null,
-      "captured_at": null,
-      "community": 4,
-      "contributor": null,
-      "file_type": "document",
-      "norm_label": "vercel deployment flow",
-      "source_file": "README.md",
-      "source_location": "L58-L67",
-      "source_url": null
-    },
-    {
-      "id": "src_assets_hero_png",
-      "label": "Auth Hero Banner Image",
-      "author": null,
-      "captured_at": null,
-      "community": 4,
-      "contributor": null,
-      "file_type": "image",
-      "norm_label": "auth hero banner image",
-      "source_file": "src/assets/hero.png",
-      "source_location": null,
-      "source_url": null
-    },
-    {
-      "id": "readme_tech_stack",
-      "label": "DigiBill Tech Stack",
+      "id": "src_index",
+      "label": "index.css",
+      "_origin": "semantic",
       "author": null,
       "captured_at": null,
       "community": 7,
       "contributor": null,
+      "file_type": "code",
+      "norm_label": "index.css",
+      "source_file": "src/index.css",
+      "source_location": null,
+      "source_url": null
+    },
+    {
+      "id": "react_dom_client",
+      "label": "react-dom/client",
+      "_origin": "semantic",
+      "author": null,
+      "captured_at": null,
+      "community": 7,
+      "contributor": null,
+      "file_type": "concept",
+      "norm_label": "react-dom/client",
+      "source_file": "package.json",
+      "source_location": null,
+      "source_url": null
+    },
+    {
+      "id": "public_favicon_svg",
+      "label": "Favicon Vector",
+      "_origin": "semantic",
+      "author": null,
+      "captured_at": null,
+      "community": 7,
+      "contributor": null,
+      "file_type": "image",
+      "norm_label": "favicon vector",
+      "source_file": "public/favicon.svg",
+      "source_location": null,
+      "source_url": null
+    },
+    {
+      "id": "_agents_skills_security_audit_skill_audit_checklist",
+      "label": "Security Audit Checklist",
+      "author": null,
+      "captured_at": null,
+      "community": 11,
+      "contributor": null,
+      "file_type": "concept",
+      "norm_label": "security audit checklist",
+      "source_file": ".agents/skills/security-audit/SKILL.md",
+      "source_location": null,
+      "source_url": null
+    },
+    {
+      "id": "_agents_rules_security_security_rules",
+      "label": "Security Rules",
+      "author": null,
+      "captured_at": null,
+      "community": 11,
+      "contributor": null,
       "file_type": "document",
-      "norm_label": "digibill tech stack",
-      "source_file": "README.md",
-      "source_location": "L18-L25",
+      "norm_label": "security rules",
+      "source_file": ".agents/rules/security.md",
+      "source_location": null,
+      "source_url": null
+    },
+    {
+      "id": "_agents_skills_security_audit_skill_security_audit_skill",
+      "label": "Security Audit Skill",
+      "author": null,
+      "captured_at": null,
+      "community": 11,
+      "contributor": null,
+      "file_type": "document",
+      "norm_label": "security audit skill",
+      "source_file": ".agents/skills/security-audit/SKILL.md",
+      "source_location": null,
+      "source_url": null
+    },
+    {
+      "id": "_agents_rules_security_input_validation_rules",
+      "label": "Input Validation & Injection Rules",
+      "author": null,
+      "captured_at": null,
+      "community": 11,
+      "contributor": null,
+      "file_type": "rationale",
+      "norm_label": "input validation & injection rules",
+      "source_file": ".agents/rules/security.md",
+      "source_location": null,
+      "source_url": null
+    },
+    {
+      "id": "_agents_rules_security_supabase_auth_rules",
+      "label": "Supabase & Auth Security Rules",
+      "author": null,
+      "captured_at": null,
+      "community": 11,
+      "contributor": null,
+      "file_type": "rationale",
+      "norm_label": "supabase & auth security rules",
+      "source_file": ".agents/rules/security.md",
+      "source_location": null,
+      "source_url": null
+    },
+    {
+      "id": "src_assets_react_logo",
+      "label": "React SVG Logo",
+      "author": null,
+      "captured_at": null,
+      "community": 17,
+      "contributor": null,
+      "file_type": "image",
+      "norm_label": "react svg logo",
+      "source_file": "src/assets/react.svg",
+      "source_location": null,
+      "source_url": null
+    },
+    {
+      "id": "src_assets_vite_logo",
+      "label": "Vite SVG Logo",
+      "author": null,
+      "captured_at": null,
+      "community": 18,
+      "contributor": null,
+      "file_type": "image",
+      "norm_label": "vite svg logo",
+      "source_file": "src/assets/vite.svg",
+      "source_location": null,
+      "source_url": null
+    },
+    {
+      "id": "_agents_skills_ui_browser_testing_skill_testing_viewport_matrix",
+      "label": "Testing Viewport Matrix",
+      "author": null,
+      "captured_at": null,
+      "community": 9,
+      "contributor": null,
+      "file_type": "concept",
+      "norm_label": "testing viewport matrix",
+      "source_file": ".agents/skills/ui-browser-testing/SKILL.md",
+      "source_location": null,
+      "source_url": null
+    },
+    {
+      "id": "_agents_skills_ui_browser_testing_skill_vivid_qa_checklist",
+      "label": "Vivid QA Checklist",
+      "author": null,
+      "captured_at": null,
+      "community": 9,
+      "contributor": null,
+      "file_type": "concept",
+      "norm_label": "vivid qa checklist",
+      "source_file": ".agents/skills/ui-browser-testing/SKILL.md",
+      "source_location": null,
+      "source_url": null
+    },
+    {
+      "id": "_agents_skills_ui_browser_testing_skill_ui_browser_testing_skill",
+      "label": "UI Browser Testing Skill",
+      "author": null,
+      "captured_at": null,
+      "community": 9,
+      "contributor": null,
+      "file_type": "document",
+      "norm_label": "ui browser testing skill",
+      "source_file": ".agents/skills/ui-browser-testing/SKILL.md",
+      "source_location": null,
+      "source_url": null
+    },
+    {
+      "id": "agents_orchestrator_instructions",
+      "label": "Main Agent Orchestrator Instructions",
+      "author": null,
+      "captured_at": null,
+      "community": 9,
+      "contributor": null,
+      "file_type": "document",
+      "norm_label": "main agent orchestrator instructions",
+      "source_file": "AGENTS.md",
+      "source_location": null,
+      "source_url": null
+    },
+    {
+      "id": "agents_git_push_restriction",
+      "label": "Git Push Restriction Rule",
+      "author": null,
+      "captured_at": null,
+      "community": 9,
+      "contributor": null,
+      "file_type": "rationale",
+      "norm_label": "git push restriction rule",
+      "source_file": "AGENTS.md",
+      "source_location": null,
+      "source_url": null
+    },
+    {
+      "id": "agents_mobile_tablet_rule",
+      "label": "Mobile & Tablet Responsiveness Rule",
+      "author": null,
+      "captured_at": null,
+      "community": 9,
+      "contributor": null,
+      "file_type": "rationale",
+      "norm_label": "mobile & tablet responsiveness rule",
+      "source_file": "AGENTS.md",
+      "source_location": null,
       "source_url": null
     }
   ],
   "links": [
+    {
+      "source": "src_app_app",
+      "target": "src_app_formatshortdatetime",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "src/App.tsx",
+      "source_location": "L1234",
+      "weight": 1.0
+    },
     {
       "source": "src_app_app",
       "target": "src_lib_authservice_getactiveuser",
@@ -2110,19 +2327,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/App.tsx",
-      "source_location": "L109",
-      "weight": 1.0
-    },
-    {
-      "source": "src_app_app",
-      "target": "src_lib_authservice_signoutbusiness",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "src/App.tsx",
-      "source_location": "L1158",
+      "source_location": "L135",
       "weight": 1.0
     },
     {
@@ -2134,7 +2339,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/App.tsx",
-      "source_location": "L121",
+      "source_location": "L147",
       "weight": 1.0
     },
     {
@@ -2146,7 +2351,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/App.tsx",
-      "source_location": "L125",
+      "source_location": "L151",
       "weight": 1.0
     },
     {
@@ -2158,7 +2363,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/App.tsx",
-      "source_location": "L138",
+      "source_location": "L164",
       "weight": 1.0
     },
     {
@@ -2170,31 +2375,19 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/App.tsx",
-      "source_location": "L139",
+      "source_location": "L165",
       "weight": 1.0
     },
     {
       "source": "src_app_app",
-      "target": "src_lib_storage_getitem",
+      "target": "src_lib_authservice_signoutbusiness",
       "relation": "calls",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/App.tsx",
-      "source_location": "L190",
-      "weight": 1.0
-    },
-    {
-      "source": "src_app_app",
-      "target": "src_lib_storage_setitem",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "src/App.tsx",
-      "source_location": "L216",
+      "source_location": "L1664",
       "weight": 1.0
     },
     {
@@ -2206,19 +2399,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/App.tsx",
-      "source_location": "L234",
-      "weight": 1.0
-    },
-    {
-      "source": "src_app_app",
-      "target": "src_lib_storage_generateid",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "src/App.tsx",
-      "source_location": "L316",
+      "source_location": "L260",
       "weight": 1.0
     },
     {
@@ -2230,7 +2411,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/App.tsx",
-      "source_location": "L388",
+      "source_location": "L558",
       "weight": 1.0
     },
     {
@@ -2242,7 +2423,19 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/App.tsx",
-      "source_location": "L413",
+      "source_location": "L588",
+      "weight": 1.0
+    },
+    {
+      "source": "src_app_app",
+      "target": "src_app_getbillbreakdown",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "src/App.tsx",
+      "source_location": "L589",
       "weight": 1.0
     },
     {
@@ -2254,7 +2447,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/App.tsx",
-      "source_location": "L44",
+      "source_location": "L62",
       "weight": 1.0
     },
     {
@@ -2266,7 +2459,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/App.tsx",
-      "source_location": "L452",
+      "source_location": "L636",
       "weight": 1.0
     },
     {
@@ -2278,7 +2471,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/App.tsx",
-      "source_location": "L456",
+      "source_location": "L640",
       "weight": 1.0
     },
     {
@@ -2290,19 +2483,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/App.tsx",
-      "source_location": "L482",
-      "weight": 1.0
-    },
-    {
-      "source": "src_app_app",
-      "target": "src_app_formatshortdatetime",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "src/App.tsx",
-      "source_location": "L805",
+      "source_location": "L666",
       "weight": 1.0
     },
     {
@@ -2327,198 +2508,6 @@
       "context": "call",
       "source_file": "src/components/AuthScreen.tsx",
       "source_location": "L67",
-      "weight": 1.0
-    },
-    {
-      "source": "src_lib_authservice_getactiveuser",
-      "target": "src_lib_supabase_getsupabaseclient",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "src/lib/authService.ts",
-      "source_location": "L265",
-      "weight": 1.0
-    },
-    {
-      "source": "src_lib_authservice_loginbusiness",
-      "target": "src_lib_supabase_getsupabaseclient",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "src/lib/authService.ts",
-      "source_location": "L147",
-      "weight": 1.0
-    },
-    {
-      "source": "src_lib_authservice_registerbusiness",
-      "target": "src_lib_supabase_getsupabaseclient",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "src/lib/authService.ts",
-      "source_location": "L32",
-      "weight": 1.0
-    },
-    {
-      "source": "src_lib_authservice_registerbusiness",
-      "target": "src_lib_storage_generateid",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "src/lib/authService.ts",
-      "source_location": "L89",
-      "weight": 1.0
-    },
-    {
-      "source": "src_lib_authservice_signoutbusiness",
-      "target": "src_lib_supabase_getsupabaseclient",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "src/lib/authService.ts",
-      "source_location": "L255",
-      "weight": 1.0
-    },
-    {
-      "source": "src_lib_dbservice_createinitialshop",
-      "target": "src_lib_supabase_getsupabaseclient",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "src/lib/dbService.ts",
-      "source_location": "L46",
-      "weight": 1.0
-    },
-    {
-      "source": "src_lib_dbservice_createinitialshop",
-      "target": "src_lib_storage_generateid",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "src/lib/dbService.ts",
-      "source_location": "L57",
-      "weight": 1.0
-    },
-    {
-      "source": "src_lib_dbservice_createitem",
-      "target": "src_lib_supabase_getsupabaseclient",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "src/lib/dbService.ts",
-      "source_location": "L153",
-      "weight": 1.0
-    },
-    {
-      "source": "src_lib_dbservice_createitem",
-      "target": "src_lib_storage_generateid",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "src/lib/dbService.ts",
-      "source_location": "L160",
-      "weight": 1.0
-    },
-    {
-      "source": "src_lib_dbservice_deleteitem",
-      "target": "src_lib_supabase_getsupabaseclient",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "src/lib/dbService.ts",
-      "source_location": "L217",
-      "weight": 1.0
-    },
-    {
-      "source": "src_lib_dbservice_fetchbills",
-      "target": "src_lib_supabase_getsupabaseclient",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "src/lib/dbService.ts",
-      "source_location": "L237",
-      "weight": 1.0
-    },
-    {
-      "source": "src_lib_dbservice_fetchitems",
-      "target": "src_lib_supabase_getsupabaseclient",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "src/lib/dbService.ts",
-      "source_location": "L130",
-      "weight": 1.0
-    },
-    {
-      "source": "src_lib_dbservice_fetchshop",
-      "target": "src_lib_supabase_getsupabaseclient",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "src/lib/dbService.ts",
-      "source_location": "L16",
-      "weight": 1.0
-    },
-    {
-      "source": "src_lib_dbservice_generatebill",
-      "target": "src_lib_supabase_getsupabaseclient",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "src/lib/dbService.ts",
-      "source_location": "L267",
-      "weight": 1.0
-    },
-    {
-      "source": "src_lib_dbservice_updateitem",
-      "target": "src_lib_supabase_getsupabaseclient",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "src/lib/dbService.ts",
-      "source_location": "L186",
-      "weight": 1.0
-    },
-    {
-      "source": "src_lib_dbservice_updateshop",
-      "target": "src_lib_supabase_getsupabaseclient",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "src/lib/dbService.ts",
-      "source_location": "L94",
       "weight": 1.0
     },
     {
@@ -2631,7 +2620,7 @@
     },
     {
       "source": "oxlintrc_plugins",
-      "target": "ref_typescript",
+      "target": "typescript",
       "relation": "extends",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -3459,18 +3448,6 @@
     },
     {
       "source": "src_app",
-      "target": "lucide_react",
-      "relation": "imports_from",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "import",
-      "source_file": "src/App.tsx",
-      "source_location": "L2",
-      "weight": 1.0
-    },
-    {
-      "source": "src_app",
       "target": "src_lib_authservice",
       "relation": "imports_from",
       "_origin": "ast",
@@ -3491,42 +3468,6 @@
       "context": "import",
       "source_file": "src/App.tsx",
       "source_location": "L23",
-      "weight": 1.0
-    },
-    {
-      "source": "src_app",
-      "target": "src_components_ui_luma_spin",
-      "relation": "imports_from",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "import",
-      "source_file": "src/App.tsx",
-      "source_location": "L24",
-      "weight": 1.0
-    },
-    {
-      "source": "src_app",
-      "target": "src_assets_sano_bill_logo_png",
-      "relation": "imports_from",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "import",
-      "source_file": "src/App.tsx",
-      "source_location": "L25",
-      "weight": 1.0
-    },
-    {
-      "source": "src_app",
-      "target": "qrcode_react",
-      "relation": "imports_from",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "import",
-      "source_file": "src/App.tsx",
-      "source_location": "L7",
       "weight": 1.0
     },
     {
@@ -3587,30 +3528,6 @@
       "context": "import",
       "source_file": "src/components/AuthScreen.tsx",
       "source_location": "L19",
-      "weight": 1.0
-    },
-    {
-      "source": "src_components_authscreen",
-      "target": "lucide_react",
-      "relation": "imports_from",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "import",
-      "source_file": "src/components/AuthScreen.tsx",
-      "source_location": "L2",
-      "weight": 1.0
-    },
-    {
-      "source": "src_components_authscreen",
-      "target": "src_assets_sano_bill_logo_png",
-      "relation": "imports_from",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "import",
-      "source_file": "src/components/AuthScreen.tsx",
-      "source_location": "L20",
       "weight": 1.0
     },
     {
@@ -4405,13 +4322,24 @@
     },
     {
       "source": "src_app",
+      "target": "src_app_getbillbreakdown",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/App.tsx",
+      "source_location": "L43",
+      "weight": 1.0
+    },
+    {
+      "source": "src_app",
       "target": "src_app_app",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/App.tsx",
-      "source_location": "L42",
+      "source_location": "L60",
       "weight": 1.0
     },
     {
@@ -4488,7 +4416,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/lib/authService.ts",
-      "source_location": "L146",
+      "source_location": "L154",
       "weight": 1.0
     },
     {
@@ -4510,7 +4438,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/lib/authService.ts",
-      "source_location": "L254",
+      "source_location": "L293",
       "weight": 1.0
     },
     {
@@ -4521,7 +4449,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/lib/authService.ts",
-      "source_location": "L264",
+      "source_location": "L303",
       "weight": 1.0
     },
     {
@@ -4796,7 +4724,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/types/index.ts",
-      "source_location": "L44",
+      "source_location": "L47",
       "weight": 1.0
     },
     {
@@ -4808,6 +4736,17 @@
       "confidence_score": 1.0,
       "source_file": "supabase/schema.sql",
       "source_location": "L10",
+      "weight": 1.0
+    },
+    {
+      "source": "supabase_schema",
+      "target": "supabase_schema_public_handle_new_user_shop",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "supabase/schema.sql",
+      "source_location": "L249",
       "weight": 1.0
     },
     {
@@ -5306,6 +5245,61 @@
       "weight": 1.0
     },
     {
+      "source": "supabase_schema_public_handle_new_user_shop",
+      "target": "public_shops",
+      "relation": "reads_from",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "supabase/schema.sql",
+      "source_location": "L270",
+      "weight": 1.0
+    },
+    {
+      "source": "index_html_app_entry",
+      "target": "src_main",
+      "relation": "references",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.html",
+      "source_location": "L16",
+      "weight": 1.0
+    },
+    {
+      "source": "index_html_app_entry",
+      "target": "public_favicon_svg",
+      "relation": "references",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.html",
+      "source_location": "L5",
+      "weight": 1.0
+    },
+    {
+      "source": "readme_tech_stack",
+      "target": "package",
+      "relation": "references",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "L20-L24",
+      "weight": 1.0
+    },
+    {
+      "source": "readme_tech_stack",
+      "target": "supabase_schema",
+      "relation": "references",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "L22",
+      "weight": 1.0
+    },
+    {
       "source": "supabase_schema_bills",
       "target": "supabase_schema_shops",
       "relation": "references",
@@ -5339,69 +5333,10 @@
       "weight": 1.0
     },
     {
-      "source": "index_html_app_entry",
-      "target": "src_main",
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "index.html",
-      "source_location": "L16",
-      "weight": 1.0
-    },
-    {
-      "source": "index_html_app_entry",
-      "target": "public_favicon_svg",
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "index.html",
-      "source_location": "L5",
-      "weight": 1.0
-    },
-    {
-      "source": "readme_tech_stack",
-      "target": "package",
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "README.md",
-      "source_location": "L20-L24",
-      "weight": 1.0
-    },
-    {
-      "source": "readme_tech_stack",
-      "target": "supabase_schema",
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "README.md",
-      "source_location": "L22",
-      "weight": 1.0
-    },
-    {
-      "source": "src_app_app",
-      "target": "src_assets_sano_bill_logo_png",
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "src/App.tsx",
-      "source_location": null,
-      "weight": 1.0
-    },
-    {
-      "source": "src_components_authscreen_authscreen",
-      "target": "src_assets_hero_png",
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "src/components/AuthScreen.tsx",
-      "source_location": null,
-      "weight": 1.0
-    },
-    {
       "source": "readme_deploy_vercel",
       "target": "src_lib_supabase",
       "relation": "references",
+      "_origin": "ast",
       "confidence": "INFERRED",
       "confidence_score": 0.85,
       "source_file": "README.md",
@@ -5409,19 +5344,10 @@
       "weight": 1.0
     },
     {
-      "source": "digi_bill_html_bundle",
-      "target": "src_app_app",
-      "relation": "semantically_similar_to",
-      "confidence": "INFERRED",
-      "confidence_score": 0.85,
-      "source_file": "digi-bill.html",
-      "source_location": null,
-      "weight": 1.0
-    },
-    {
       "source": "readme_digibill",
       "target": "src_app_app",
       "relation": "implements",
+      "_origin": "ast",
       "confidence": "INFERRED",
       "confidence_score": 0.95,
       "source_file": "README.md",
@@ -5432,6 +5358,7 @@
       "source": "readme_features",
       "target": "src_lib_authservice",
       "relation": "references",
+      "_origin": "ast",
       "confidence": "INFERRED",
       "confidence_score": 0.95,
       "source_file": "README.md",
@@ -5442,6 +5369,7 @@
       "source": "readme_features",
       "target": "src_lib_dbservice_fetchitems",
       "relation": "references",
+      "_origin": "ast",
       "confidence": "INFERRED",
       "confidence_score": 0.95,
       "source_file": "README.md",
@@ -5452,10 +5380,134 @@
       "source": "readme_features",
       "target": "src_lib_dbservice_generatebill",
       "relation": "references",
+      "_origin": "ast",
       "confidence": "INFERRED",
       "confidence_score": 0.95,
       "source_file": "README.md",
       "source_location": "L9-L10",
+      "weight": 1.0
+    },
+    {
+      "source": "src_app_app",
+      "target": "src_assets_sano_bill_logo_png",
+      "relation": "references",
+      "_origin": "semantic",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/App.tsx",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "src_components_authscreen_authscreen",
+      "target": "src_assets_hero_png",
+      "relation": "references",
+      "_origin": "semantic",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/components/AuthScreen.tsx",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "digi_bill_html_bundle",
+      "target": "src_app_app",
+      "relation": "semantically_similar_to",
+      "_origin": "semantic",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "digi-bill.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "_agents_rules_security_security_rules",
+      "target": "_agents_rules_security_input_validation_rules",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": ".agents/rules/security.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "_agents_rules_security_security_rules",
+      "target": "_agents_rules_security_supabase_auth_rules",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": ".agents/rules/security.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "_agents_skills_security_audit_skill_security_audit_skill",
+      "target": "_agents_skills_security_audit_skill_audit_checklist",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": ".agents/skills/security-audit/SKILL.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "_agents_skills_ui_browser_testing_skill_ui_browser_testing_skill",
+      "target": "_agents_skills_ui_browser_testing_skill_testing_viewport_matrix",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": ".agents/skills/ui-browser-testing/SKILL.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "_agents_skills_ui_browser_testing_skill_ui_browser_testing_skill",
+      "target": "_agents_skills_ui_browser_testing_skill_vivid_qa_checklist",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": ".agents/skills/ui-browser-testing/SKILL.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "agents_orchestrator_instructions",
+      "target": "agents_git_push_restriction",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "AGENTS.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "agents_orchestrator_instructions",
+      "target": "agents_mobile_tablet_rule",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "AGENTS.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "_agents_skills_security_audit_skill_security_audit_skill",
+      "target": "_agents_rules_security_security_rules",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": ".agents/skills/security-audit/SKILL.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "_agents_skills_ui_browser_testing_skill_ui_browser_testing_skill",
+      "target": "agents_mobile_tablet_rule",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": ".agents/skills/ui-browser-testing/SKILL.md",
+      "source_location": null,
       "weight": 1.0
     }
   ],
@@ -5504,5 +5556,5 @@
       "source_file": "src/lib/dbService.ts"
     }
   ],
-  "built_at_commit": "e21f0b8e3ccfbeb758cb77a34dc5ac2552f154ff"
+  "built_at_commit": "6b2e2c19de53883480aaec24a5196bb4d28e16dc"
 }

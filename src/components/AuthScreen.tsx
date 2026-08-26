@@ -139,7 +139,7 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
 
   return (
     <div className="min-h-screen bg-[#f2f2f2] flex justify-center font-[Inter,system-ui,sans-serif]">
-      <div className="w-full max-w-[430px] bg-[#fcfcfc] min-h-screen relative flex flex-col shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_20px_60px_rgba(0,0,0,0.12)] overflow-hidden">
+      <div className="w-full max-w-[430px] md:max-w-[480px] bg-[#fcfcfc] min-h-screen relative flex flex-col shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_20px_60px_rgba(0,0,0,0.12)] overflow-hidden transition-all duration-200">
         
         {/* Top bar with optional close button */}
         <div className="px-5 pt-5 pb-2 flex items-center justify-between">
@@ -152,10 +152,10 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
             <button 
               type="button"
               onClick={onClose}
-              className="w-9 h-9 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-700 flex items-center justify-center active:scale-95 transition"
+              className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-700 flex items-center justify-center active:scale-95 transition"
               aria-label="Close"
             >
-              <X className="w-4 h-4" />
+              <X className="w-4.5 h-4.5" />
             </button>
           )}
         </div>
@@ -298,10 +298,10 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
                     <button
                       type="button"
                       onClick={() => setShowLoginPassword(!showLoginPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-600 active:scale-95 transition"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 min-w-[44px] min-h-[44px] w-11 h-11 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-600 active:scale-95 transition"
                       aria-label={showLoginPassword ? 'Hide password' : 'Show password'}
                     >
-                      {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showLoginPassword ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
                     </button>
                   </div>
                 </div>
@@ -502,10 +502,10 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
                     <button
                       type="button"
                       onClick={() => setShowRegisterPassword(!showRegisterPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-600 active:scale-95 transition"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 min-w-[44px] min-h-[44px] w-11 h-11 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-600 active:scale-95 transition"
                       aria-label={showRegisterPassword ? 'Hide password' : 'Show password'}
                     >
-                      {showRegisterPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showRegisterPassword ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
                     </button>
                   </div>
                 </div>

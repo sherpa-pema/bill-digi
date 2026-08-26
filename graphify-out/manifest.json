@@ -18,16 +18,16 @@
     "semantic_hash": "3d6ab7b6bc70f8524c383461c2da5996"
   },
   "src/App.tsx": {
-    "mtime": 1787681088.5226934,
-    "seen": 1787726538.398326,
-    "ast_hash": "af34bc6df7f333f8f3990b20f05f6e43",
-    "semantic_hash": "af34bc6df7f333f8f3990b20f05f6e43"
+    "mtime": 1787734679.6081533,
+    "seen": 1787735066.1297832,
+    "ast_hash": "099e132cd4bbf938f9622b54827b3b23",
+    "semantic_hash": "099e132cd4bbf938f9622b54827b3b23"
   },
   "src/components/AuthScreen.tsx": {
-    "mtime": 1787681095.0948386,
-    "seen": 1787726538.398327,
-    "ast_hash": "a20a96fbbf47f756acc41efd8a57408e",
-    "semantic_hash": "a20a96fbbf47f756acc41efd8a57408e"
+    "mtime": 1787734709.363936,
+    "seen": 1787735066.129784,
+    "ast_hash": "0a826684a136619e1f73a04bd8cabbc6",
+    "semantic_hash": "0a826684a136619e1f73a04bd8cabbc6"
   },
   "src/components/ui/demo.tsx": {
     "mtime": 1787667344.9303555,
@@ -42,16 +42,16 @@
     "semantic_hash": "0c3399df69b6e6fb2a48357797ef911b"
   },
   "src/lib/authService.ts": {
-    "mtime": 1787680422.060572,
-    "seen": 1787726538.398334,
-    "ast_hash": "6cb0e12ae484b3802f7965de6dc48386",
-    "semantic_hash": "6cb0e12ae484b3802f7965de6dc48386"
+    "mtime": 1787727943.6439645,
+    "seen": 1787735066.129786,
+    "ast_hash": "2f736fc8e606a55cbae88a9d76cb24ad",
+    "semantic_hash": "2f736fc8e606a55cbae88a9d76cb24ad"
   },
   "src/lib/dbService.ts": {
-    "mtime": 1787680429.033015,
-    "seen": 1787726538.398335,
-    "ast_hash": "e698a68bfe08c5d851c3a25920cc36a9",
-    "semantic_hash": "e698a68bfe08c5d851c3a25920cc36a9"
+    "mtime": 1787732524.1033487,
+    "seen": 1787735066.129786,
+    "ast_hash": "1c99c732be956d6bbc226e720e71078f",
+    "semantic_hash": "1c99c732be956d6bbc226e720e71078f"
   },
   "src/lib/storage.ts": {
     "mtime": 1787658720.564383,
@@ -78,10 +78,10 @@
     "semantic_hash": "ac0263a57edb11fdb8279bc837acff42"
   },
   "src/types/index.ts": {
-    "mtime": 1787657173.60701,
-    "seen": 1787726538.3983371,
-    "ast_hash": "c470b79a416afaf927f4c445c0404bac",
-    "semantic_hash": "c470b79a416afaf927f4c445c0404bac"
+    "mtime": 1787732491.819687,
+    "seen": 1787735066.12979,
+    "ast_hash": "65487802bde959cd29b26985cf2accd6",
+    "semantic_hash": "65487802bde959cd29b26985cf2accd6"
   },
   "src/vite-env.d.ts": {
     "mtime": 1787655792.9089084,
@@ -90,10 +90,10 @@
     "semantic_hash": "11ecfcbd6f7344db8ce9e9ae76e70a6c"
   },
   "supabase/schema.sql": {
-    "mtime": 1787657166.0055878,
-    "seen": 1787726538.398338,
-    "ast_hash": "5e4e82fb7e23d2098ec971e93ea36f13",
-    "semantic_hash": "5e4e82fb7e23d2098ec971e93ea36f13"
+    "mtime": 1787727931.3549898,
+    "seen": 1787735066.129791,
+    "ast_hash": "2aee1a98963ed0a9fc1b67074afbcd52",
+    "semantic_hash": "2aee1a98963ed0a9fc1b67074afbcd52"
   },
   "tsconfig.app.json": {
     "mtime": 1787667375.7575874,
@@ -178,5 +178,41 @@
     "seen": 1787726538.398344,
     "ast_hash": "dfb21f90e4c94a096ee7bd0262248aa3",
     "semantic_hash": "dfb21f90e4c94a096ee7bd0262248aa3"
+  },
+  ".agents/rules/security.md": {
+    "mtime": 1787730109.0756967,
+    "seen": 1787735066.129795,
+    "ast_hash": "949d53923b256501f5db34fedff48104",
+    "semantic_hash": "949d53923b256501f5db34fedff48104"
+  },
+  ".agents/skills/security-audit/SKILL.md": {
+    "mtime": 1787730111.142025,
+    "seen": 1787735066.129796,
+    "ast_hash": "36aae16056c64f9a1fb3aceb2e2e3879",
+    "semantic_hash": "36aae16056c64f9a1fb3aceb2e2e3879"
+  },
+  ".agents/skills/ui-browser-testing/SKILL.md": {
+    "mtime": 1787730855.673112,
+    "seen": 1787735066.129796,
+    "ast_hash": "435e4b49e8450171d7eebc3e6274cdff",
+    "semantic_hash": "435e4b49e8450171d7eebc3e6274cdff"
+  },
+  "AGENTS.md": {
+    "mtime": 1787730089.6461465,
+    "seen": 1787735066.1297972,
+    "ast_hash": "ca263fbd47a3a0fb30e0dc7d11842c03",
+    "semantic_hash": "ca263fbd47a3a0fb30e0dc7d11842c03"
+  },
+  "src/assets/react.svg": {
+    "mtime": 1787655431.3917618,
+    "seen": 1787735066.129798,
+    "ast_hash": "f0402b67b6ce880f65666bb49e841696",
+    "semantic_hash": "f0402b67b6ce880f65666bb49e841696"
+  },
+  "src/assets/vite.svg": {
+    "mtime": 1787655431.3920314,
+    "seen": 1787735066.129798,
+    "ast_hash": "9960a24288958394ac50e57ff638b036",
+    "semantic_hash": "9960a24288958394ac50e57ff638b036"
   }
 }
