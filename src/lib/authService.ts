@@ -102,35 +102,43 @@ export const registerBusiness = async (params: RegisterParams): Promise<AuthResu
       updated_at: now
     };
 
-    // Save directly to Supabase 'shops' table
-    const { data: insertedShop, error: dbError } = await supabase
-      .from('shops')
-      .upsert({
-        id: newShop.id,
-        user_id: authData.user.id,
-        shop_name: newShop.shop_name,
-        pan_number: newShop.pan_number,
-        owner_name: newShop.owner_name || null,
-        email: newShop.email || null,
-        phone: newShop.phone || null,
-        starting_bill_number: newShop.starting_bill_number,
-        next_bill_number: newShop.next_bill_number,
-        created_at: newShop.created_at,
-        updated_at: newShop.updated_at
-      })
-      .select()
-      .single();
+    let insertedShop: Shop | null = null;
 
-    if (dbError) {
-      console.warn('Shop database insert warning:', dbError);
+    // If an authenticated session is active, upsert into shops under user_id = auth.uid()
+    if (authData.session) {
+      const { data: dbShop, error: dbError } = await supabase
+        .from('shops')
+        .upsert({
+          id: newShop.id,
+          user_id: authData.user.id,
+          shop_name: newShop.shop_name,
+          pan_number: newShop.pan_number,
+          owner_name: newShop.owner_name || null,
+          email: newShop.email || null,
+          phone: newShop.phone || null,
+          starting_bill_number: newShop.starting_bill_number,
+          next_bill_number: newShop.next_bill_number,
+          created_at: newShop.created_at,
+          updated_at: newShop.updated_at
+        })
+        .select()
+        .single();
+
+      if (dbError) {
+        console.warn('Shop database upsert warning:', dbError);
+      } else if (dbShop) {
+        insertedShop = dbShop as Shop;
+      }
     }
 
     return {
       success: true,
-      message: 'Business registered successfully in Supabase cloud!',
+      message: authData.session 
+        ? 'Business registered successfully in Supabase cloud!' 
+        : 'Registration submitted! Please confirm your account if email confirmation is required.',
       user: authData.user,
       session: authData.session,
-      shop: (insertedShop as Shop) || newShop,
+      shop: insertedShop || newShop,
       items: [],
       bills: []
     };
@@ -179,7 +187,7 @@ export const loginBusiness = async (params: LoginParams): Promise<AuthResult> =>
       return { success: false, message: 'Login failed. No user found in Supabase Auth.' };
     }
 
-    // Fetch the linked shop from Supabase 'shops' table
+    // Fetch the linked shop from Supabase 'shops' table strictly isolated by user_id = auth.uid()
     let shop: Shop | null = null;
     const { data: shopRows, error: shopError } = await supabase
       .from('shops')
@@ -190,19 +198,50 @@ export const loginBusiness = async (params: LoginParams): Promise<AuthResult> =>
     if (!shopError && shopRows && shopRows.length > 0) {
       shop = shopRows[0] as Shop;
     } else {
-      // Fallback: check by email or phone
-      const { data: fallbackRows } = await supabase
-        .from('shops')
-        .select('*')
-        .or(`email.eq.${cleanIdentifier},phone.eq.${cleanIdentifier}`)
-        .limit(1);
+      // Securely provision a default shop linked to this authenticated user_id if none exists
+      try {
+        const meta = authData.user.user_metadata || {};
+        const newShopId = 'shop_' + generateId();
+        const now = new Date().toISOString();
+        const defaultShop: Shop = {
+          id: newShopId,
+          user_id: authData.user.id,
+          shop_name: meta.business_name || meta.display_name || 'My Shop',
+          pan_number: meta.pan_number || '123456789',
+          owner_name: meta.owner_name || meta.full_name || '',
+          email: authData.user.email || (isEmail ? cleanIdentifier : undefined),
+          phone: authData.user.phone || (!isEmail ? cleanIdentifier : undefined),
+          starting_bill_number: 1,
+          next_bill_number: 1,
+          created_at: now,
+          updated_at: now
+        };
 
-      if (fallbackRows && fallbackRows.length > 0) {
-        shop = fallbackRows[0] as Shop;
-        await supabase
+        const { data: createdShop, error: createError } = await supabase
           .from('shops')
-          .update({ user_id: authData.user.id })
-          .eq('id', shop.id);
+          .insert({
+            id: defaultShop.id,
+            user_id: defaultShop.user_id,
+            shop_name: defaultShop.shop_name,
+            pan_number: defaultShop.pan_number,
+            owner_name: defaultShop.owner_name || null,
+            email: defaultShop.email || null,
+            phone: defaultShop.phone || null,
+            starting_bill_number: 1,
+            next_bill_number: 1,
+            created_at: now,
+            updated_at: now
+          })
+          .select()
+          .single();
+
+        if (!createError && createdShop) {
+          shop = createdShop as Shop;
+        } else {
+          shop = defaultShop;
+        }
+      } catch (e) {
+        console.warn('Could not auto-provision fallback shop during login:', e);
       }
     }
 
@@ -210,7 +249,7 @@ export const loginBusiness = async (params: LoginParams): Promise<AuthResult> =>
     let bills: Bill[] = [];
 
     if (shop) {
-      // Load items directly from Supabase
+      // Load items directly from Supabase (protected by shop ownership RLS)
       const { data: itemsRows } = await supabase
         .from('items')
         .select('*')
@@ -221,7 +260,7 @@ export const loginBusiness = async (params: LoginParams): Promise<AuthResult> =>
         items = itemsRows as Item[];
       }
 
-      // Load bills directly from Supabase
+      // Load bills directly from Supabase (protected by shop ownership RLS)
       const { data: billsRows } = await supabase
         .from('bills')
         .select('*')
