@@ -130,6 +130,8 @@ export default function AdminPanel({ currentUser, onSignOut }: AdminPanelProps) 
     let trialCount = 0;
     let expiringCount = 0;
     let expiredCount = 0;
+    let totalBills = 0;
+    let totalPlatformRevenue = 0;
 
     shops.forEach(s => {
       const info = getSubscriptionInfo(s);
@@ -142,6 +144,8 @@ export default function AdminPanel({ currentUser, onSignOut }: AdminPanelProps) 
       } else if (info.isExpired) {
         expiredCount++;
       }
+      totalBills += (s.bill_count || 0);
+      totalPlatformRevenue += (s.total_revenue || 0);
     });
 
     const mrr = proCount * 500;
@@ -152,6 +156,8 @@ export default function AdminPanel({ currentUser, onSignOut }: AdminPanelProps) 
       trialCount,
       expiringCount,
       expiredCount,
+      totalBills,
+      totalPlatformRevenue,
       mrr
     };
   }, [shops]);
@@ -430,7 +436,7 @@ export default function AdminPanel({ currentUser, onSignOut }: AdminPanelProps) 
                         </div>
 
                         {/* Owner & Contact */}
-                        <div className="text-[12px] text-zinc-600 space-y-1 my-3 bg-zinc-50 rounded-[12px] p-2.5">
+                        <div className="text-[12px] text-zinc-600 space-y-1.5 my-3 bg-zinc-50 rounded-[14px] p-3 border border-zinc-100/80">
                           {shop.owner_name && (
                             <div className="flex justify-between">
                               <span className="text-zinc-400">Owner:</span>
@@ -443,9 +449,14 @@ export default function AdminPanel({ currentUser, onSignOut }: AdminPanelProps) 
                               <span className="font-mono text-zinc-800">{shop.phone || shop.email}</span>
                             </div>
                           )}
-                          <div className="flex justify-between">
+                          <div className="flex justify-between items-center">
                             <span className="text-zinc-400">Bills Count:</span>
-                            <span className="font-bold text-zinc-900">{shop.bill_count || 0} bills (Rs {(shop.total_revenue || 0).toFixed(0)})</span>
+                            <div className="text-right">
+                              <span className="font-bold text-zinc-900">{shop.bill_count || 0} bills</span>
+                              {shop.total_revenue && shop.total_revenue > 0 ? (
+                                <span className="text-zinc-500 text-[11px] ml-1.5">(Rs {Number(shop.total_revenue).toLocaleString(undefined, { maximumFractionDigits: 0 })})</span>
+                              ) : null}
+                            </div>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-zinc-400">Plan Status:</span>

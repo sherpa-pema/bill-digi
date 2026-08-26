@@ -492,7 +492,10 @@ export const getSubscriptionInfo = (shop: Shop | null) => {
 };
 
 /**
- * ADMIN: Fetch all shops with their bill counts and revenue totals
+ * ADMIN: Fetch all shops with their accurate bill counts and revenue totals
+ * Priority 1: PostgreSQL get_admin_shops_summary RPC (accurate, server-side COUNT/SUM, no 1,000 row cap)
+ * Priority 2: PostgREST embedded resource count query `select('*, bills(count)')`
+ * Priority 3: Fallback client query with sequential counter reconciliation
  */
 export const fetchAllShopsForAdmin = async (): Promise<ShopAdminView[]> => {
   const supabase = getSupabaseClient();
@@ -500,41 +503,116 @@ export const fetchAllShopsForAdmin = async (): Promise<ShopAdminView[]> => {
     throw new Error('Supabase client is not configured.');
   }
 
-  // Fetch all shops
-  const { data: shops, error: shopsError } = await supabase
-    .from('shops')
-    .select('*')
-    .order('created_at', { ascending: false });
+  // 1. Attempt database-level aggregation RPC (fastest & most accurate, handles 100k+ bills without limit)
+  try {
+    const { data: rpcShops, error: rpcError } = await supabase.rpc('get_admin_shops_summary');
+    if (!rpcError && rpcShops && Array.isArray(rpcShops) && rpcShops.length > 0) {
+      return rpcShops.map((s: any) => ({
+        ...s,
+        starting_bill_number: Number(s.starting_bill_number || 1),
+        next_bill_number: Number(s.next_bill_number || 1),
+        bill_count: Number(s.bill_count || 0),
+        total_revenue: Number(s.total_revenue || 0)
+      }));
+    }
+    if (rpcError) {
+      console.warn('get_admin_shops_summary RPC call notice (using resilient query fallback):', rpcError.message);
+    }
+  } catch (rpcEx) {
+    console.warn('get_admin_shops_summary RPC exception (using query fallback):', rpcEx);
+  }
 
-  if (shopsError) {
-    console.error('Error fetching all shops for admin:', shopsError);
-    throw shopsError;
+  // 2. Fetch all shops with embedded bills count
+  let shops: any[] = [];
+  try {
+    const { data: shopsWithCount, error: shopsCountError } = await supabase
+      .from('shops')
+      .select('*, bills(count)')
+      .order('created_at', { ascending: false });
+
+    if (!shopsCountError && shopsWithCount) {
+      shops = shopsWithCount;
+    } else {
+      const { data: standardShops, error: standardError } = await supabase
+        .from('shops')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (standardError) throw standardError;
+      shops = standardShops || [];
+    }
+  } catch (err: any) {
+    console.error('Error fetching shops for admin:', err);
+    throw err;
   }
 
   if (!shops || shops.length === 0) return [];
 
-  // Fetch bill counts and revenue summaries
-  const { data: bills, error: billsError } = await supabase
-    .from('bills')
-    .select('shop_id, total_amount');
-
+  // 3. Fetch bill sums if accessible (using elevated limit)
   const billCountMap: Record<string, number> = {};
   const revenueMap: Record<string, number> = {};
 
-  if (!billsError && bills) {
-    bills.forEach((b: { shop_id?: string; total_amount?: number }) => {
-      if (b.shop_id) {
-        billCountMap[b.shop_id] = (billCountMap[b.shop_id] || 0) + 1;
-        revenueMap[b.shop_id] = (revenueMap[b.shop_id] || 0) + (Number(b.total_amount) || 0);
-      }
-    });
+  try {
+    const { data: bills, error: billsError } = await supabase
+      .from('bills')
+      .select('shop_id, total_amount')
+      .limit(10000);
+
+    if (billsError) {
+      console.warn('Direct bills query notice in admin view:', billsError.message);
+    } else if (bills) {
+      bills.forEach((b: { shop_id?: string; total_amount?: number }) => {
+        if (b.shop_id) {
+          billCountMap[b.shop_id] = (billCountMap[b.shop_id] || 0) + 1;
+          revenueMap[b.shop_id] = (revenueMap[b.shop_id] || 0) + (Number(b.total_amount) || 0);
+        }
+      });
+    }
+  } catch (bErr) {
+    console.warn('Error aggregating bills in fallback mode:', bErr);
   }
 
-  return shops.map((s: Shop) => ({
-    ...s,
-    bill_count: billCountMap[s.id] || 0,
-    total_revenue: revenueMap[s.id] || 0
-  }));
+  return shops.map((s: any) => {
+    // Determine accurate bill count:
+    // a) PostgREST embedded bills count
+    // b) billCountMap from fetched bills
+    // c) sequential counter fallback: next_bill_number - starting_bill_number
+    const embeddedCount = Array.isArray(s.bills) && s.bills[0]?.count != null ? Number(s.bills[0].count) : null;
+    const directQueryCount = billCountMap[s.id];
+    const sequentialCount = Math.max(0, (Number(s.next_bill_number) || 1) - (Number(s.starting_bill_number) || 1));
+
+    let finalCount = 0;
+    if (embeddedCount != null && embeddedCount > 0) {
+      finalCount = embeddedCount;
+    } else if (directQueryCount != null && directQueryCount > 0) {
+      finalCount = directQueryCount;
+    } else {
+      // Fall back to sequential counter if RLS or query limits blocked bill row counting
+      finalCount = sequentialCount;
+    }
+
+    return {
+      id: s.id,
+      user_id: s.user_id,
+      shop_name: s.shop_name,
+      pan_number: s.pan_number,
+      owner_name: s.owner_name,
+      email: s.email,
+      phone: s.phone,
+      starting_bill_number: Number(s.starting_bill_number || 1),
+      next_bill_number: Number(s.next_bill_number || 1),
+      created_at: s.created_at,
+      updated_at: s.updated_at,
+      subscription_tier: s.subscription_tier,
+      subscription_status: s.subscription_status,
+      subscription_started_at: s.subscription_started_at,
+      subscription_expires_at: s.subscription_expires_at,
+      trial_expires_at: s.trial_expires_at,
+      is_admin: s.is_admin,
+      bill_count: finalCount,
+      total_revenue: revenueMap[s.id] || 0
+    };
+  });
 };
 
 /**
