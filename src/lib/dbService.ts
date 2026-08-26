@@ -68,7 +68,7 @@ export const createInitialShop = async (userId: string, shopName = 'My Shop', pa
     .from('shops')
     .insert({
       id: newShop.id,
-      user_id: newShop.user_id || null,
+      user_id: newShop.user_id,
       shop_name: newShop.shop_name,
       pan_number: newShop.pan_number,
       starting_bill_number: newShop.starting_bill_number,
@@ -261,6 +261,9 @@ export const generateBill = async (
   billData: {
     billType: 'simple' | 'itemized';
     totalAmount: number;
+    subtotal?: number;
+    discountAmount?: number;
+    taxAmount?: number;
     items: BasketItem[];
   }
 ): Promise<{ bill: Bill; updatedShop: Shop }> => {
@@ -278,6 +281,9 @@ export const generateBill = async (
     bill_number: billNumber,
     bill_type: billData.billType,
     total_amount: billData.totalAmount,
+    subtotal: billData.subtotal,
+    discount_amount: billData.discountAmount,
+    tax_amount: billData.taxAmount,
     items: billData.items,
     created_at: now
   };

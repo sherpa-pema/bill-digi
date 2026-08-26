@@ -36,6 +36,9 @@ export interface Bill {
   bill_number: number;
   bill_type: 'simple' | 'itemized';
   total_amount: number;
+  subtotal?: number;
+  discount_amount?: number;
+  tax_amount?: number;
   items: BasketItem[];
   created_at: string;
   synced?: boolean;

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { 
   Plus, Clock, Settings, Search, X, Hash, Receipt, 
   Trash2, Pencil, ShoppingBag, ArrowLeft, MessageSquare, Ban,
-  RefreshCw, Database, User, LogOut, WifiOff, Wifi, Loader2
+  RefreshCw, Database, User, LogOut, WifiOff, Wifi, Loader2, Delete
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import type { Shop, Item, Bill, BasketItem, SyncConfig } from './types';
@@ -39,6 +39,24 @@ const formatShortDateTime = (isoString: string) => {
          d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 };
 
+// Helper to extract breakdown from any Bill (from state or Supabase)
+const getBillBreakdown = (bill: Bill) => {
+  const discountItem = bill.items.find(i => i.name.toLowerCase().includes('discount') || i.line_total < 0);
+  const vatItem = bill.items.find(i => i.name.toLowerCase().includes('vat'));
+  const regularItems = bill.items.filter(i => i !== discountItem && i !== vatItem);
+
+  const subtotal = bill.subtotal ?? (
+    regularItems.length > 0 
+      ? regularItems.reduce((acc, curr) => acc + curr.line_total, 0)
+      : bill.total_amount
+  );
+  const discountAmount = bill.discount_amount ?? (discountItem ? Math.abs(discountItem.line_total) : 0);
+  const taxableAmount = Math.max(0, subtotal - discountAmount);
+  const vatAmount = bill.tax_amount ?? (vatItem ? vatItem.line_total : 0);
+
+  return { subtotal, discountAmount, taxableAmount, vatAmount, regularItems, discountItem, vatItem };
+};
+
 export default function App() {
   // Online / Network State
   const [isOnline, setIsOnline] = useState(checkIsOnline());
@@ -60,9 +78,17 @@ export default function App() {
   // New Bill State
   const [isItemizedMode, setIsItemizedMode] = useState(false);
   const [simpleAmount, setSimpleAmount] = useState('0');
+  const [isVat, setIsVat] = useState(false);
+  const [isDiscount, setIsDiscount] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [basket, setBasket] = useState<BasketItem[]>([]);
   const amountInputRef = useRef<HTMLInputElement>(null);
+
+  // Custom Item Modal State
+  const [showCustomItemModal, setShowCustomItemModal] = useState(false);
+  const [customItemName, setCustomItemName] = useState('');
+  const [customItemPrice, setCustomItemPrice] = useState('');
+  const customPriceInputRef = useRef<HTMLInputElement>(null);
   
   // Action Pending States
   const [isGeneratingBill, setIsGeneratingBill] = useState(false);
@@ -275,19 +301,48 @@ export default function App() {
     loadCloudData(authData.shop);
   };
 
+  // Tax / Discount toggles
+  const toggleVat = () => setIsVat(prev => !prev);
+  const toggleDiscount = () => setIsDiscount(prev => !prev);
+
   // Keypad logic
   const handleKeypadPress = (key: string) => {
     let newAmount = simpleAmount;
     if (key === 'C') {
       newAmount = '0';
+    } else if (key === 'backspace' || key === '⌫') {
+      if (newAmount.length <= 1 || newAmount === '0') {
+        newAmount = '0';
+      } else {
+        newAmount = newAmount.slice(0, -1);
+        if (newAmount === '' || newAmount === '-') newAmount = '0';
+      }
+    } else if (key === '00') {
+      if (newAmount === '0') {
+        return;
+      }
+      const rawLen = newAmount.replace('.', '').length;
+      if (rawLen >= 9) {
+        return;
+      } else if (rawLen === 8) {
+        newAmount = newAmount + '0';
+      } else {
+        newAmount = newAmount + '00';
+      }
     } else if (key === '.') {
-      if (simpleAmount.includes('.')) return;
-      newAmount = simpleAmount + '.';
-    } else if (simpleAmount === '0') {
-      newAmount = key;
+      if (newAmount.includes('.')) return;
+      newAmount = newAmount + '.';
+    } else if (key === '0') {
+      if (newAmount === '0') return;
+      if (newAmount.replace('.', '').length >= 9) return;
+      newAmount = newAmount + '0';
     } else {
-      if (simpleAmount.replace('.', '').length >= 9) return;
-      newAmount = simpleAmount + key;
+      if (newAmount === '0') {
+        newAmount = key;
+      } else {
+        if (newAmount.replace('.', '').length >= 9) return;
+        newAmount = newAmount + key;
+      }
     }
     setSimpleAmount(newAmount);
   };
@@ -296,6 +351,23 @@ export default function App() {
     const val = parseFloat(simpleAmount);
     return isNaN(val) ? 0 : val;
   }, [simpleAmount]);
+
+  // Simple Mode Tax/Discount Calculations
+  const simpleDiscountAmount = useMemo(() => {
+    return isDiscount ? Number((simpleAmountNum * 0.10).toFixed(2)) : 0;
+  }, [isDiscount, simpleAmountNum]);
+
+  const simpleTaxableAmount = useMemo(() => {
+    return Math.max(0, simpleAmountNum - simpleDiscountAmount);
+  }, [simpleAmountNum, simpleDiscountAmount]);
+
+  const simpleVatAmount = useMemo(() => {
+    return isVat ? Number((simpleTaxableAmount * 0.13).toFixed(2)) : 0;
+  }, [isVat, simpleTaxableAmount]);
+
+  const finalSimpleTotal = useMemo(() => {
+    return Number((simpleTaxableAmount + simpleVatAmount).toFixed(2));
+  }, [simpleTaxableAmount, simpleVatAmount]);
 
   // Items logic
   const filteredItems = useMemo(() => {
@@ -323,16 +395,39 @@ export default function App() {
     });
   };
 
-  const addCustomItem = () => {
-    const name = searchQuery.trim() || 'Custom Item';
+  // Auto-focus custom item price input when modal opens
+  useEffect(() => {
+    if (showCustomItemModal) {
+      const timer = setTimeout(() => {
+        customPriceInputRef.current?.focus();
+      }, 80);
+      return () => clearTimeout(timer);
+    }
+  }, [showCustomItemModal]);
+
+  const openCustomItemDialog = () => {
+    setCustomItemName(searchQuery.trim() || 'Custom Item');
+    setCustomItemPrice('');
+    setShowCustomItemModal(true);
+  };
+
+  const handleConfirmCustomItem = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const name = customItemName.trim() || 'Custom Item';
+    const price = parseFloat(customItemPrice);
+    if (isNaN(price) || price <= 0) return;
+
     setBasket(prev => [...prev, {
       id: generateId(),
       name,
       qty: 1,
-      unit_price: 0,
-      line_total: 0
+      unit_price: price,
+      line_total: price
     }]);
     setSearchQuery('');
+    setShowCustomItemModal(false);
+    setCustomItemName('');
+    setCustomItemPrice('');
   };
 
   const updateBasketQty = (id: string, delta: number) => {
@@ -353,6 +448,22 @@ export default function App() {
 
   const basketTotal = useMemo(() => basket.reduce((acc, curr) => acc + curr.line_total, 0), [basket]);
 
+  const itemizedDiscountAmount = useMemo(() => {
+    return isDiscount ? Number((basketTotal * 0.10).toFixed(2)) : 0;
+  }, [isDiscount, basketTotal]);
+
+  const itemizedTaxableAmount = useMemo(() => {
+    return Math.max(0, basketTotal - itemizedDiscountAmount);
+  }, [basketTotal, itemizedDiscountAmount]);
+
+  const itemizedVatAmount = useMemo(() => {
+    return isVat ? Number((itemizedTaxableAmount * 0.13).toFixed(2)) : 0;
+  }, [isVat, itemizedTaxableAmount]);
+
+  const finalItemizedTotal = useMemo(() => {
+    return Number((itemizedTaxableAmount + itemizedVatAmount).toFixed(2));
+  }, [itemizedTaxableAmount, itemizedVatAmount]);
+
   // Generate Bill directly in Supabase
   const handleGenerateBill = async () => {
     if (!shop || isGeneratingBill) return;
@@ -363,24 +474,83 @@ export default function App() {
     }
 
     let total = 0;
+    let subtotalAmount = 0;
+    let discAmt = 0;
+    let vatAmt = 0;
     let billItems: BasketItem[] = [];
     let bType: 'simple' | 'itemized' = 'simple';
 
     if (isItemizedMode) {
       if (basketTotal <= 0) return;
-      total = basketTotal;
-      billItems = basket;
+      subtotalAmount = basketTotal;
+      discAmt = itemizedDiscountAmount;
+      vatAmt = itemizedVatAmount;
+      total = finalItemizedTotal;
+      
+      billItems = [...basket];
+      if (discAmt > 0) {
+        billItems.push({
+          id: generateId(),
+          name: 'Discount (10%)',
+          qty: 1,
+          unit_price: -discAmt,
+          line_total: -discAmt
+        });
+      }
+      if (vatAmt > 0) {
+        billItems.push({
+          id: generateId(),
+          name: 'VAT (13%)',
+          qty: 1,
+          unit_price: vatAmt,
+          line_total: vatAmt
+        });
+      }
       bType = 'itemized';
     } else {
       if (simpleAmountNum <= 0) return;
-      total = simpleAmountNum;
-      billItems = [{
-        id: generateId(),
-        name: 'Total Amount',
-        qty: 1,
-        unit_price: total,
-        line_total: total
-      }];
+      subtotalAmount = simpleAmountNum;
+      discAmt = simpleDiscountAmount;
+      vatAmt = simpleVatAmount;
+      total = finalSimpleTotal;
+
+      if (discAmt > 0 || vatAmt > 0) {
+        billItems = [
+          {
+            id: generateId(),
+            name: 'Base Amount',
+            qty: 1,
+            unit_price: subtotalAmount,
+            line_total: subtotalAmount
+          }
+        ];
+        if (discAmt > 0) {
+          billItems.push({
+            id: generateId(),
+            name: 'Discount (10%)',
+            qty: 1,
+            unit_price: -discAmt,
+            line_total: -discAmt
+          });
+        }
+        if (vatAmt > 0) {
+          billItems.push({
+            id: generateId(),
+            name: 'VAT (13%)',
+            qty: 1,
+            unit_price: vatAmt,
+            line_total: vatAmt
+          });
+        }
+      } else {
+        billItems = [{
+          id: generateId(),
+          name: 'Total Amount',
+          qty: 1,
+          unit_price: total,
+          line_total: total
+        }];
+      }
     }
 
     setIsGeneratingBill(true);
@@ -388,6 +558,9 @@ export default function App() {
       const result = await generateBill(shop, {
         billType: bType,
         totalAmount: total,
+        subtotal: subtotalAmount,
+        discountAmount: discAmt,
+        taxAmount: vatAmt,
         items: billItems
       });
 
@@ -397,6 +570,8 @@ export default function App() {
       setGeneratedBill(result.bill);
       setShowQr(false);
       setSimpleAmount('0');
+      setIsVat(false);
+      setIsDiscount(false);
       setBasket([]);
       setIsItemizedMode(false);
     } catch (err: any) {
@@ -411,15 +586,24 @@ export default function App() {
   const generateBillText = (bill: Bill | null) => {
     if (!bill || !shop) return '';
     const dateStr = formatDateTime(bill.created_at);
-    let itemsStr = '';
+    const { subtotal, discountAmount, taxableAmount, vatAmount, regularItems } = getBillBreakdown(bill);
     
+    let itemsStr = '';
     if (bill.bill_type === 'itemized') {
-      itemsStr = bill.items.map(i => `${i.name} x${i.qty} = Rs ${i.line_total}`).join('\n');
+      itemsStr = regularItems.map(i => `${i.name} x${i.qty} = Rs ${i.line_total}`).join('\n');
     } else {
-      itemsStr = `Amount: Rs ${bill.total_amount}`;
+      itemsStr = `Amount: Rs ${subtotal}`;
+    }
+
+    let adjustmentsStr = '';
+    if (discountAmount > 0) {
+      adjustmentsStr += `\nDiscount (-10%): -Rs ${discountAmount.toFixed(2)}`;
+    }
+    if (vatAmount > 0) {
+      adjustmentsStr += `\nTaxable: Rs ${taxableAmount.toFixed(2)}\nVAT (+13%): +Rs ${vatAmount.toFixed(2)}`;
     }
     
-    return `${shop.shop_name}\nPAN: ${shop.pan_number}\nBill No: ${bill.bill_number}\nDate: ${dateStr}\n${itemsStr}\nTotal: Rs ${bill.total_amount}\nThank you! Save for lottery at prize.ird.gov.np`;
+    return `${shop.shop_name}\nPAN: ${shop.pan_number}\nBill No: ${bill.bill_number}\nDate: ${dateStr}\n${itemsStr}${adjustmentsStr}\nTotal: Rs ${bill.total_amount}\nThank you! Save for lottery at prize.ird.gov.np`;
   };
 
   // History filtering
@@ -601,9 +785,20 @@ export default function App() {
                   <div className="rounded-[24px] bg-white border border-zinc-100 shadow-[0_4px_24px_rgba(0,0,0,0.04)] p-5">
                     <div className="flex items-center justify-between mb-4">
                       <span className="text-[11px] font-semibold tracking-[0.12em] uppercase text-zinc-400">Amount</span>
-                      <button type="button" onClick={() => setIsItemizedMode(true)} className="text-[13px] font-medium text-zinc-900 underline underline-offset-4 decoration-zinc-300 hover:decoration-zinc-900">
-                        + Add items
-                      </button>
+                      <div className="flex items-center gap-2.5">
+                        {simpleAmount !== '0' && (
+                          <button 
+                            type="button" 
+                            onClick={() => handleKeypadPress('C')} 
+                            className="text-[11px] font-medium text-zinc-500 hover:text-red-600 active:scale-95 transition px-2.5 py-0.5 rounded-full bg-zinc-100"
+                          >
+                            Clear
+                          </button>
+                        )}
+                        <button type="button" onClick={() => setIsItemizedMode(true)} className="text-[13px] font-medium text-zinc-900 underline underline-offset-4 decoration-zinc-300 hover:decoration-zinc-900">
+                          + Add items
+                        </button>
+                      </div>
                     </div>
                     <div className="relative">
                       <div className="flex items-baseline gap-2">
@@ -616,18 +811,113 @@ export default function App() {
                       <span>Enter amount via keypad</span>
                       <button type="button" onClick={() => setShowItemsModal(true)} className="font-medium text-zinc-700">Manage Items • {items.length}</button>
                     </div>
-                    <div className="mt-6 grid grid-cols-3 gap-3">
-                      {['7','8','9','4','5','6','1','2','3'].map(k => (
-                        <button key={k} type="button" onClick={() => handleKeypadPress(k)} className="h-[64px] rounded-[16px] bg-[#f6f6f6] border border-zinc-100 text-[22px] font-medium active:bg-zinc-900 active:text-white active:scale-[0.98] transition shadow-sm">{k}</button>
-                      ))}
-                      <button type="button" onClick={() => handleKeypadPress('0')} className="h-[64px] rounded-[16px] bg-[#f6f6f6] border border-zinc-100 text-[22px] font-medium active:bg-zinc-900 active:text-white active:scale-[0.98] transition shadow-sm">0</button>
-                      <button type="button" onClick={() => handleKeypadPress('.')} className="h-[64px] rounded-[16px] bg-[#f6f6f6] border border-zinc-100 text-[22px] font-medium active:bg-zinc-900 active:text-white active:scale-[0.98] transition shadow-sm">.</button>
-                      <button type="button" onClick={() => handleKeypadPress('C')} className="h-[64px] rounded-[16px] bg-zinc-900 text-white text-[15px] font-semibold tracking-wide active:bg-black active:scale-[0.98] transition shadow-sm">C</button>
+
+                    {/* Tax / Discount Quick Chips */}
+                    <div className="mt-4 flex gap-2">
+                      <button 
+                        type="button" 
+                        onClick={toggleVat} 
+                        className={`flex-1 h-11 rounded-[14px] text-[13px] font-semibold flex items-center justify-center gap-1.5 transition active:scale-[0.98] ${
+                          isVat 
+                            ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20" 
+                            : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                        }`}
+                      >
+                        +13% VAT
+                      </button>
+                      <button 
+                        type="button" 
+                        onClick={toggleDiscount} 
+                        className={`flex-1 h-11 rounded-[14px] text-[13px] font-semibold flex items-center justify-center gap-1.5 transition active:scale-[0.98] ${
+                          isDiscount 
+                            ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20" 
+                            : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                        }`}
+                      >
+                        -10% Disc
+                      </button>
                     </div>
+
+                    {/* Live Tax/Discount Breakdown Preview */}
+                    {(isVat || isDiscount) && simpleAmountNum > 0 && (
+                      <div className="mt-3 p-3 rounded-[14px] bg-zinc-50 border border-zinc-100 text-[12px] space-y-1.5 animate-slideUp">
+                        <div className="flex justify-between text-zinc-500">
+                          <span>Subtotal</span>
+                          <span>Rs {simpleAmountNum.toFixed(2)}</span>
+                        </div>
+                        {isDiscount && (
+                          <div className="flex justify-between text-emerald-700 font-medium">
+                            <span>Discount (-10%)</span>
+                            <span>- Rs {simpleDiscountAmount.toFixed(2)}</span>
+                          </div>
+                        )}
+                        {isVat && (
+                          <div className="flex justify-between text-emerald-700 font-medium">
+                            <span>VAT (+13%{isDiscount ? ` on Rs ${simpleTaxableAmount.toFixed(2)}` : ''})</span>
+                            <span>+ Rs {simpleVatAmount.toFixed(2)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between font-bold text-zinc-900 border-t border-zinc-200/80 pt-1.5">
+                          <span>Total to Pay</span>
+                          <span>Rs {finalSimpleTotal.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Enhanced Keypad Grid */}
+                    <div className="mt-5 space-y-2.5">
+                      {/* Digits 1-9 in 3 columns */}
+                      <div className="grid grid-cols-3 gap-2.5">
+                        {['7','8','9','4','5','6','1','2','3'].map(k => (
+                          <button 
+                            key={k} 
+                            type="button" 
+                            onClick={() => handleKeypadPress(k)} 
+                            className="h-[60px] rounded-[16px] bg-[#f6f6f6] border border-zinc-100 text-[22px] font-medium active:bg-zinc-900 active:text-white active:scale-[0.97] transition shadow-sm"
+                          >
+                            {k}
+                          </button>
+                        ))}
+                      </div>
+                      
+                      {/* 4-Key Bottom Row: 0, 00, ., ⌫ */}
+                      <div className="grid grid-cols-4 gap-2.5">
+                        <button 
+                          type="button" 
+                          onClick={() => handleKeypadPress('0')} 
+                          className="h-[60px] rounded-[16px] bg-[#f6f6f6] border border-zinc-100 text-[21px] font-medium active:bg-zinc-900 active:text-white active:scale-[0.97] transition shadow-sm flex items-center justify-center"
+                        >
+                          0
+                        </button>
+                        <button 
+                          type="button" 
+                          onClick={() => handleKeypadPress('00')} 
+                          className="h-[60px] rounded-[16px] bg-[#f6f6f6] border border-zinc-100 text-[19px] font-medium active:bg-zinc-900 active:text-white active:scale-[0.97] transition shadow-sm flex items-center justify-center"
+                        >
+                          00
+                        </button>
+                        <button 
+                          type="button" 
+                          onClick={() => handleKeypadPress('.')} 
+                          className="h-[60px] rounded-[16px] bg-[#f6f6f6] border border-zinc-100 text-[22px] font-bold active:bg-zinc-900 active:text-white active:scale-[0.97] transition shadow-sm flex items-center justify-center"
+                        >
+                          .
+                        </button>
+                        <button 
+                          type="button" 
+                          onClick={() => handleKeypadPress('⌫')} 
+                          className="h-[60px] rounded-[16px] bg-zinc-900 text-white text-[15px] font-semibold active:bg-black active:scale-[0.97] transition shadow-sm flex items-center justify-center"
+                          title="Backspace"
+                        >
+                          <Delete className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+
                     <button 
                       disabled={simpleAmountNum <= 0 || isGeneratingBill || !isOnline} 
                       onClick={handleGenerateBill} 
-                      className="mt-6 w-full h-[56px] rounded-[16px] bg-black text-white font-semibold text-[15px] tracking-wide disabled:opacity-30 disabled:pointer-events-none active:scale-[0.99] transition flex items-center justify-center gap-2 shadow-sm"
+                      className="mt-5 w-full h-[56px] rounded-[16px] bg-black text-white font-semibold text-[15px] tracking-wide disabled:opacity-30 disabled:pointer-events-none active:scale-[0.99] transition flex items-center justify-center gap-2 shadow-sm"
                     >
                       {isGeneratingBill ? (
                         <>
@@ -637,7 +927,7 @@ export default function App() {
                       ) : (
                         <>
                           <Receipt className="w-4 h-4" /> 
-                          <span>Generate Bill — Rs {simpleAmountNum}</span>
+                          <span>Generate Bill — Rs {finalSimpleTotal.toFixed(2)}</span>
                         </>
                       )}
                     </button>
@@ -680,14 +970,14 @@ export default function App() {
                       <span className="text-[11px] text-zinc-400">{filteredItems.length} items</span>
                     </div>
                     <div className="max-h-[260px] overflow-y-auto divide-y divide-zinc-50">
-                      <button onClick={addCustomItem} className="w-full text-left px-4 py-3 flex items-center justify-between hover:bg-zinc-50 active:bg-zinc-100 transition">
+                      <button onClick={openCustomItemDialog} className="w-full text-left px-4 py-3 flex items-center justify-between hover:bg-zinc-50 active:bg-zinc-100 transition">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-zinc-900 text-white flex items-center justify-center">
                             <Plus className="w-4 h-4" />
                           </div>
-                          <span className="text-[14px] font-medium">Add "{searchQuery || 'Custom'}"</span>
+                          <span className="text-[14px] font-medium">Add "{searchQuery || 'Custom Item'}"</span>
                         </div>
-                        <span className="text-[12px] text-zinc-400">Custom</span>
+                        <span className="text-[12px] text-zinc-400 font-medium">Set Price →</span>
                       </button>
                       {filteredItems.map(item => (
                         <button key={item.id} onClick={() => addToBasket(item)} className="w-full text-left px-4 py-3 flex items-center justify-between hover:bg-zinc-50 active:bg-zinc-100 transition">
@@ -746,9 +1036,56 @@ export default function App() {
                       </div>
                     )}
                     <div className="p-4 bg-zinc-50 rounded-b-[24px] sticky bottom-0">
+                      {/* Tax / Discount Quick Chips in Basket */}
+                      <div className="flex gap-2 mb-3">
+                        <button 
+                          type="button" 
+                          onClick={toggleVat} 
+                          className={`flex-1 h-9 rounded-xl text-[12px] font-semibold flex items-center justify-center gap-1 transition active:scale-[0.98] ${
+                            isVat 
+                              ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20" 
+                              : "bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-100"
+                          }`}
+                        >
+                          +13% VAT
+                        </button>
+                        <button 
+                          type="button" 
+                          onClick={toggleDiscount} 
+                          className={`flex-1 h-9 rounded-xl text-[12px] font-semibold flex items-center justify-center gap-1 transition active:scale-[0.98] ${
+                            isDiscount 
+                              ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20" 
+                              : "bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-100"
+                          }`}
+                        >
+                          -10% Disc
+                        </button>
+                      </div>
+
+                      {(isVat || isDiscount) && basketTotal > 0 && (
+                        <div className="mb-3 p-2.5 rounded-xl bg-white border border-zinc-100 text-[11px] space-y-1 animate-slideUp">
+                          <div className="flex justify-between text-zinc-500">
+                            <span>Basket Subtotal</span>
+                            <span>Rs {basketTotal.toFixed(2)}</span>
+                          </div>
+                          {isDiscount && (
+                            <div className="flex justify-between text-emerald-700 font-medium">
+                              <span>Discount (-10%)</span>
+                              <span>- Rs {itemizedDiscountAmount.toFixed(2)}</span>
+                            </div>
+                          )}
+                          {isVat && (
+                            <div className="flex justify-between text-emerald-700 font-medium">
+                              <span>VAT (+13%{isDiscount ? ` on Rs ${itemizedTaxableAmount.toFixed(2)}` : ''})</span>
+                              <span>+ Rs {itemizedVatAmount.toFixed(2)}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       <div className="flex items-center justify-between mb-3">
                         <span className="text-[13px] text-zinc-500">Running total</span>
-                        <span className="serif text-[24px] font-medium">Rs {basketTotal}</span>
+                        <span className="serif text-[24px] font-medium">Rs {finalItemizedTotal.toFixed(2)}</span>
                       </div>
                       <button 
                         disabled={basketTotal <= 0 || isGeneratingBill || !isOnline} 
@@ -761,7 +1098,7 @@ export default function App() {
                             <span>Recording in Supabase...</span>
                           </>
                         ) : (
-                          'Generate Bill'
+                          `Generate Bill — Rs ${finalItemizedTotal.toFixed(2)}`
                         )}
                       </button>
                     </div>
@@ -854,32 +1191,57 @@ export default function App() {
                           <span className="text-right">AMOUNT</span>
                         </div>
                         
-                        <div className="receipt-dash-border mb-3"></div>
-                        
-                        <div className="space-y-2 text-[12px]">
-                          {generatedBill.items.map(v => (
-                            <div key={v.id} className="flex justify-between items-start">
-                              <span className="pr-2 leading-[1.4] break-words flex-1">
-                                {v.name}
-                                {v.qty > 1 && <span className="block text-[11px] text-zinc-500">{v.qty} x Rs {v.unit_price}</span>}
-                              </span>
-                              <span className="font-bold whitespace-nowrap">{v.line_total.toFixed(2)}</span>
-                            </div>
-                          ))}
-                        </div>
+                        {(() => {
+                          const { subtotal, discountAmount, taxableAmount, vatAmount, regularItems } = getBillBreakdown(generatedBill);
+                          return (
+                            <>
+                              <div className="space-y-2 text-[12px]">
+                                {generatedBill.items.map(v => (
+                                  <div key={v.id} className="flex justify-between items-start">
+                                    <span className="pr-2 leading-[1.4] break-words flex-1">
+                                      {v.name}
+                                      {v.qty > 1 && <span className="block text-[11px] text-zinc-500">{v.qty} x Rs {v.unit_price}</span>}
+                                    </span>
+                                    <span className={`font-bold whitespace-nowrap ${v.line_total < 0 ? 'text-emerald-700' : ''}`}>
+                                      {v.line_total < 0 ? `-Rs ${Math.abs(v.line_total).toFixed(2)}` : v.line_total.toFixed(2)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
 
-                        <div className="receipt-dash-border mt-3 mb-3"></div>
-                        
-                        <div className="text-[12px] leading-[1.6] mb-3">
-                          <div className="flex justify-between">
-                            <span>TOTAL ITEMS: {generatedBill.items.length}</span>
-                            <span>QTY: {generatedBill.items.reduce((acc, i) => acc + i.qty, 0)}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>SUBTOTAL:</span>
-                            <span>Rs {generatedBill.total_amount.toFixed(2)}</span>
-                          </div>
-                        </div>
+                              <div className="receipt-dash-border mt-3 mb-3"></div>
+                              
+                              <div className="text-[12px] leading-[1.6] mb-3">
+                                <div className="flex justify-between">
+                                  <span>TOTAL ITEMS: {regularItems.length || 1}</span>
+                                  <span>QTY: {regularItems.reduce((acc, i) => acc + i.qty, 0) || 1}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>SUBTOTAL:</span>
+                                  <span>Rs {subtotal.toFixed(2)}</span>
+                                </div>
+                                {discountAmount > 0 && (
+                                  <div className="flex justify-between text-zinc-700">
+                                    <span>DISCOUNT (-10%):</span>
+                                    <span>-Rs {discountAmount.toFixed(2)}</span>
+                                  </div>
+                                )}
+                                {vatAmount > 0 && (
+                                  <>
+                                    <div className="flex justify-between text-zinc-700">
+                                      <span>TAXABLE AMOUNT:</span>
+                                      <span>Rs {taxableAmount.toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-zinc-700">
+                                      <span>VAT (+13%):</span>
+                                      <span>+Rs {vatAmount.toFixed(2)}</span>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            </>
+                          );
+                        })()}
 
                         <div className="border-y-[3px] border-double border-zinc-900 py-2 mb-6">
                           <div className="flex justify-between items-center text-[16px] font-bold">
@@ -1221,32 +1583,57 @@ export default function App() {
                       <span className="text-right">AMOUNT</span>
                     </div>
                     
-                    <div className="receipt-dash-border mb-3"></div>
-                    
-                    <div className="space-y-2 text-[11px]">
-                      {billDetailSheet.items.map(v => (
-                        <div key={v.id} className="flex justify-between items-start">
-                          <span className="pr-2 leading-[1.4] break-words flex-1">
-                            {v.name}
-                            {v.qty > 1 && <span className="block text-[10px] text-zinc-500">{v.qty} x Rs {v.unit_price}</span>}
-                          </span>
-                          <span className="font-bold whitespace-nowrap">{v.line_total.toFixed(2)}</span>
-                        </div>
-                      ))}
-                    </div>
+                        {(() => {
+                          const { subtotal, discountAmount, taxableAmount, vatAmount, regularItems } = getBillBreakdown(billDetailSheet);
+                          return (
+                            <>
+                              <div className="space-y-2 text-[11px]">
+                                {billDetailSheet.items.map(v => (
+                                  <div key={v.id} className="flex justify-between items-start">
+                                    <span className="pr-2 leading-[1.4] break-words flex-1">
+                                      {v.name}
+                                      {v.qty > 1 && <span className="block text-[10px] text-zinc-500">{v.qty} x Rs {v.unit_price}</span>}
+                                    </span>
+                                    <span className={`font-bold whitespace-nowrap ${v.line_total < 0 ? 'text-emerald-700' : ''}`}>
+                                      {v.line_total < 0 ? `-Rs ${Math.abs(v.line_total).toFixed(2)}` : v.line_total.toFixed(2)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
 
-                    <div className="receipt-dash-border mt-3 mb-3"></div>
-                    
-                    <div className="text-[11px] leading-[1.6] mb-3">
-                      <div className="flex justify-between">
-                        <span>ITEMS: {billDetailSheet.items.length}</span>
-                        <span>QTY: {billDetailSheet.items.reduce((acc, i) => acc + i.qty, 0)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>SUBTOTAL:</span>
-                        <span>Rs {billDetailSheet.total_amount.toFixed(2)}</span>
-                      </div>
-                    </div>
+                              <div className="receipt-dash-border mt-3 mb-3"></div>
+                              
+                              <div className="text-[11px] leading-[1.6] mb-3">
+                                <div className="flex justify-between">
+                                  <span>ITEMS: {regularItems.length || 1}</span>
+                                  <span>QTY: {regularItems.reduce((acc, i) => acc + i.qty, 0) || 1}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>SUBTOTAL:</span>
+                                  <span>Rs {subtotal.toFixed(2)}</span>
+                                </div>
+                                {discountAmount > 0 && (
+                                  <div className="flex justify-between text-zinc-700">
+                                    <span>DISCOUNT (-10%):</span>
+                                    <span>-Rs {discountAmount.toFixed(2)}</span>
+                                  </div>
+                                )}
+                                {vatAmount > 0 && (
+                                  <>
+                                    <div className="flex justify-between text-zinc-700">
+                                      <span>TAXABLE AMOUNT:</span>
+                                      <span>Rs {taxableAmount.toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-zinc-700">
+                                      <span>VAT (+13%):</span>
+                                      <span>+Rs {vatAmount.toFixed(2)}</span>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            </>
+                          );
+                        })()}
 
                     <div className="border-y-[3px] border-double border-zinc-900 py-2 mb-4">
                       <div className="flex justify-between items-center text-[15px] font-bold">
@@ -1281,6 +1668,89 @@ export default function App() {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* CUSTOM ITEM PRICE DIALOG MODAL */}
+        {showCustomItemModal && (
+          <div className="absolute inset-0 z-[45] bg-black/50 backdrop-blur-[2px] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-slideUp">
+            <div className="w-full max-w-[430px] bg-white rounded-t-[28px] sm:rounded-[28px] p-6 shadow-[0_20px_80px_rgba(0,0,0,0.25)] flex flex-col">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <span className="text-[11px] font-semibold tracking-[0.12em] uppercase text-zinc-400">Itemized Mode</span>
+                  <h3 className="serif text-[22px] leading-tight text-zinc-900 mt-0.5">Enter Custom Price</h3>
+                </div>
+                <button 
+                  type="button" 
+                  onClick={() => setShowCustomItemModal(false)} 
+                  className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-500 hover:text-zinc-900 active:scale-95 transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleConfirmCustomItem} className="space-y-4">
+                <div>
+                  <label className="text-[11px] font-semibold tracking-[0.12em] uppercase text-zinc-500">Item Name</label>
+                  <input 
+                    value={customItemName} 
+                    onChange={e => setCustomItemName(e.target.value)} 
+                    placeholder="e.g. Special Dish, Extra Service" 
+                    className="mt-1.5 w-full h-11 rounded-[12px] bg-zinc-50 border border-zinc-200 px-3.5 text-[14px] font-medium outline-none focus:bg-white focus:border-zinc-400 transition" 
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold tracking-[0.12em] uppercase text-zinc-500">Unit Price (Rs) *</label>
+                  <div className="mt-1.5 relative flex items-center">
+                    <span className="absolute left-3.5 text-[16px] font-medium text-zinc-400">Rs</span>
+                    <input 
+                      ref={customPriceInputRef}
+                      type="text"
+                      inputMode="decimal"
+                      value={customItemPrice} 
+                      onChange={e => setCustomItemPrice(e.target.value.replace(/[^0-9.]/g, ''))} 
+                      placeholder="0.00" 
+                      className="w-full h-14 pl-10 pr-4 rounded-[14px] bg-zinc-50 border border-zinc-200 text-[24px] font-semibold text-zinc-900 outline-none focus:bg-white focus:border-zinc-900 transition" 
+                    />
+                  </div>
+                  {customItemPrice !== '' && (parseFloat(customItemPrice) <= 0 || isNaN(parseFloat(customItemPrice))) && (
+                    <p className="mt-1.5 text-[11px] text-red-500 font-medium">Price must be greater than Rs 0</p>
+                  )}
+                </div>
+
+                {/* Quick price presets */}
+                <div className="flex gap-2 pt-1">
+                  {['50', '100', '200', '500'].map(val => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setCustomItemPrice(val)}
+                      className="flex-1 h-9 rounded-[10px] bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-[12px] font-semibold transition active:scale-95"
+                    >
+                      Rs {val}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="pt-2 flex gap-2">
+                  <button 
+                    type="button" 
+                    onClick={() => setShowCustomItemModal(false)} 
+                    className="flex-1 h-12 rounded-[14px] bg-zinc-100 text-zinc-700 font-semibold text-[13px] hover:bg-zinc-200 active:scale-95 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit" 
+                    disabled={!customItemPrice || isNaN(parseFloat(customItemPrice)) || parseFloat(customItemPrice) <= 0} 
+                    className="flex-[2] h-12 rounded-[14px] bg-black text-white font-semibold text-[13px] disabled:opacity-30 disabled:pointer-events-none active:scale-95 transition flex items-center justify-center gap-1.5 shadow-sm"
+                  >
+                    <Plus className="w-4 h-4" /> Add to Basket
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
