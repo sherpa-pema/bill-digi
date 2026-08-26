@@ -9,7 +9,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- 2. Shops / Businesses Table
 CREATE TABLE IF NOT EXISTS shops (
     id TEXT PRIMARY KEY,
-    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
     shop_name TEXT NOT NULL,
     pan_number VARCHAR(9) NOT NULL,
     owner_name TEXT,
@@ -17,11 +17,16 @@ CREATE TABLE IF NOT EXISTS shops (
     phone TEXT,
     starting_bill_number BIGINT NOT NULL DEFAULT 1,
     next_bill_number BIGINT NOT NULL DEFAULT 1,
+    subscription_tier TEXT DEFAULT 'free',
+    subscription_status TEXT DEFAULT 'trial',
+    subscription_started_at TIMESTAMPTZ DEFAULT NOW(),
+    subscription_expires_at TIMESTAMPTZ,
+    trial_expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '7 days'),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- If table already exists in an earlier version, safely add/update missing columns:
+-- If table already exists in an earlier version, safely add/update missing columns & unique constraint:
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'shops' AND column_name = 'user_id') THEN
@@ -36,6 +41,29 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'shops' AND column_name = 'phone') THEN
         ALTER TABLE shops ADD COLUMN phone TEXT;
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'shops' AND column_name = 'subscription_tier') THEN
+        ALTER TABLE shops ADD COLUMN subscription_tier TEXT DEFAULT 'free';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'shops' AND column_name = 'subscription_status') THEN
+        ALTER TABLE shops ADD COLUMN subscription_status TEXT DEFAULT 'trial';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'shops' AND column_name = 'subscription_started_at') THEN
+        ALTER TABLE shops ADD COLUMN subscription_started_at TIMESTAMPTZ DEFAULT NOW();
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'shops' AND column_name = 'subscription_expires_at') THEN
+        ALTER TABLE shops ADD COLUMN subscription_expires_at TIMESTAMPTZ;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'shops' AND column_name = 'trial_expires_at') THEN
+        ALTER TABLE shops ADD COLUMN trial_expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '7 days');
+    END IF;
+
+    -- Ensure unique constraint exists on user_id
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_shops_user_id') THEN
+        ALTER TABLE shops ADD CONSTRAINT uq_shops_user_id UNIQUE (user_id);
+    END IF;
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+    WHEN others THEN NULL;
 END $$;
 
 -- 3. Inventory Items Table
@@ -259,6 +287,7 @@ DECLARE
     v_phone TEXT;
     v_email TEXT;
     v_shop_id TEXT;
+    v_trial_expiry TIMESTAMPTZ;
 BEGIN
     v_shop_name := COALESCE(NULLIF(TRIM(NEW.raw_user_meta_data->>'business_name'), ''), 'My Shop');
     v_pan_number := COALESCE(NULLIF(TRIM(NEW.raw_user_meta_data->>'pan_number'), ''), '123456789');
@@ -266,6 +295,7 @@ BEGIN
     v_phone := COALESCE(NULLIF(TRIM(NEW.phone), ''), NULLIF(TRIM(NEW.raw_user_meta_data->>'phone'), ''));
     v_email := COALESCE(NULLIF(TRIM(NEW.email), ''), NULLIF(TRIM(NEW.raw_user_meta_data->>'email'), ''));
     v_shop_id := 'shop_' || substr(md5(random()::text || clock_timestamp()::text), 1, 10);
+    v_trial_expiry := NOW() + INTERVAL '7 days';
 
     IF NOT EXISTS (SELECT 1 FROM public.shops WHERE user_id = NEW.id) THEN
         INSERT INTO public.shops (
@@ -278,6 +308,11 @@ BEGIN
             phone,
             starting_bill_number,
             next_bill_number,
+            subscription_tier,
+            subscription_status,
+            subscription_started_at,
+            subscription_expires_at,
+            trial_expires_at,
             created_at,
             updated_at
         ) VALUES (
@@ -290,9 +325,15 @@ BEGIN
             v_phone,
             1,
             1,
+            'free',
+            'trial',
+            NOW(),
+            NULL,
+            v_trial_expiry,
             NOW(),
             NOW()
-        );
+        )
+        ON CONFLICT (user_id) DO NOTHING;
     END IF;
 
     RETURN NEW;

@@ -16,7 +16,6 @@ export interface Shop {
   subscription_started_at?: string;
   subscription_expires_at?: string | null;
   trial_expires_at?: string | null;
-  is_admin?: boolean;
 }
 
 export interface SubscriptionPayment {

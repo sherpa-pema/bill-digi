@@ -103,7 +103,6 @@ export const registerBusiness = async (params: RegisterParams): Promise<AuthResu
     const now = new Date().toISOString();
     const trialExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
     const shopId = 'shop_' + generateId();
-    const isAdmin = isUserAdmin(authData.user.email);
 
     const newShop: Shop = {
       id: shopId,
@@ -120,43 +119,73 @@ export const registerBusiness = async (params: RegisterParams): Promise<AuthResu
       subscription_started_at: now,
       subscription_expires_at: null,
       trial_expires_at: trialExpiry,
-      is_admin: isAdmin,
       created_at: now,
       updated_at: now
     };
 
     let insertedShop: Shop | null = null;
 
-    // If an authenticated session is active, upsert into shops under user_id = auth.uid()
+    // Check if an existing shop was already created (e.g. by DB trigger) or if we need to insert
     if (authData.session) {
-      const { data: dbShop, error: dbError } = await supabase
+      const { data: existingShop } = await supabase
         .from('shops')
-        .upsert({
-          id: newShop.id,
-          user_id: authData.user.id,
-          shop_name: newShop.shop_name,
-          pan_number: newShop.pan_number,
-          owner_name: newShop.owner_name || null,
-          email: newShop.email || null,
-          phone: newShop.phone || null,
-          starting_bill_number: newShop.starting_bill_number,
-          next_bill_number: newShop.next_bill_number,
-          subscription_tier: newShop.subscription_tier,
-          subscription_status: newShop.subscription_status,
-          subscription_started_at: newShop.subscription_started_at,
-          subscription_expires_at: newShop.subscription_expires_at,
-          trial_expires_at: newShop.trial_expires_at,
-          is_admin: newShop.is_admin,
-          created_at: newShop.created_at,
-          updated_at: newShop.updated_at
-        })
-        .select()
-        .single();
+        .select('*')
+        .eq('user_id', authData.user.id)
+        .maybeSingle();
 
-      if (dbError) {
-        console.warn('Shop database upsert warning:', dbError);
-      } else if (dbShop) {
-        insertedShop = dbShop as Shop;
+      if (existingShop) {
+        // Sync registration form details to the existing row created by the DB trigger
+        const { data: updatedShop, error: updateError } = await supabase
+          .from('shops')
+          .update({
+            shop_name: newShop.shop_name,
+            pan_number: newShop.pan_number,
+            owner_name: newShop.owner_name || null,
+            email: newShop.email || null,
+            phone: newShop.phone || null,
+            trial_expires_at: existingShop.trial_expires_at || trialExpiry,
+            updated_at: now
+          })
+          .eq('id', existingShop.id)
+          .select()
+          .single();
+
+        if (updateError) {
+          console.warn('Shop database update warning:', updateError);
+          insertedShop = existingShop as Shop;
+        } else if (updatedShop) {
+          insertedShop = updatedShop as Shop;
+        }
+      } else {
+        // No trigger-provisioned shop found; perform a single insert
+        const { data: dbShop, error: dbError } = await supabase
+          .from('shops')
+          .insert({
+            id: newShop.id,
+            user_id: authData.user.id,
+            shop_name: newShop.shop_name,
+            pan_number: newShop.pan_number,
+            owner_name: newShop.owner_name || null,
+            email: newShop.email || null,
+            phone: newShop.phone || null,
+            starting_bill_number: newShop.starting_bill_number,
+            next_bill_number: newShop.next_bill_number,
+            subscription_tier: newShop.subscription_tier,
+            subscription_status: newShop.subscription_status,
+            subscription_started_at: newShop.subscription_started_at,
+            subscription_expires_at: newShop.subscription_expires_at,
+            trial_expires_at: newShop.trial_expires_at,
+            created_at: newShop.created_at,
+            updated_at: newShop.updated_at
+          })
+          .select()
+          .single();
+
+        if (dbError) {
+          console.warn('Shop database insert warning:', dbError);
+        } else if (dbShop) {
+          insertedShop = dbShop as Shop;
+        }
       }
     }
 
@@ -222,6 +251,7 @@ export const loginBusiness = async (params: LoginParams): Promise<AuthResult> =>
       .from('shops')
       .select('*')
       .eq('user_id', authData.user.id)
+      .order('created_at', { ascending: true })
       .limit(1);
 
     if (!shopError && shopRows && shopRows.length > 0) {
@@ -233,7 +263,6 @@ export const loginBusiness = async (params: LoginParams): Promise<AuthResult> =>
         const newShopId = 'shop_' + generateId();
         const now = new Date().toISOString();
         const trialExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-        const isAdmin = isUserAdmin(authData.user.email);
         const defaultShop: Shop = {
           id: newShopId,
           user_id: authData.user.id,
@@ -249,7 +278,6 @@ export const loginBusiness = async (params: LoginParams): Promise<AuthResult> =>
           subscription_started_at: now,
           subscription_expires_at: null,
           trial_expires_at: trialExpiry,
-          is_admin: isAdmin,
           created_at: now,
           updated_at: now
         };
@@ -271,7 +299,6 @@ export const loginBusiness = async (params: LoginParams): Promise<AuthResult> =>
             subscription_started_at: defaultShop.subscription_started_at,
             subscription_expires_at: defaultShop.subscription_expires_at,
             trial_expires_at: defaultShop.trial_expires_at,
-            is_admin: defaultShop.is_admin,
             created_at: now,
             updated_at: now
           })

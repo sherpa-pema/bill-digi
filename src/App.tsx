@@ -3,7 +3,7 @@ import {
   Plus, Clock, Settings, Search, X, Hash, Receipt, 
   Trash2, Pencil, ShoppingBag, ArrowLeft, Download, Ban,
   Database, LogOut, WifiOff, Wifi, Loader2, Delete,
-  Sparkles, Crown, CheckCircle2, Copy, Check, ShieldCheck
+  Sparkles, Crown, CheckCircle2, Copy, Check
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { toBlob } from 'html-to-image';
@@ -72,7 +72,7 @@ export default function App() {
   const [items, setItems] = useState<Item[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
   const [authUser, setAuthUser] = useState<any>(null);
-  
+
   // Admin Route View State
   const [isAdminView, setIsAdminView] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -172,6 +172,13 @@ export default function App() {
       let activeShop = forcedShop || shop;
       const user = await getActiveUser();
       setAuthUser(user);
+
+      if (isUserAdmin(user)) {
+        setIsAdminView(true);
+        if (typeof window !== 'undefined' && !window.location.hash.includes('admin') && !window.location.pathname.startsWith('/admin')) {
+          window.location.hash = 'admin';
+        }
+      }
       
       if (!activeShop) {
         if (!user) {
@@ -193,14 +200,6 @@ export default function App() {
         }
         activeShop = loadedShop;
         setShop(activeShop);
-      }
-
-      // If the active authenticated user or loaded shop is an admin, navigate directly to Admin Dashboard
-      if (isUserAdmin(user) || isUserAdmin(activeShop)) {
-        setIsAdminView(true);
-        if (typeof window !== 'undefined' && !window.location.hash.includes('admin') && !window.location.pathname.startsWith('/admin')) {
-          window.location.hash = 'admin';
-        }
       }
 
       if (activeShop) {
@@ -847,8 +846,8 @@ export default function App() {
     );
   }
 
-  // Render Admin View if on /admin route or admin mode is active
-  if (isAdminView) {
+  // Render Admin View if on /admin route or admin mode is active and user is admin
+  if (isAdminView && isUserAdmin(authUser)) {
     return (
       <AdminPanel 
         currentUser={authUser} 
@@ -861,13 +860,6 @@ export default function App() {
             window.history.pushState(null, '', '/');
           }
         }} 
-        onAdminAuthSuccess={(user) => {
-          setAuthUser(user);
-          setIsAdminView(true);
-          if (typeof window !== 'undefined' && !window.location.hash.includes('admin')) {
-            window.location.hash = 'admin';
-          }
-        }}
         onSignOut={() => {
           setAuthUser(null);
           setShop(null);
@@ -1987,21 +1979,22 @@ export default function App() {
                   </>
                 )}
 
-                {/* Administrator Entry Link */}
-                <div className="mt-6 pt-4 border-t border-zinc-100 text-center">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsSetupMode(false);
-                      setIsAdminView(true);
-                      window.location.hash = 'admin';
-                    }}
-                    className="text-[11.5px] text-zinc-400 hover:text-zinc-700 font-medium transition inline-flex items-center gap-1.5 py-1"
-                  >
-                    <ShieldCheck className="w-3.5 h-3.5 text-zinc-400" />
-                    <span>Administrator Console (user@gmail.com)</span>
-                  </button>
-                </div>
+                {isUserAdmin(authUser) && (
+                  <div className="mt-4 pt-3 border-t border-zinc-100 text-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsSetupMode(false);
+                        setIsAdminView(true);
+                        window.location.hash = 'admin';
+                      }}
+                      className="text-[12px] text-amber-800 hover:text-amber-900 font-semibold transition inline-flex items-center gap-1.5 py-1.5 px-3 bg-amber-50 rounded-full border border-amber-200"
+                    >
+                      <Crown className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Open Admin Dashboard</span>
+                    </button>
+                  </div>
+                )}
                 
                 {!isEditingShop && (
                   <p className="mt-4 text-center text-[11px] text-zinc-400 leading-relaxed">

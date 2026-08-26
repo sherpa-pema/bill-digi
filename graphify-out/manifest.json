@@ -18,10 +18,10 @@
     "semantic_hash": "2e3b9483a53f4a90a000eaff3c5cec08"
   },
   "src/App.tsx": {
-    "mtime": 1787754352.8097901,
-    "seen": 1787755223.605332,
-    "ast_hash": "b894a3c042866b96d1851552dfc0e370",
-    "semantic_hash": "b894a3c042866b96d1851552dfc0e370"
+    "mtime": 1787756856.1585312,
+    "seen": 1787757302.377247,
+    "ast_hash": "56d66bfdbcacecd7c0feaab40e2d9834",
+    "semantic_hash": "56d66bfdbcacecd7c0feaab40e2d9834"
   },
   "src/components/AuthScreen.tsx": {
     "mtime": 1787754274.7207868,
@@ -42,14 +42,14 @@
     "semantic_hash": "0c3399df69b6e6fb2a48357797ef911b"
   },
   "src/lib/authService.ts": {
-    "mtime": 1787754261.349266,
-    "seen": 1787755223.605338,
-    "ast_hash": "921885c4184c89cf33b1df0c5a4d6263",
-    "semantic_hash": "921885c4184c89cf33b1df0c5a4d6263"
+    "mtime": 1787756699.595848,
+    "seen": 1787757302.377252,
+    "ast_hash": "8399fb928607e023e24af43cadf170dd",
+    "semantic_hash": "8399fb928607e023e24af43cadf170dd"
   },
   "src/lib/dbService.ts": {
-    "mtime": 1787752795.223721,
-    "seen": 1787755223.605338,
+    "mtime": 1787756714.3726218,
+    "seen": 1787757302.377252,
     "ast_hash": "29952abaaf724e2bfa05840e6ca97898",
     "semantic_hash": "29952abaaf724e2bfa05840e6ca97898"
   },
@@ -78,10 +78,10 @@
     "semantic_hash": "ac0263a57edb11fdb8279bc837acff42"
   },
   "src/types/index.ts": {
-    "mtime": 1787752754.5100265,
-    "seen": 1787755223.6053429,
-    "ast_hash": "0193fcd28b92ec03dd7e3df7d35294f4",
-    "semantic_hash": "0193fcd28b92ec03dd7e3df7d35294f4"
+    "mtime": 1787756692.7965927,
+    "seen": 1787757302.3772569,
+    "ast_hash": "31a119c566fbf538af70d5042d372718",
+    "semantic_hash": "31a119c566fbf538af70d5042d372718"
   },
   "src/vite-env.d.ts": {
     "mtime": 1787655792.9089084,
@@ -90,10 +90,10 @@
     "semantic_hash": "11ecfcbd6f7344db8ce9e9ae76e70a6c"
   },
   "supabase/schema.sql": {
-    "mtime": 1787727931.3549898,
-    "seen": 1787735066.129791,
-    "ast_hash": "2aee1a98963ed0a9fc1b67074afbcd52",
-    "semantic_hash": "2aee1a98963ed0a9fc1b67074afbcd52"
+    "mtime": 1787756314.6434562,
+    "seen": 1787757302.3772612,
+    "ast_hash": "b081c6a20b6db48ca7c2e185afdc9711",
+    "semantic_hash": "b081c6a20b6db48ca7c2e185afdc9711"
   },
   "tsconfig.app.json": {
     "mtime": 1787667375.7575874,
@@ -216,15 +216,21 @@
     "semantic_hash": "9960a24288958394ac50e57ff638b036"
   },
   "src/components/AdminPanel.tsx": {
-    "mtime": 1787754297.6804225,
-    "seen": 1787755223.605333,
-    "ast_hash": "3ae27f63afdffc0de80a7388e853e6d5",
-    "semantic_hash": "3ae27f63afdffc0de80a7388e853e6d5"
+    "mtime": 1787756730.0144615,
+    "seen": 1787757302.377248,
+    "ast_hash": "ed6451560cf81db122d76eb778f89c9e",
+    "semantic_hash": "ed6451560cf81db122d76eb778f89c9e"
   },
   "supabase/migrations/20260826_subscriptions_and_admin.sql": {
     "mtime": 1787752746.4476335,
     "seen": 1787755223.605345,
     "ast_hash": "87fc8e7d47228bb292c890c13bfaa771",
     "semantic_hash": "87fc8e7d47228bb292c890c13bfaa771"
+  },
+  "supabase/migrations/20260826_fix_duplicate_shops.sql": {
+    "mtime": 1787756296.4642196,
+    "seen": 1787757302.377259,
+    "ast_hash": "cfd6789a39485f421a745ac86006a32f",
+    "semantic_hash": "cfd6789a39485f421a745ac86006a32f"
   }
 }
