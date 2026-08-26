@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS subscription_payments (
   duration_days integer NOT NULL DEFAULT 30,
   payment_method text DEFAULT 'bank_qr',
   transaction_ref text,
-  activated_by text DEFAULT 'user@gmail.com',
+  activated_by text DEFAULT 'admin',
   notes text,
   created_at timestamptz DEFAULT now()
 );
@@ -39,7 +39,29 @@ CREATE INDEX IF NOT EXISTS idx_subscription_payments_created ON subscription_pay
 -- 4. Enable Row Level Security (RLS)
 ALTER TABLE subscription_payments ENABLE ROW LEVEL SECURITY;
 
--- 5. RLS Policies: Allow default admin (user@gmail.com) full access
+-- 5. Helper function for admin check
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  SELECT COALESCE(
+    (auth.jwt() -> 'app_metadata' ->> 'is_admin')::boolean,
+    (auth.jwt() -> 'user_metadata' ->> 'is_admin')::boolean,
+    EXISTS (
+      SELECT 1 FROM public.shops 
+      WHERE user_id = auth.uid() 
+        AND is_admin = true
+    ),
+    false
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
+
+-- 6. RLS Policies: Database-driven RBAC
 DO $$
 BEGIN
   -- Policy for admin on shops
@@ -50,7 +72,7 @@ BEGIN
       ON shops
       FOR ALL
       USING (
-        auth.jwt() ->> 'email' = 'user@gmail.com' OR
+        public.is_admin() OR
         auth.uid() = user_id
       );
   END IF;
@@ -63,7 +85,12 @@ BEGIN
       ON subscription_payments
       FOR ALL
       USING (
-        auth.jwt() ->> 'email' = 'user@gmail.com'
+        public.is_admin() OR
+        EXISTS (
+          SELECT 1 FROM public.shops 
+          WHERE public.shops.id = subscription_payments.shop_id 
+            AND public.shops.user_id = auth.uid()
+        )
       );
   END IF;
 END
