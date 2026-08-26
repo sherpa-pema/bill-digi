@@ -22,7 +22,14 @@ import sanoBillLogo from '../assets/sano-bill-logo.png';
 interface AuthScreenProps {
   initialMode?: 'login' | 'register';
   onClose?: () => void;
-  onSuccess?: (authData: { mode: 'login' | 'register'; data: Record<string, string>; shop?: Shop; items?: Item[]; bills?: Bill[] }) => void;
+  onSuccess?: (authData: { 
+    mode: 'login' | 'register'; 
+    data: Record<string, string>; 
+    user?: any;
+    shop?: Shop; 
+    items?: Item[]; 
+    bills?: Bill[];
+  }) => void;
 }
 
 export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }: AuthScreenProps) {
@@ -86,6 +93,7 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
             password: loginPassword,
             rememberMe: String(rememberMe)
           },
+          user: result.user,
           shop: result.shop,
           items: result.items,
           bills: result.bills
@@ -129,6 +137,7 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
             identifier: registerIdentifier.trim(),
             password: registerPassword
           },
+          user: result.user,
           shop: result.shop,
           items: result.items,
           bills: result.bills

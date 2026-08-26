@@ -10,6 +10,32 @@ export interface Shop {
   next_bill_number: number;
   created_at: string;
   updated_at: string;
+  // Subscription fields
+  subscription_tier?: 'free' | 'pro';
+  subscription_status?: 'active' | 'expired' | 'trial';
+  subscription_started_at?: string;
+  subscription_expires_at?: string | null;
+  trial_expires_at?: string | null;
+  is_admin?: boolean;
+}
+
+export interface SubscriptionPayment {
+  id: string;
+  shop_id: string;
+  shop_name: string;
+  pan_number: string;
+  amount: number;
+  duration_days: number;
+  payment_method: string;
+  transaction_ref?: string;
+  activated_by?: string;
+  notes?: string;
+  created_at: string;
+}
+
+export interface ShopAdminView extends Shop {
+  bill_count?: number;
+  total_revenue?: number;
 }
 
 export interface Item {

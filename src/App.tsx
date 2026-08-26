@@ -3,7 +3,7 @@ import {
   Plus, Clock, Settings, Search, X, Hash, Receipt, 
   Trash2, Pencil, ShoppingBag, ArrowLeft, Download, Ban,
   Database, LogOut, WifiOff, Wifi, Loader2, Delete,
-  Sparkles, Crown, CheckCircle2, Copy, Check
+  Sparkles, Crown, CheckCircle2, Copy, Check, ShieldCheck
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { toBlob } from 'html-to-image';
@@ -19,10 +19,12 @@ import {
   updateItem, 
   deleteItem, 
   fetchBills, 
-  generateBill 
+  generateBill,
+  getSubscriptionInfo
 } from './lib/dbService';
-import { signOutBusiness, getActiveUser } from './lib/authService';
+import { signOutBusiness, getActiveUser, isUserAdmin } from './lib/authService';
 import AuthScreen from './components/AuthScreen';
+import AdminPanel from './components/AdminPanel';
 import { LumaSpin } from '@/components/ui/luma-spin';
 import sanoBillLogo from './assets/sano-bill-logo.png';
 
@@ -69,6 +71,32 @@ export default function App() {
   const [shop, setShop] = useState<Shop | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
+  const [authUser, setAuthUser] = useState<any>(null);
+  
+  // Admin Route View State
+  const [isAdminView, setIsAdminView] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.location.pathname.startsWith('/admin') || window.location.hash.includes('admin');
+    }
+    return false;
+  });
+
+  // Subscription Details
+  const subscriptionInfo = useMemo(() => getSubscriptionInfo(shop), [shop]);
+
+  // Route Listener
+  useEffect(() => {
+    const handleLocationChange = () => {
+      const onAdmin = window.location.pathname.startsWith('/admin') || window.location.hash.includes('admin');
+      setIsAdminView(onAdmin);
+    };
+    window.addEventListener('popstate', handleLocationChange);
+    window.addEventListener('hashchange', handleLocationChange);
+    return () => {
+      window.removeEventListener('popstate', handleLocationChange);
+      window.removeEventListener('hashchange', handleLocationChange);
+    };
+  }, []);
   
   // UI State
   const [activeTab, setActiveTab] = useState<'newBill' | 'history'>('newBill');
@@ -142,9 +170,10 @@ export default function App() {
     setLoadError(null);
     try {
       let activeShop = forcedShop || shop;
+      const user = await getActiveUser();
+      setAuthUser(user);
       
       if (!activeShop) {
-        const user = await getActiveUser();
         if (!user) {
           // If unauthenticated / no user_id, navigate to login screen and clear state
           setShop(null);
@@ -164,6 +193,14 @@ export default function App() {
         }
         activeShop = loadedShop;
         setShop(activeShop);
+      }
+
+      // If the active authenticated user or loaded shop is an admin, navigate directly to Admin Dashboard
+      if (isUserAdmin(user) || isUserAdmin(activeShop)) {
+        setIsAdminView(true);
+        if (typeof window !== 'undefined' && !window.location.hash.includes('admin') && !window.location.pathname.startsWith('/admin')) {
+          window.location.hash = 'admin';
+        }
       }
 
       if (activeShop) {
@@ -305,10 +342,14 @@ export default function App() {
   const handleAuthSuccess = (authData: { 
     mode: 'login' | 'register'; 
     data: Record<string, string>; 
+    user?: any;
     shop?: Shop;
     items?: Item[];
     bills?: Bill[];
   }) => {
+    if (authData.user) {
+      setAuthUser(authData.user);
+    }
     if (authData.shop) {
       setShop(authData.shop);
       setSetupShopName(authData.shop.shop_name);
@@ -317,6 +358,25 @@ export default function App() {
     }
     if (authData.items) setItems(authData.items);
     if (authData.bills) setBills(authData.bills);
+
+    const isAdmin = isUserAdmin(authData.user) || 
+                    isUserAdmin(authData.shop) || 
+                    isUserAdmin(authData.data?.identifier);
+
+    if (isAdmin) {
+      setIsAdminView(true);
+      if (typeof window !== 'undefined') {
+        window.location.hash = 'admin';
+      }
+    } else {
+      setIsAdminView(false);
+      if (typeof window !== 'undefined' && (window.location.hash.includes('admin') || window.location.pathname.startsWith('/admin'))) {
+        window.location.hash = '';
+        if (window.location.pathname.startsWith('/admin')) {
+          window.history.pushState(null, '', '/');
+        }
+      }
+    }
 
     setShowAuthScreen(false);
     loadCloudData(authData.shop);
@@ -489,6 +549,12 @@ export default function App() {
   const handleGenerateBill = async () => {
     if (!shop || isGeneratingBill) return;
     
+    // Subscription & 7-Day Trial Guard
+    if (subscriptionInfo.isExpired) {
+      setShowUpgradeModal(true);
+      return;
+    }
+
     if (!checkIsOnline()) {
       alert('Internet connection required. DigiBill does not work offline — bills must be written directly to Supabase.');
       return;
@@ -781,6 +847,50 @@ export default function App() {
     );
   }
 
+  // Render Admin View if on /admin route or admin mode is active
+  if (isAdminView) {
+    return (
+      <AdminPanel 
+        currentUser={authUser} 
+        onBackToPOS={() => {
+          setIsAdminView(false);
+          if (window.location.hash.includes('admin')) {
+            window.location.hash = '';
+          }
+          if (window.location.pathname.startsWith('/admin')) {
+            window.history.pushState(null, '', '/');
+          }
+        }} 
+        onAdminAuthSuccess={(user) => {
+          setAuthUser(user);
+          setIsAdminView(true);
+          if (typeof window !== 'undefined' && !window.location.hash.includes('admin')) {
+            window.location.hash = 'admin';
+          }
+        }}
+        onSignOut={() => {
+          setAuthUser(null);
+          setShop(null);
+          setItems([]);
+          setBills([]);
+          setBasket([]);
+          setSimpleAmount('0');
+          setIsAdminView(false);
+          if (typeof window !== 'undefined') {
+            window.location.hash = '';
+            if (window.location.pathname.startsWith('/admin')) {
+              window.history.pushState(null, '', '/');
+            }
+          }
+          setIsSetupMode(false);
+          setIsEditingShop(false);
+          setAuthInitialMode('login');
+          setShowAuthScreen(true);
+        }}
+      />
+    );
+  }
+
   // Render Auth Screen directly when unauthenticated
   if (showAuthScreen && !shop) {
     return (
@@ -838,13 +948,43 @@ export default function App() {
             {activeTab === 'newBill' ? (
               <div className="flex items-start justify-between">
                 <div>
-                  <h1 className="text-[13px] font-semibold tracking-[0.14em] uppercase text-zinc-500">Sano Bill</h1>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-[13px] font-semibold tracking-[0.14em] uppercase text-zinc-500">Sano Bill</h1>
+                    {subscriptionInfo.isPro ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300/60 flex items-center gap-1">
+                        <Sparkles className="w-2.5 h-2.5 text-amber-600" /> PRO
+                      </span>
+                    ) : subscriptionInfo.isTrial ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        Trial ({subscriptionInfo.daysLeft}d)
+                      </span>
+                    ) : (
+                      <button 
+                        type="button" 
+                        onClick={() => setShowUpgradeModal(true)} 
+                        className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 border border-red-200 animate-pulse hover:bg-red-200 cursor-pointer"
+                      >
+                        Trial Expired
+                      </button>
+                    )}
+                  </div>
                   <p className="serif text-[22px] leading-none mt-1 tracking-tight">{shop?.shop_name || 'My Shop'}</p>
                   <div className="mt-2 inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-zinc-900 text-white text-[11px] font-medium">
                     <Hash className="w-3 h-3" /> Bill No: <span className="font-bold">{shop?.next_bill_number ?? '-'}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5">
+                  {isUserAdmin(authUser) && (
+                    <button 
+                      type="button" 
+                      onClick={() => { setIsAdminView(true); window.location.hash = 'admin'; }} 
+                      className="min-h-[44px] px-3 rounded-full bg-amber-50 border border-amber-200 text-amber-900 text-[11.5px] font-bold flex items-center gap-1 hover:bg-amber-100 active:scale-95 transition cursor-pointer"
+                      title="Open Admin Console"
+                    >
+                      <Crown className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Admin</span>
+                    </button>
+                  )}
                   <button 
                     onClick={openShopSettings} 
                     className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-zinc-100 hover:bg-zinc-200/80 flex items-center justify-center active:scale-95 transition" 
@@ -856,8 +996,21 @@ export default function App() {
               </div>
             ) : (
               <div className="flex items-center justify-between">
-                <h1 className="serif text-[26px] tracking-tight">History</h1>
+                <div>
+                  <h1 className="serif text-[26px] tracking-tight">History</h1>
+                </div>
                 <div className="flex items-center gap-1.5">
+                  {isUserAdmin(authUser) && (
+                    <button 
+                      type="button" 
+                      onClick={() => { setIsAdminView(true); window.location.hash = 'admin'; }} 
+                      className="min-h-[44px] px-3 rounded-full bg-amber-50 border border-amber-200 text-amber-900 text-[11.5px] font-bold flex items-center gap-1 hover:bg-amber-100 active:scale-95 transition cursor-pointer"
+                      title="Open Admin Console"
+                    >
+                      <Crown className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Admin</span>
+                    </button>
+                  )}
                   <button 
                     onClick={openShopSettings} 
                     className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-zinc-100 hover:bg-zinc-200/80 flex items-center justify-center active:scale-95 transition" 
@@ -1742,29 +1895,44 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Business Account / Pro Upgrade Card */}
+                {/* Subscription Plan Card */}
                 <div className="rounded-[24px] bg-white border border-zinc-100 shadow-[0_12px_40px_rgba(0,0,0,0.06)] p-6 mb-6">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full bg-amber-500/10 text-amber-600 flex items-center justify-center">
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center ${subscriptionInfo.isPro ? 'bg-amber-500 text-white' : 'bg-amber-500/10 text-amber-600'}`}>
                         <Crown className="w-4 h-4" />
                       </div>
-                      <h3 className="text-[14px] font-semibold text-zinc-800">Business Account</h3>
+                      <h3 className="text-[14px] font-semibold text-zinc-800">Subscription Plan</h3>
                     </div>
-                    <span className="text-[10.5px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200/60 flex items-center gap-1">
-                      <Sparkles className="w-3 h-3 text-amber-600" /> Pro Plan
+                    <span className={`text-[10.5px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 ${
+                      subscriptionInfo.isPro 
+                        ? 'bg-amber-400 text-zinc-950 shadow-sm' 
+                        : subscriptionInfo.isTrial 
+                        ? 'bg-emerald-100 text-emerald-900 border border-emerald-300/60' 
+                        : 'bg-red-100 text-red-800 border border-red-200'
+                    }`}>
+                      {subscriptionInfo.isPro && <Sparkles className="w-3 h-3 text-zinc-950" />}
+                      {subscriptionInfo.badgeText}
                     </span>
                   </div>
+
                   <p className="text-[12px] text-zinc-600 mb-4 leading-relaxed">
-                    Pro subscription offers <strong className="text-zinc-900 font-semibold">unlimited bill generation</strong>, fast cloud sync, and priority business tools.
+                    {subscriptionInfo.isPro ? (
+                      <span>Your <strong className="text-zinc-900 font-semibold">DigiBill Pro Plan</strong> is active with unlimited bill generation. {subscriptionInfo.message}</span>
+                    ) : subscriptionInfo.isTrial ? (
+                      <span>You are on the <strong className="text-zinc-900 font-semibold">7-Day Free Trial</strong> ({subscriptionInfo.daysLeft} days remaining). Upgrade to Pro for unlimited uninterrupted billing.</span>
+                    ) : (
+                      <span>Your 7-day trial has <strong className="text-red-600 font-semibold">expired</strong>. Upgrade to DigiBill Pro for Rs 500/mo to resume bill generation.</span>
+                    )}
                   </p>
+
                   <button 
                     type="button" 
                     onClick={() => setShowUpgradeModal(true)}
                     className="w-full min-h-[48px] h-12 rounded-[14px] bg-zinc-950 text-white text-[13.5px] font-semibold flex items-center justify-center gap-2 shadow-sm hover:bg-zinc-800 active:scale-95 transition cursor-pointer"
                   >
                     <Sparkles className="w-4 h-4 text-amber-400" />
-                    <span>Upgrade to Pro — Rs 500/mo</span>
+                    <span>{subscriptionInfo.isPro ? 'Renew / Extend Pro — Rs 500/mo' : 'Upgrade to Pro — Rs 500/mo'}</span>
                   </button>
                 </div>
 
@@ -1794,11 +1962,19 @@ export default function App() {
                       type="button" 
                       onClick={async () => {
                         await signOutBusiness();
+                        setAuthUser(null);
                         setShop(null);
                         setItems([]);
                         setBills([]);
                         setBasket([]);
                         setSimpleAmount('0');
+                        setIsAdminView(false);
+                        if (typeof window !== 'undefined') {
+                          window.location.hash = '';
+                          if (window.location.pathname.startsWith('/admin')) {
+                            window.history.pushState(null, '', '/');
+                          }
+                        }
                         setIsSetupMode(false);
                         setIsEditingShop(false);
                         setAuthInitialMode('login');
@@ -1810,9 +1986,25 @@ export default function App() {
                     </button>
                   </>
                 )}
+
+                {/* Administrator Entry Link */}
+                <div className="mt-6 pt-4 border-t border-zinc-100 text-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSetupMode(false);
+                      setIsAdminView(true);
+                      window.location.hash = 'admin';
+                    }}
+                    className="text-[11.5px] text-zinc-400 hover:text-zinc-700 font-medium transition inline-flex items-center gap-1.5 py-1"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Administrator Console (user@gmail.com)</span>
+                  </button>
+                </div>
                 
                 {!isEditingShop && (
-                  <p className="mt-6 text-center text-[11px] text-zinc-400 leading-relaxed">
+                  <p className="mt-4 text-center text-[11px] text-zinc-400 leading-relaxed">
                     Bill numbers are sequential & never reset. PAN is masked on printed bills.<br/>
                     Cloud Database • Supabase Realtime • Live
                   </p>
