@@ -5,7 +5,6 @@ import {
   Crown, 
   Sparkles, 
   Clock, 
-  ArrowLeft, 
   Check, 
   X, 
   RefreshCw, 
@@ -25,6 +24,7 @@ import {
   getSubscriptionInfo
 } from '../lib/dbService';
 import { signOutBusiness } from '../lib/authService';
+import sanoBillLogo from '../assets/sano-bill-logo.png';
 
 interface AdminPanelProps {
   currentUser: any;
@@ -32,7 +32,7 @@ interface AdminPanelProps {
   onSignOut?: () => void;
 }
 
-export default function AdminPanel({ currentUser, onBackToPOS, onSignOut }: AdminPanelProps) {
+export default function AdminPanel({ currentUser, onSignOut }: AdminPanelProps) {
   // Dashboard Data State
   const [shops, setShops] = useState<ShopAdminView[]>([]);
   const [payments, setPayments] = useState<SubscriptionPayment[]>([]);
@@ -180,42 +180,34 @@ export default function AdminPanel({ currentUser, onBackToPOS, onSignOut }: Admi
   return (
     <div className="min-h-screen bg-[#f5f5f7] text-zinc-900 font-sans pb-12">
       {/* Top Navbar */}
-      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-zinc-200/80 px-4 sm:px-8 py-3.5 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {onBackToPOS && (
-            <button 
-              type="button" 
-              onClick={onBackToPOS}
-              className="min-h-[40px] px-3 rounded-[12px] bg-zinc-100 text-zinc-700 text-[12.5px] font-medium hover:bg-zinc-200 transition flex items-center gap-1.5 active:scale-95 cursor-pointer mr-1"
-              title="Return to POS Billing Screen"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">POS Screen</span>
-            </button>
-          )}
-          <div className="w-9 h-9 rounded-[12px] bg-zinc-950 text-white flex items-center justify-center shadow-sm">
-            <Crown className="w-4.5 h-4.5 text-amber-400" />
+      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-zinc-200/80 px-4 sm:px-8 py-3.5 flex items-center justify-between gap-3">
+        {/* Left: Brand Identity */}
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-[12px] overflow-hidden flex items-center justify-center shrink-0 shadow-sm bg-white border border-zinc-200/60 p-0.5">
+            <img 
+              src={sanoBillLogo} 
+              alt="Sano Bill" 
+              className="w-full h-full object-contain"
+            />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="serif text-[20px] font-bold leading-none text-zinc-900">DigiBill Admin</h1>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300/50">
-                PRO MANAGER
-              </span>
-            </div>
-            <p className="text-[11px] text-zinc-500 font-medium mt-0.5">{currentUser?.email || 'user@gmail.com'}</p>
+          <div className="min-w-0">
+            <h1 className="serif text-[18px] sm:text-[20px] font-bold leading-none text-zinc-900 truncate">Sano Bill Admin</h1>
+            <p className="text-[11px] text-zinc-500 font-medium mt-0.5 truncate max-w-[150px] sm:max-w-[240px] md:max-w-none">
+              {currentUser?.email || 'user@gmail.com'}
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Right: Actions Cluster */}
+        <div className="flex items-center gap-2 shrink-0">
           <button 
             type="button" 
             onClick={loadAdminData} 
             disabled={isLoading}
-            className="min-h-[40px] px-3 rounded-[12px] bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-[12px] font-medium flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+            className="h-10 min-h-[40px] px-3 rounded-[12px] bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-[12px] font-medium flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
             title="Refresh database"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 shrink-0 ${isLoading ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">Refresh</span>
           </button>
 
@@ -230,10 +222,11 @@ export default function AdminPanel({ currentUser, onBackToPOS, onSignOut }: Admi
                 window.location.reload();
               }
             }}
-            className="min-w-[40px] min-h-[40px] w-10 h-10 rounded-[12px] bg-red-50 text-red-600 hover:bg-red-100 flex items-center justify-center transition active:scale-95 cursor-pointer"
+            className="h-10 min-h-[40px] px-3 rounded-[12px] bg-red-50 text-red-600 hover:bg-red-100 flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
             title="Sign out"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="w-4 h-4 shrink-0" />
+            <span className="hidden sm:inline text-[12px] font-medium">Sign Out</span>
           </button>
         </div>
       </header>
@@ -505,7 +498,7 @@ export default function AdminPanel({ currentUser, onBackToPOS, onSignOut }: Admi
                               type="button"
                               onClick={() => {
                                 const rawPhone = shop.phone || '';
-                                const msg = `Namaste ${shop.owner_name || shop.shop_name}, this is DigiBill Support regarding your POS subscription.`;
+                                const msg = `Namaste ${shop.owner_name || shop.shop_name}, this is Sano Bill Support regarding your POS subscription.`;
                                 window.open(`https://wa.me/${rawPhone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
                               }}
                               className="px-2.5 min-h-[32px] rounded-[8px] bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366]/20 text-[11px] font-semibold flex items-center gap-1 transition"
