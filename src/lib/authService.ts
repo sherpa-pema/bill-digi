@@ -25,6 +25,21 @@ export interface AuthResult {
   bills?: Bill[];
 }
 
+export const ADMIN_EMAILS = ['user@gmail.com'];
+
+export const isUserAdmin = (userOrEmail?: string | { email?: string; is_admin?: boolean; user_metadata?: { email?: string } } | null): boolean => {
+  if (!userOrEmail) return false;
+  if (typeof userOrEmail === 'string') {
+    const cleanEmail = userOrEmail.toLowerCase().trim();
+    return ADMIN_EMAILS.some(adminEmail => adminEmail.toLowerCase().trim() === cleanEmail);
+  }
+  if (userOrEmail.is_admin === true) return true;
+  const email = userOrEmail.email || userOrEmail.user_metadata?.email;
+  if (!email) return false;
+  const cleanEmail = email.toLowerCase().trim();
+  return ADMIN_EMAILS.some(adminEmail => adminEmail.toLowerCase().trim() === cleanEmail);
+};
+
 /**
  * Register a new business with Supabase Auth & save to the shops table directly in Supabase
  */
@@ -86,7 +101,9 @@ export const registerBusiness = async (params: RegisterParams): Promise<AuthResu
     }
 
     const now = new Date().toISOString();
+    const trialExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
     const shopId = 'shop_' + generateId();
+    const isAdmin = isUserAdmin(authData.user.email);
 
     const newShop: Shop = {
       id: shopId,
@@ -98,6 +115,12 @@ export const registerBusiness = async (params: RegisterParams): Promise<AuthResu
       phone: !isEmail ? cleanIdentifier : undefined,
       starting_bill_number: 1,
       next_bill_number: 1,
+      subscription_tier: 'free',
+      subscription_status: 'trial',
+      subscription_started_at: now,
+      subscription_expires_at: null,
+      trial_expires_at: trialExpiry,
+      is_admin: isAdmin,
       created_at: now,
       updated_at: now
     };
@@ -118,6 +141,12 @@ export const registerBusiness = async (params: RegisterParams): Promise<AuthResu
           phone: newShop.phone || null,
           starting_bill_number: newShop.starting_bill_number,
           next_bill_number: newShop.next_bill_number,
+          subscription_tier: newShop.subscription_tier,
+          subscription_status: newShop.subscription_status,
+          subscription_started_at: newShop.subscription_started_at,
+          subscription_expires_at: newShop.subscription_expires_at,
+          trial_expires_at: newShop.trial_expires_at,
+          is_admin: newShop.is_admin,
           created_at: newShop.created_at,
           updated_at: newShop.updated_at
         })
@@ -203,6 +232,8 @@ export const loginBusiness = async (params: LoginParams): Promise<AuthResult> =>
         const meta = authData.user.user_metadata || {};
         const newShopId = 'shop_' + generateId();
         const now = new Date().toISOString();
+        const trialExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+        const isAdmin = isUserAdmin(authData.user.email);
         const defaultShop: Shop = {
           id: newShopId,
           user_id: authData.user.id,
@@ -213,6 +244,12 @@ export const loginBusiness = async (params: LoginParams): Promise<AuthResult> =>
           phone: authData.user.phone || (!isEmail ? cleanIdentifier : undefined),
           starting_bill_number: 1,
           next_bill_number: 1,
+          subscription_tier: 'free',
+          subscription_status: 'trial',
+          subscription_started_at: now,
+          subscription_expires_at: null,
+          trial_expires_at: trialExpiry,
+          is_admin: isAdmin,
           created_at: now,
           updated_at: now
         };
@@ -229,6 +266,12 @@ export const loginBusiness = async (params: LoginParams): Promise<AuthResult> =>
             phone: defaultShop.phone || null,
             starting_bill_number: 1,
             next_bill_number: 1,
+            subscription_tier: defaultShop.subscription_tier,
+            subscription_status: defaultShop.subscription_status,
+            subscription_started_at: defaultShop.subscription_started_at,
+            subscription_expires_at: defaultShop.subscription_expires_at,
+            trial_expires_at: defaultShop.trial_expires_at,
+            is_admin: defaultShop.is_admin,
             created_at: now,
             updated_at: now
           })
