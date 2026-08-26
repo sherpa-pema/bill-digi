@@ -505,3 +505,67 @@ BEGIN
         WHEN undefined_object THEN NULL;
     END;
 END $$;
+
+-- 10. Admin Shops Overview & Aggregated Bill Summary Function
+CREATE OR REPLACE FUNCTION public.get_admin_shops_summary()
+RETURNS TABLE (
+    id TEXT,
+    user_id UUID,
+    shop_name TEXT,
+    pan_number TEXT,
+    owner_name TEXT,
+    email TEXT,
+    phone TEXT,
+    starting_bill_number BIGINT,
+    next_bill_number BIGINT,
+    created_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ,
+    subscription_tier TEXT,
+    subscription_status TEXT,
+    subscription_started_at TIMESTAMPTZ,
+    subscription_expires_at TIMESTAMPTZ,
+    trial_expires_at TIMESTAMPTZ,
+    is_admin BOOLEAN,
+    bill_count BIGINT,
+    total_revenue NUMERIC
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+BEGIN
+    IF NOT public.is_admin() THEN
+        RAISE EXCEPTION 'Unauthorized: Only administrators can view the cross-tenant shop summary.';
+    END IF;
+
+    RETURN QUERY
+    SELECT 
+        s.id,
+        s.user_id,
+        s.shop_name,
+        s.pan_number,
+        s.owner_name,
+        s.email,
+        s.phone,
+        COALESCE(s.starting_bill_number, 1)::BIGINT,
+        COALESCE(s.next_bill_number, 1)::BIGINT,
+        s.created_at,
+        s.updated_at,
+        COALESCE(s.subscription_tier, 'free')::TEXT,
+        COALESCE(s.subscription_status, 'trial')::TEXT,
+        s.subscription_started_at,
+        s.subscription_expires_at,
+        s.trial_expires_at,
+        COALESCE(s.is_admin, false),
+        COALESCE(COUNT(b.id), 0)::BIGINT AS bill_count,
+        COALESCE(SUM(b.total_amount), 0)::NUMERIC AS total_revenue
+    FROM public.shops s
+    LEFT JOIN public.bills b ON b.shop_id = s.id
+    GROUP BY s.id
+    ORDER BY s.created_at DESC;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_admin_shops_summary() TO authenticated;
+
