@@ -1,11 +1,13 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { 
   Plus, Clock, Settings, Search, X, Hash, Receipt, 
-  Trash2, Pencil, ShoppingBag, ArrowLeft, MessageSquare, Ban,
-  RefreshCw, Database, User, LogOut, WifiOff, Wifi, Loader2, Delete
+  Trash2, Pencil, ShoppingBag, ArrowLeft, Download, Ban,
+  Database, LogOut, WifiOff, Wifi, Loader2, Delete,
+  Sparkles, Crown, CheckCircle2, Copy, Check
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
-import type { Shop, Item, Bill, BasketItem, SyncConfig } from './types';
+import { toBlob } from 'html-to-image';
+import type { Shop, Item, Bill, BasketItem } from './types';
 import { getItem, setItem, STORAGE_KEYS, generateId } from './lib/storage';
 import { 
   checkIsOnline, 
@@ -100,12 +102,16 @@ export default function App() {
   const [isGeneratingBill, setIsGeneratingBill] = useState(false);
   const [isSavingItem, setIsSavingItem] = useState(false);
   const [isSavingSetup, setIsSavingSetup] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isDownloadingBill, setIsDownloadingBill] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   
   // Generated Bill State
   const [generatedBill, setGeneratedBill] = useState<Bill | null>(null);
   const [showQr, setShowQr] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [copiedBankInfo, setCopiedBankInfo] = useState(false);
+  const generatedReceiptRef = useRef<HTMLDivElement>(null);
+  const historyReceiptRef = useRef<HTMLDivElement>(null);
   
   // History State
   const [historySearch, setHistorySearch] = useState('');
@@ -121,8 +127,6 @@ export default function App() {
   const [setupShopName, setSetupShopName] = useState('');
   const [setupPanNumber, setSetupPanNumber] = useState('');
   const [setupStartingBill, setSetupStartingBill] = useState('1');
-  const [setupSupabaseUrl, setSetupSupabaseUrl] = useState('');
-  const [setupSupabaseKey, setSetupSupabaseKey] = useState('');
   const [setupVatEnabled, setSetupVatEnabled] = useState(false);
   const [setupDiscountEnabled, setSetupDiscountEnabled] = useState(false);
 
@@ -181,7 +185,6 @@ export default function App() {
       setLoadError(err.message || 'Failed to load data from Supabase cloud.');
     } finally {
       setIsLoadingData(false);
-      setIsRefreshing(false);
     }
   }, [shop]);
 
@@ -221,11 +224,6 @@ export default function App() {
       setSetupPanNumber(shop.pan_number);
       setSetupStartingBill(String(shop.starting_bill_number));
     }
-    const syncConfig = getItem<SyncConfig>(STORAGE_KEYS.SYNC_CONFIG);
-    if (syncConfig) {
-      setSetupSupabaseUrl(syncConfig.supabaseUrl);
-      setSetupSupabaseKey(syncConfig.supabaseAnonKey);
-    }
     setSetupVatEnabled(isVatEnabled);
     setSetupDiscountEnabled(isDiscountEnabled);
     setIsEditingShop(true);
@@ -262,13 +260,6 @@ export default function App() {
 
     setIsSavingSetup(true);
     try {
-      if (setupSupabaseUrl && setupSupabaseKey) {
-        setItem(STORAGE_KEYS.SYNC_CONFIG, {
-          supabaseUrl: setupSupabaseUrl.trim(),
-          supabaseAnonKey: setupSupabaseKey.trim()
-        });
-      }
-
       setItem(STORAGE_KEYS.VAT_ENABLED, setupVatEnabled);
       setItem(STORAGE_KEYS.DISCOUNT_ENABLED, setupDiscountEnabled);
       setIsVatEnabled(setupVatEnabled);
@@ -307,7 +298,6 @@ export default function App() {
       alert('Internet connection required to refresh data from Supabase.');
       return;
     }
-    setIsRefreshing(true);
     await loadCloudData();
   };
 
@@ -637,6 +627,65 @@ export default function App() {
     return `${shop.shop_name}\nPAN: ${shop.pan_number}\nBill No: ${bill.bill_number}\nDate: ${dateStr}\n${itemsStr}${adjustmentsStr}\nTotal: Rs ${bill.total_amount}\nThank you! Save for lottery at prize.ird.gov.np`;
   };
 
+  // Download Bill Image to Gallery / Device
+  const handleDownloadBillImage = async (bill: Bill | null, receiptElement: HTMLElement | null) => {
+    if (!bill || !receiptElement || isDownloadingBill) return;
+
+    setIsDownloadingBill(true);
+    try {
+      const blob = await toBlob(receiptElement, {
+        pixelRatio: 3,
+        backgroundColor: '#ffffff',
+        cacheBust: true,
+      });
+
+      if (!blob) {
+        throw new Error('Failed to generate image');
+      }
+
+      const safeShopName = shop?.shop_name ? shop.shop_name.replace(/[^a-zA-Z0-9_-]/g, '_') : 'DigiBill';
+      const fileName = `Bill_${bill.bill_number}_${safeShopName}.png`;
+      const file = new File([blob], fileName, { type: 'image/png' });
+
+      // If mobile device supports Web Share API with files, invoke native share sheet (with direct "Save Image" to gallery)
+      if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: `Bill #${bill.bill_number}`,
+            text: `Receipt #${bill.bill_number} - ${shop?.shop_name || 'DigiBill'}`
+          });
+          setFeedbackMessage('Receipt saved / shared successfully!');
+          setTimeout(() => setFeedbackMessage(null), 3000);
+          return;
+        } catch (shareErr: any) {
+          if (shareErr.name === 'AbortError') {
+            return;
+          }
+          console.warn('Navigator share failed, falling back to direct download:', shareErr);
+        }
+      }
+
+      // Fallback / Desktop direct file download
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+      setFeedbackMessage('Receipt image downloaded!');
+      setTimeout(() => setFeedbackMessage(null), 3000);
+    } catch (err: any) {
+      console.error('Error saving receipt image:', err);
+      alert('Could not save bill image: ' + (err.message || 'Please try again.'));
+    } finally {
+      setIsDownloadingBill(false);
+    }
+  };
+
   // History filtering
   const filteredHistory = useMemo(() => {
     const q = historySearch.toLowerCase().trim();
@@ -649,6 +698,14 @@ export default function App() {
       formatDateTime(b.created_at).toLowerCase().includes(q)
     );
   }, [bills, historySearch]);
+
+  const handleCopyAccount = (text: string) => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopiedBankInfo(true);
+      setTimeout(() => setCopiedBankInfo(false), 2500);
+    }
+  };
 
   // Manage Items CRUD directly in Supabase
   const handleSaveItem = async () => {
@@ -1299,7 +1356,7 @@ export default function App() {
                   </div>
                   
                   <div className="flex-1 p-4">
-                    <div className="relative mx-auto w-full max-w-[380px]">
+                    <div ref={generatedReceiptRef} className="relative mx-auto w-full max-w-[380px] pt-2 pb-2 bg-white rounded-[4px]">
                       <div className="receipt-edge-top bg-white px-5 pt-8 pb-8 shadow-[0_10px_40px_rgba(0,0,0,0.08)] text-zinc-950 receipt-font">
                         <div className="text-center mb-4">
                           <h2 className="text-[20px] font-bold leading-tight uppercase tracking-wider">{shop?.shop_name}</h2>
@@ -1410,9 +1467,21 @@ export default function App() {
                     </div>
 
                     <div className="mt-5 grid grid-cols-3 gap-3 max-w-[380px] mx-auto">
-                      <button onClick={() => window.open(`sms:?&body=${encodeURIComponent(generateBillText(generatedBill))}`, '_blank')} className="min-h-[64px] h-[72px] rounded-[18px] bg-white border border-zinc-100 shadow-sm flex flex-col items-center justify-center gap-1 active:scale-95 transition">
-                        <MessageSquare className="w-5 h-5" />
-                        <span className="text-[12px] font-medium">SMS</span>
+                      <button 
+                        type="button"
+                        disabled={isDownloadingBill}
+                        onClick={() => handleDownloadBillImage(generatedBill, generatedReceiptRef.current)} 
+                        className="min-h-[64px] h-[72px] rounded-[18px] bg-white border border-zinc-100 shadow-sm flex flex-col items-center justify-center gap-1 active:scale-95 transition disabled:opacity-50"
+                        title="Download bill image to phone gallery"
+                      >
+                        {isDownloadingBill ? (
+                          <Loader2 className="w-5 h-5 animate-spin text-zinc-700" />
+                        ) : (
+                          <Download className="w-5 h-5 text-zinc-800" />
+                        )}
+                        <span className="text-[12px] font-medium text-zinc-800">
+                          {isDownloadingBill ? 'Saving...' : 'Download'}
+                        </span>
                       </button>
                       <button onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(generateBillText(generatedBill))}`, '_blank')} className="min-h-[64px] h-[72px] rounded-[18px] bg-white border border-zinc-100 shadow-sm flex flex-col items-center justify-center gap-1 active:scale-95 transition">
                         <div className="w-5 h-5 rounded-full bg-[#25D366] text-white flex items-center justify-center text-[12px] font-bold">W</div>
@@ -1425,9 +1494,9 @@ export default function App() {
                     </div>
 
                     <div className="mt-4 rounded-[14px] bg-amber-50 border border-amber-100 p-3 flex gap-2.5 max-w-[380px] mx-auto">
-                      <div className="w-7 h-7 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0">!</div>
+                      <div className="w-7 h-7 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0 font-bold text-xs">!</div>
                       <p className="text-[11px] leading-[1.4] text-amber-900">
-                        Bill recorded directly on Supabase. Customer can scan QR or save SMS for IRD lottery prize.ird.gov.np
+                        Bill recorded directly on Supabase. Customer can download bill image, scan QR, or save bill for IRD lottery prize.ird.gov.np
                       </p>
                     </div>
                   </div>
@@ -1673,66 +1742,36 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Business Account Card */}
-                <div className="rounded-[24px] bg-white border border-zinc-100 shadow-[0_12px_40px_rgba(0,0,0,0.06)] p-6 mb-4">
+                {/* Business Account / Pro Upgrade Card */}
+                <div className="rounded-[24px] bg-white border border-zinc-100 shadow-[0_12px_40px_rgba(0,0,0,0.06)] p-6 mb-6">
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-[14px] font-semibold text-zinc-800">Business Account</h3>
-                    <span className="text-[10.5px] font-medium px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600">Cloud Auth</span>
-                  </div>
-                  <p className="text-[12px] text-zinc-500 mb-4 leading-relaxed">
-                    Sign in or register your business to sync invoices and link your Supabase database directly.
-                  </p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button 
-                      type="button" 
-                      onClick={() => { setAuthInitialMode('login'); setShowAuthScreen(true); }}
-                      className="min-h-[44px] h-11 rounded-[12px] bg-zinc-900 text-white text-[13px] font-medium flex items-center justify-center gap-1.5 active:scale-95 transition"
-                    >
-                      <User className="w-3.5 h-3.5" /> Sign In
-                    </button>
-                    <button 
-                      type="button" 
-                      onClick={() => { setAuthInitialMode('register'); setShowAuthScreen(true); }}
-                      className="min-h-[44px] h-11 rounded-[12px] bg-zinc-100 text-zinc-800 text-[13px] font-medium flex items-center justify-center gap-1.5 hover:bg-zinc-200 active:scale-95 transition"
-                    >
-                      Register
-                    </button>
-                  </div>
-                </div>
-
-                <div className="rounded-[24px] bg-white border border-zinc-100 shadow-[0_12px_40px_rgba(0,0,0,0.06)] p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-[14px] font-semibold text-zinc-800">Supabase Connection</h3>
-                    {isEditingShop && (
-                      <button 
-                        onClick={handleManualRefresh} 
-                        disabled={isRefreshing || !isOnline} 
-                        className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-zinc-100 flex items-center justify-center active:scale-95 disabled:opacity-50 hover:bg-zinc-200 transition"
-                        title="Refresh connection"
-                      >
-                        <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                      </button>
-                    )}
-                  </div>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-[11px] font-semibold tracking-[0.12em] uppercase text-zinc-500">Supabase URL</label>
-                      <input value={setupSupabaseUrl} onChange={e => setSetupSupabaseUrl(e.target.value)} placeholder="https://xyz.supabase.co" className="mt-2 w-full h-12 rounded-[14px] bg-zinc-50 border border-zinc-100 px-4 text-[13px] outline-none focus:bg-white focus:border-zinc-300 transition" />
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-amber-500/10 text-amber-600 flex items-center justify-center">
+                        <Crown className="w-4 h-4" />
+                      </div>
+                      <h3 className="text-[14px] font-semibold text-zinc-800">Business Account</h3>
                     </div>
-                    <div>
-                      <label className="text-[11px] font-semibold tracking-[0.12em] uppercase text-zinc-500">Anon Key</label>
-                      <input value={setupSupabaseKey} onChange={e => setSetupSupabaseKey(e.target.value)} type="password" placeholder="eyJhb..." className="mt-2 w-full h-12 rounded-[14px] bg-zinc-50 border border-zinc-100 px-4 text-[13px] outline-none focus:bg-white focus:border-zinc-300 transition" />
-                    </div>
+                    <span className="text-[10.5px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200/60 flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-amber-600" /> Pro Plan
+                    </span>
                   </div>
-                  <p className="mt-4 text-[11px] text-zinc-400 leading-relaxed">
-                    All shop records and generated bills are stored directly on your Supabase cloud database in real-time.
+                  <p className="text-[12px] text-zinc-600 mb-4 leading-relaxed">
+                    Pro subscription offers <strong className="text-zinc-900 font-semibold">unlimited bill generation</strong>, fast cloud sync, and priority business tools.
                   </p>
+                  <button 
+                    type="button" 
+                    onClick={() => setShowUpgradeModal(true)}
+                    className="w-full min-h-[48px] h-12 rounded-[14px] bg-zinc-950 text-white text-[13.5px] font-semibold flex items-center justify-center gap-2 shadow-sm hover:bg-zinc-800 active:scale-95 transition cursor-pointer"
+                  >
+                    <Sparkles className="w-4 h-4 text-amber-400" />
+                    <span>Upgrade to Pro — Rs 500/mo</span>
+                  </button>
                 </div>
 
                 <button 
                   disabled={!isValidSetup || isSavingSetup || !isOnline} 
                   onClick={handleSaveSetup} 
-                  className="mt-6 w-full min-h-[52px] h-[52px] rounded-[14px] bg-black text-white font-semibold text-[14px] disabled:opacity-30 disabled:pointer-events-none active:scale-[0.99] transition flex items-center justify-center gap-2 shadow-sm"
+                  className="w-full min-h-[52px] h-[52px] rounded-[14px] bg-black text-white font-semibold text-[14px] disabled:opacity-30 disabled:pointer-events-none active:scale-[0.99] transition flex items-center justify-center gap-2 shadow-sm"
                 >
                   {isSavingSetup ? (
                     <>
@@ -1801,7 +1840,7 @@ export default function App() {
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto px-4 pb-4">
-                <div className="relative mx-auto w-full">
+                <div ref={historyReceiptRef} className="relative mx-auto w-full pt-2 pb-2 bg-white rounded-[4px]">
                   <div className="receipt-edge-top bg-white px-5 pt-8 pb-8 shadow-sm text-zinc-950 receipt-font">
                     <div className="text-center mb-4">
                       <h2 className="text-[18px] font-bold leading-tight uppercase tracking-wider">{shop?.shop_name}</h2>
@@ -1895,9 +1934,21 @@ export default function App() {
                   <div className="receipt-edge-bottom bg-white w-full h-[6px] shadow-sm"></div>
                 </div>
                 <div className="mt-4 grid grid-cols-3 gap-2">
-                  <button onClick={() => window.open(`sms:?&body=${encodeURIComponent(generateBillText(billDetailSheet))}`, '_blank')} className="min-h-[56px] h-[64px] rounded-[16px] bg-white border flex flex-col items-center justify-center gap-1 active:scale-95 transition">
-                    <MessageSquare className="w-4 h-4" />
-                    <span className="text-[11px] font-medium">SMS</span>
+                  <button 
+                    type="button"
+                    disabled={isDownloadingBill}
+                    onClick={() => handleDownloadBillImage(billDetailSheet, historyReceiptRef.current)} 
+                    className="min-h-[56px] h-[64px] rounded-[16px] bg-white border flex flex-col items-center justify-center gap-1 active:scale-95 transition disabled:opacity-50"
+                    title="Download bill image to phone gallery"
+                  >
+                    {isDownloadingBill ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-zinc-700" />
+                    ) : (
+                      <Download className="w-4 h-4 text-zinc-800" />
+                    )}
+                    <span className="text-[11px] font-medium text-zinc-800">
+                      {isDownloadingBill ? 'Saving...' : 'Download'}
+                    </span>
                   </button>
                   <button onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(generateBillText(billDetailSheet))}`, '_blank')} className="min-h-[56px] h-[64px] rounded-[16px] bg-white border flex flex-col items-center justify-center gap-1 active:scale-95 transition">
                     <div className="w-4 h-4 rounded-full bg-[#25D366] text-white flex items-center justify-center text-[10px] font-bold">W</div>
@@ -1909,6 +1960,146 @@ export default function App() {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* UPGRADE TO PRO POP-UP MODAL */}
+        {showUpgradeModal && (
+          <div className="absolute inset-0 z-[50] bg-black/60 backdrop-blur-[2px] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-slideUp">
+            <div className="w-full max-w-[460px] bg-white rounded-t-[28px] sm:rounded-[28px] max-h-[92vh] overflow-y-auto p-5 sm:p-6 shadow-[0_20px_80px_rgba(0,0,0,0.3)] flex flex-col">
+              
+              {/* Header */}
+              <div className="flex items-center justify-between pb-3.5 border-b border-zinc-100">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center shadow-sm">
+                    <Crown className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="serif text-[22px] leading-none text-zinc-900">DigiBill Pro</h3>
+                    <span className="text-[10.5px] font-semibold uppercase tracking-wider text-amber-600">Unlimited Bill Generation</span>
+                  </div>
+                </div>
+                <button 
+                  type="button" 
+                  onClick={() => setShowUpgradeModal(false)}
+                  className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-500 hover:text-zinc-900 active:scale-95 transition"
+                  title="Close"
+                >
+                  <X className="w-4.5 h-4.5" />
+                </button>
+              </div>
+
+              {/* Price Plan Card */}
+              <div className="mt-4 rounded-[20px] bg-gradient-to-br from-zinc-900 via-zinc-800 to-black text-white p-5 shadow-sm">
+                <div className="flex items-baseline justify-between">
+                  <div>
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-400">Pro Subscription</span>
+                    <div className="flex items-baseline gap-1.5 mt-1">
+                      <span className="serif text-[32px] sm:text-[36px] font-bold text-white leading-none">Rs 500</span>
+                      <span className="text-[13px] text-zinc-400 font-normal">/ month</span>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-400 text-zinc-950 flex items-center gap-1 shadow-sm">
+                    <Sparkles className="w-3 h-3" /> Unlimited
+                  </span>
+                </div>
+
+                <div className="mt-4 pt-3.5 border-t border-white/10 space-y-2 text-[12.5px]">
+                  <div className="flex items-center gap-2 text-zinc-200">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span><strong className="text-white font-semibold">Unlimited bill generation</strong> (no daily / monthly cap)</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-zinc-200">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>High-res thermal image download & IRD lottery QR</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-zinc-200">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Real-time cloud database backup & sync</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bank Payment QR Card */}
+              <div className="mt-4 rounded-[20px] bg-zinc-50 border border-zinc-200/80 p-4 text-center">
+                <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-100 border border-amber-200/80 text-amber-950 text-[11.5px] font-bold mb-3">
+                  <span>Deposit Rs 500 in this Bank QR</span>
+                </div>
+
+                {/* QR Code Container */}
+                <div className="bg-white p-3.5 rounded-[16px] shadow-sm border border-zinc-200 inline-block mx-auto mb-3">
+                  <QRCodeSVG 
+                    value={`https://pay.digibill.app/deposit?amount=500&shop=${encodeURIComponent(shop?.shop_name || 'DigiBill')}&pan=${shop?.pan_number || ''}`}
+                    size={160}
+                    level="H"
+                    includeMargin={false}
+                  />
+                  <p className="mt-2 text-[10.5px] font-medium text-zinc-500 tracking-wide">
+                    Scan with Mobile Banking / Fonepay / eSewa / Khalti
+                  </p>
+                </div>
+
+                {/* Bank Account Details */}
+                <div className="bg-white rounded-[14px] p-3 text-left border border-zinc-200/80 text-[12px] space-y-1.5">
+                  <div className="flex justify-between items-center text-zinc-600">
+                    <span>Bank Name:</span>
+                    <span className="font-semibold text-zinc-900">Global IME Bank / Nabil Bank</span>
+                  </div>
+                  <div className="flex justify-between items-center text-zinc-600">
+                    <span>Account Name:</span>
+                    <span className="font-semibold text-zinc-900">DigiBill POS Tech</span>
+                  </div>
+                  <div className="flex justify-between items-center text-zinc-600">
+                    <span>Account Number:</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono font-bold text-zinc-900">0120100003456</span>
+                      <button 
+                        type="button" 
+                        onClick={() => handleCopyAccount('0120100003456')}
+                        className="p-1 rounded bg-zinc-100 hover:bg-zinc-200 transition text-zinc-700 active:scale-95 cursor-pointer"
+                        title="Copy account number"
+                      >
+                        {copiedBankInfo ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center text-zinc-600">
+                    <span>Deposit Amount:</span>
+                    <span className="font-bold text-emerald-700">Rs 500.00</span>
+                  </div>
+                  <div className="flex justify-between items-center text-zinc-600">
+                    <span>Remarks:</span>
+                    <span className="font-mono text-[11px] text-zinc-800 bg-zinc-100 px-1.5 py-0.5 rounded">
+                      {shop?.shop_name ? shop.shop_name.slice(0, 10).replace(/\s+/g, '') : 'DigiBill'}-{shop?.pan_number || 'PRO'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="mt-4 space-y-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const text = `Hi DigiBill Team, I have deposited Rs 500 for the Pro subscription (Unlimited Bill Generation).\n\nShop: ${shop?.shop_name || 'N/A'}\nPAN: ${shop?.pan_number || 'N/A'}`;
+                    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                  }}
+                  className="w-full min-h-[48px] h-12 rounded-[14px] bg-[#25D366] text-white font-semibold text-[13.5px] hover:bg-[#20ba59] active:scale-95 transition flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+                >
+                  <div className="w-5 h-5 rounded-full bg-white text-[#25D366] flex items-center justify-center text-[12px] font-bold">W</div>
+                  <span>Send Deposit Screenshot on WhatsApp</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowUpgradeModal(false)}
+                  className="w-full min-h-[44px] h-11 rounded-[14px] bg-zinc-100 text-zinc-700 font-medium text-[13px] hover:bg-zinc-200 active:scale-95 transition flex items-center justify-center cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+
             </div>
           </div>
         )}
