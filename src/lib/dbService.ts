@@ -254,7 +254,8 @@ export const fetchBills = async (shopId: string): Promise<Bill[]> => {
 };
 
 /**
- * Generate and store a bill directly into Supabase and update shop's next bill number
+ * Generate and store a bill atomically directly in Supabase using create_bill_atomic RPC.
+ * Eliminates race conditions, duplicate numbering collisions, and lost bills.
  */
 export const generateBill = async (
   shop: Shop,
@@ -272,68 +273,133 @@ export const generateBill = async (
     throw new Error('Supabase client is not configured.');
   }
 
-  const billNumber = shop.next_bill_number;
+  const billId = 'bill_' + generateId();
   const now = new Date().toISOString();
 
-  const newBill: Bill = {
-    id: 'bill_' + Date.now(),
-    shop_id: shop.id,
-    bill_number: billNumber,
-    bill_type: billData.billType,
-    total_amount: billData.totalAmount,
-    subtotal: billData.subtotal,
-    discount_amount: billData.discountAmount,
-    tax_amount: billData.taxAmount,
-    items: billData.items,
-    created_at: now
-  };
+  // 1. Primary path: Use atomic RPC stored procedure with PostgreSQL row locking
+  try {
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('create_bill_atomic', {
+      p_shop_id: shop.id,
+      p_bill_id: billId,
+      p_bill_type: billData.billType,
+      p_total_amount: billData.totalAmount,
+      p_items: billData.items,
+      p_created_at: now
+    });
 
-  // 1. Insert bill directly into Supabase
-  const { data: insertedBill, error: billError } = await supabase
-    .from('bills')
-    .insert({
-      id: newBill.id,
-      shop_id: newBill.shop_id,
-      bill_number: newBill.bill_number,
-      bill_type: newBill.bill_type,
-      total_amount: newBill.total_amount,
-      items: newBill.items,
-      created_at: newBill.created_at
-    })
-    .select()
-    .single();
+    if (!rpcError && rpcResult && rpcResult.bill && rpcResult.shop) {
+      const confirmedBill: Bill = {
+        ...(rpcResult.bill as Bill),
+        bill_number: Number(rpcResult.bill.bill_number),
+        total_amount: Number(rpcResult.bill.total_amount),
+        subtotal: billData.subtotal,
+        discount_amount: billData.discountAmount,
+        tax_amount: billData.taxAmount,
+        items: Array.isArray(rpcResult.bill.items) ? (rpcResult.bill.items as BasketItem[]) : billData.items
+      };
+      const confirmedShop: Shop = {
+        ...(rpcResult.shop as Shop),
+        next_bill_number: Number(rpcResult.shop.next_bill_number)
+      };
 
-  if (billError) {
-    console.error('Error generating bill in Supabase:', billError);
-    throw billError;
+      return {
+        bill: confirmedBill,
+        updatedShop: confirmedShop
+      };
+    }
+
+    if (rpcError) {
+      console.warn('create_bill_atomic RPC failed or not yet deployed, using resilient retry loop:', rpcError.message);
+    }
+  } catch (rpcErr) {
+    console.warn('RPC call exception, falling back to resilient retry loop:', rpcErr);
   }
 
-  // 2. Increment next_bill_number in Supabase
-  const nextNumber = billNumber + 1;
-  const { data: updatedShopData, error: shopError } = await supabase
-    .from('shops')
-    .update({
-      next_bill_number: nextNumber,
-      updated_at: now
-    })
-    .eq('id', shop.id)
-    .select()
-    .single();
+  // 2. Resilient fallback retry loop with database re-fetch & jitter on concurrency collision
+  const MAX_RETRIES = 3;
+  let lastError: any = null;
 
-  if (shopError) {
-    console.warn('Bill was saved, but failed to update next_bill_number on shop:', shopError);
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      // Re-fetch latest next_bill_number directly from Supabase to prevent stale state collisions
+      const { data: freshShopData } = await supabase
+        .from('shops')
+        .select('next_bill_number')
+        .eq('id', shop.id)
+        .single();
+
+      const targetBillNumber = freshShopData?.next_bill_number ? Number(freshShopData.next_bill_number) : shop.next_bill_number;
+
+      const fallbackBill: Bill = {
+        id: billId,
+        shop_id: shop.id,
+        bill_number: targetBillNumber,
+        bill_type: billData.billType,
+        total_amount: billData.totalAmount,
+        subtotal: billData.subtotal,
+        discount_amount: billData.discountAmount,
+        tax_amount: billData.taxAmount,
+        items: billData.items,
+        created_at: now
+      };
+
+      const { data: insertedBill, error: insertError } = await supabase
+        .from('bills')
+        .insert({
+          id: fallbackBill.id,
+          shop_id: fallbackBill.shop_id,
+          bill_number: fallbackBill.bill_number,
+          bill_type: fallbackBill.bill_type,
+          total_amount: fallbackBill.total_amount,
+          items: fallbackBill.items,
+          created_at: fallbackBill.created_at
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        lastError = insertError;
+        // If unique constraint violation, wait a random jitter (50-150ms) and retry with fresh counter
+        if (insertError.code === '23505' || insertError.message?.includes('duplicate key') || insertError.message?.includes('uq_bills_shop_number')) {
+          await new Promise(res => setTimeout(res, 50 + Math.random() * 100));
+          continue;
+        }
+        throw insertError;
+      }
+
+      // Increment next_bill_number in Supabase
+      const nextNumber = targetBillNumber + 1;
+      const { data: updatedShopData, error: updateError } = await supabase
+        .from('shops')
+        .update({
+          next_bill_number: nextNumber,
+          updated_at: now
+        })
+        .eq('id', shop.id)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.warn('Bill saved, but shop counter increment warning:', updateError);
+      }
+
+      const finalShop = (updatedShopData as Shop) || {
+        ...shop,
+        next_bill_number: nextNumber,
+        updated_at: now
+      };
+
+      return {
+        bill: (insertedBill as Bill) || fallbackBill,
+        updatedShop: finalShop
+      };
+    } catch (err: any) {
+      lastError = err;
+      if (attempt === MAX_RETRIES - 1) throw err;
+    }
   }
 
-  const finalShop = (updatedShopData as Shop) || {
-    ...shop,
-    next_bill_number: nextNumber,
-    updated_at: now
-  };
-
-  return {
-    bill: (insertedBill as Bill) || newBill,
-    updatedShop: finalShop
-  };
+  throw lastError || new Error('Failed to generate bill after multiple attempts.');
 };
 
 /**
@@ -479,7 +545,8 @@ export const activateShopSubscription = async (
   days = 30,
   amount = 500,
   transactionRef = '',
-  notes = ''
+  notes = '',
+  activatedBy = 'admin'
 ): Promise<{ updatedShop: Shop; payment: SubscriptionPayment }> => {
   const supabase = getSupabaseClient();
   if (!supabase) {
@@ -523,7 +590,7 @@ export const activateShopSubscription = async (
 
   // 2. Create subscription payment log
   const newPayment: SubscriptionPayment = {
-    id: 'pay_' + Date.now(),
+    id: 'pay_' + generateId(),
     shop_id: shop.id,
     shop_name: shop.shop_name,
     pan_number: shop.pan_number,
@@ -531,7 +598,7 @@ export const activateShopSubscription = async (
     duration_days: days,
     payment_method: 'bank_qr',
     transaction_ref: transactionRef.trim() || undefined,
-    activated_by: 'user@gmail.com',
+    activated_by: activatedBy,
     notes: notes.trim() || undefined,
     created_at: nowDateIso
   };

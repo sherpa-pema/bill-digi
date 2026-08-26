@@ -25,19 +25,55 @@ export interface AuthResult {
   bills?: Bill[];
 }
 
-export const ADMIN_EMAILS = ['user@gmail.com'];
+/**
+ * Retrieve admin emails dynamically from environment variables (comma-separated).
+ * Defaults to an empty list so NO hardcoded backdoor exists.
+ */
+export const getAdminEmails = (): string[] => {
+  const envEmails = import.meta.env.VITE_ADMIN_EMAILS;
+  if (!envEmails || typeof envEmails !== 'string') return [];
+  return envEmails
+    .split(',')
+    .map((e: string) => e.trim().toLowerCase())
+    .filter(Boolean);
+};
 
-export const isUserAdmin = (userOrEmail?: string | { email?: string; is_admin?: boolean; user_metadata?: { email?: string } } | null): boolean => {
-  if (!userOrEmail) return false;
-  if (typeof userOrEmail === 'string') {
-    const cleanEmail = userOrEmail.toLowerCase().trim();
-    return ADMIN_EMAILS.some(adminEmail => adminEmail.toLowerCase().trim() === cleanEmail);
+export const ADMIN_EMAILS: string[] = getAdminEmails();
+
+export interface AdminCheckable {
+  email?: string;
+  is_admin?: boolean;
+  user_metadata?: Record<string, any>;
+  app_metadata?: Record<string, any>;
+  [key: string]: any;
+}
+
+export const isUserAdmin = (
+  userOrShopOrEmail?: string | AdminCheckable | null
+): boolean => {
+  if (!userOrShopOrEmail) return false;
+
+  // 1. Direct database / metadata admin boolean flag
+  if (typeof userOrShopOrEmail === 'object') {
+    if (userOrShopOrEmail.is_admin === true) return true;
+    if (userOrShopOrEmail.app_metadata?.is_admin === true || userOrShopOrEmail.app_metadata?.role === 'admin') return true;
+    if (userOrShopOrEmail.user_metadata?.is_admin === true || userOrShopOrEmail.user_metadata?.role === 'admin') return true;
   }
-  if (userOrEmail.is_admin === true) return true;
-  const email = userOrEmail.email || userOrEmail.user_metadata?.email;
-  if (!email) return false;
-  const cleanEmail = email.toLowerCase().trim();
-  return ADMIN_EMAILS.some(adminEmail => adminEmail.toLowerCase().trim() === cleanEmail);
+
+  // 2. Email matching against VITE_ADMIN_EMAILS (only if explicitly set in environment)
+  const adminEmails = getAdminEmails();
+  if (adminEmails.length === 0) return false;
+
+  let emailToTest: string | undefined;
+  if (typeof userOrShopOrEmail === 'string') {
+    emailToTest = userOrShopOrEmail;
+  } else if (typeof userOrShopOrEmail === 'object') {
+    emailToTest = userOrShopOrEmail.email || userOrShopOrEmail.user_metadata?.email;
+  }
+
+  if (!emailToTest) return false;
+  const cleanEmail = emailToTest.toLowerCase().trim();
+  return adminEmails.includes(cleanEmail);
 };
 
 /**

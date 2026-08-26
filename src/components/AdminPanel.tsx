@@ -75,6 +75,7 @@ export default function AdminPanel({ currentUser, onSignOut }: AdminPanelProps) 
   const handleConfirmAction = async () => {
     if (!selectedShop || !actionType) return;
     setIsProcessingAction(true);
+    const adminIdentifier = currentUser?.email || currentUser?.phone || 'admin';
     try {
       if (actionType === 'activate30') {
         const { updatedShop, payment } = await activateShopSubscription(
@@ -82,7 +83,8 @@ export default function AdminPanel({ currentUser, onSignOut }: AdminPanelProps) 
           30,
           500,
           txRef,
-          actionNotes
+          actionNotes,
+          adminIdentifier
         );
         setShops(prev => prev.map(s => s.id === selectedShop.id ? { ...s, ...updatedShop } : s));
         setPayments(prev => [payment, ...prev]);
@@ -93,7 +95,8 @@ export default function AdminPanel({ currentUser, onSignOut }: AdminPanelProps) 
           365,
           5000,
           txRef,
-          actionNotes
+          actionNotes,
+          adminIdentifier
         );
         setShops(prev => prev.map(s => s.id === selectedShop.id ? { ...s, ...updatedShop } : s));
         setPayments(prev => [payment, ...prev]);
@@ -193,7 +196,7 @@ export default function AdminPanel({ currentUser, onSignOut }: AdminPanelProps) 
           <div className="min-w-0">
             <h1 className="serif text-[18px] sm:text-[20px] font-bold leading-none text-zinc-900 truncate">Sano Bill Admin</h1>
             <p className="text-[11px] text-zinc-500 font-medium mt-0.5 truncate max-w-[150px] sm:max-w-[240px] md:max-w-none">
-              {currentUser?.email || 'user@gmail.com'}
+              {currentUser?.email || currentUser?.phone || 'Administrator'}
             </p>
           </div>
         </div>
@@ -586,7 +589,7 @@ export default function AdminPanel({ currentUser, onSignOut }: AdminPanelProps) 
                           {p.transaction_ref || p.notes || 'Bank QR Deposit'}
                         </td>
                         <td className="py-3 text-zinc-500 font-mono text-[11px]">
-                          {p.activated_by || 'user@gmail.com'}
+                          {p.activated_by || 'Admin'}
                         </td>
                       </tr>
                     ))}
