@@ -1,5 +1,7 @@
 export const STORAGE_KEYS = {
   SYNC_CONFIG: 'sb_sync_config',
+  VAT_ENABLED: 'sb_vat_enabled',
+  DISCOUNT_ENABLED: 'sb_discount_enabled',
 };
 
 export const getItem = <T>(key: string): T | null => {
