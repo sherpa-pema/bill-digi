@@ -950,15 +950,6 @@ export default function App() {
                       )}
                     </button>
                   </div>
-                  <div className="mt-4 rounded-[20px] bg-[#111] text-white p-4 flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center">
-                      <Database className="w-4 h-4" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-[13px] font-medium">QR Bill for Lottery</p>
-                      <p className="text-[11px] text-white/60">Customer can save at prize.ird.gov.np</p>
-                    </div>
-                  </div>
                 </div>
               ) : (
                 /* DUAL-PANE ITEMIZE MODE (Tablets: 60% Left / 40% Right) */
@@ -1270,7 +1261,7 @@ export default function App() {
                         <div className="text-center mb-4">
                           <h2 className="text-[20px] font-bold leading-tight uppercase tracking-wider">{shop?.shop_name}</h2>
                           <p className="mt-1 text-[12px] uppercase">PAN: {shop?.pan_number}</p>
-                          <p className="mt-1 text-[11px] uppercase font-bold">*** TAX INVOICE ***</p>
+                          <p className="mt-1 text-[11px] uppercase font-bold">*** PAN BILL COPY ***</p>
                         </div>
                         
                         <div className="receipt-dash-border mb-3"></div>
@@ -1713,7 +1704,7 @@ export default function App() {
                     <div className="text-center mb-4">
                       <h2 className="text-[18px] font-bold leading-tight uppercase tracking-wider">{shop?.shop_name}</h2>
                       <p className="mt-1 text-[11px] uppercase">PAN: {shop?.pan_number}</p>
-                      <p className="mt-1 text-[10px] uppercase font-bold">*** TAX INVOICE ***</p>
+                      <p className="mt-1 text-[10px] uppercase font-bold">*** PAN BILL COPY ***</p>
                     </div>
                     
                     <div className="receipt-dash-border mb-3"></div>
