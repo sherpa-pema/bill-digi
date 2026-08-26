@@ -80,6 +80,12 @@ export default function App() {
   const [simpleAmount, setSimpleAmount] = useState('0');
   const [isVat, setIsVat] = useState(false);
   const [isDiscount, setIsDiscount] = useState(false);
+  const [isVatEnabled, setIsVatEnabled] = useState<boolean>(() => {
+    return getItem<boolean>(STORAGE_KEYS.VAT_ENABLED) ?? false;
+  });
+  const [isDiscountEnabled, setIsDiscountEnabled] = useState<boolean>(() => {
+    return getItem<boolean>(STORAGE_KEYS.DISCOUNT_ENABLED) ?? false;
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [basket, setBasket] = useState<BasketItem[]>([]);
   const amountInputRef = useRef<HTMLInputElement>(null);
@@ -117,6 +123,8 @@ export default function App() {
   const [setupStartingBill, setSetupStartingBill] = useState('1');
   const [setupSupabaseUrl, setSetupSupabaseUrl] = useState('');
   const [setupSupabaseKey, setSetupSupabaseKey] = useState('');
+  const [setupVatEnabled, setSetupVatEnabled] = useState(false);
+  const [setupDiscountEnabled, setSetupDiscountEnabled] = useState(false);
 
   // Load all data directly from Supabase
   const loadCloudData = useCallback(async (forcedShop?: Shop) => {
@@ -218,8 +226,24 @@ export default function App() {
       setSetupSupabaseUrl(syncConfig.supabaseUrl);
       setSetupSupabaseKey(syncConfig.supabaseAnonKey);
     }
+    setSetupVatEnabled(isVatEnabled);
+    setSetupDiscountEnabled(isDiscountEnabled);
     setIsEditingShop(true);
     setIsSetupMode(true);
+  };
+
+  const handleToggleVatSetting = (enabled: boolean) => {
+    setSetupVatEnabled(enabled);
+    setIsVatEnabled(enabled);
+    setItem(STORAGE_KEYS.VAT_ENABLED, enabled);
+    if (!enabled) setIsVat(false);
+  };
+
+  const handleToggleDiscountSetting = (enabled: boolean) => {
+    setSetupDiscountEnabled(enabled);
+    setIsDiscountEnabled(enabled);
+    setItem(STORAGE_KEYS.DISCOUNT_ENABLED, enabled);
+    if (!enabled) setIsDiscount(false);
   };
 
   const isValidSetup = useMemo(() => {
@@ -244,6 +268,13 @@ export default function App() {
           supabaseAnonKey: setupSupabaseKey.trim()
         });
       }
+
+      setItem(STORAGE_KEYS.VAT_ENABLED, setupVatEnabled);
+      setItem(STORAGE_KEYS.DISCOUNT_ENABLED, setupDiscountEnabled);
+      setIsVatEnabled(setupVatEnabled);
+      setIsDiscountEnabled(setupDiscountEnabled);
+      if (!setupVatEnabled) setIsVat(false);
+      if (!setupDiscountEnabled) setIsDiscount(false);
 
       const newStartingBill = Number(setupStartingBill) || shop.starting_bill_number;
       const newNextBill = newStartingBill !== shop.starting_bill_number ? newStartingBill : shop.next_bill_number;
@@ -354,16 +385,16 @@ export default function App() {
 
   // Simple Mode Tax/Discount Calculations
   const simpleDiscountAmount = useMemo(() => {
-    return isDiscount ? Number((simpleAmountNum * 0.10).toFixed(2)) : 0;
-  }, [isDiscount, simpleAmountNum]);
+    return (isDiscountEnabled && isDiscount) ? Number((simpleAmountNum * 0.10).toFixed(2)) : 0;
+  }, [isDiscountEnabled, isDiscount, simpleAmountNum]);
 
   const simpleTaxableAmount = useMemo(() => {
     return Math.max(0, simpleAmountNum - simpleDiscountAmount);
   }, [simpleAmountNum, simpleDiscountAmount]);
 
   const simpleVatAmount = useMemo(() => {
-    return isVat ? Number((simpleTaxableAmount * 0.13).toFixed(2)) : 0;
-  }, [isVat, simpleTaxableAmount]);
+    return (isVatEnabled && isVat) ? Number((simpleTaxableAmount * 0.13).toFixed(2)) : 0;
+  }, [isVatEnabled, isVat, simpleTaxableAmount]);
 
   const finalSimpleTotal = useMemo(() => {
     return Number((simpleTaxableAmount + simpleVatAmount).toFixed(2));
@@ -449,16 +480,16 @@ export default function App() {
   const basketTotal = useMemo(() => basket.reduce((acc, curr) => acc + curr.line_total, 0), [basket]);
 
   const itemizedDiscountAmount = useMemo(() => {
-    return isDiscount ? Number((basketTotal * 0.10).toFixed(2)) : 0;
-  }, [isDiscount, basketTotal]);
+    return (isDiscountEnabled && isDiscount) ? Number((basketTotal * 0.10).toFixed(2)) : 0;
+  }, [isDiscountEnabled, isDiscount, basketTotal]);
 
   const itemizedTaxableAmount = useMemo(() => {
     return Math.max(0, basketTotal - itemizedDiscountAmount);
   }, [basketTotal, itemizedDiscountAmount]);
 
   const itemizedVatAmount = useMemo(() => {
-    return isVat ? Number((itemizedTaxableAmount * 0.13).toFixed(2)) : 0;
-  }, [isVat, itemizedTaxableAmount]);
+    return (isVatEnabled && isVat) ? Number((itemizedTaxableAmount * 0.13).toFixed(2)) : 0;
+  }, [isVatEnabled, isVat, itemizedTaxableAmount]);
 
   const finalItemizedTotal = useMemo(() => {
     return Number((itemizedTaxableAmount + itemizedVatAmount).toFixed(2));
@@ -831,47 +862,53 @@ export default function App() {
                     </div>
 
                     {/* Tax / Discount Quick Chips */}
-                    <div className="mt-4 flex gap-2">
-                      <button 
-                        type="button" 
-                        onClick={toggleVat} 
-                        className={`flex-1 min-h-[44px] h-11 rounded-[14px] text-[13px] font-semibold flex items-center justify-center gap-1.5 transition active:scale-[0.98] ${
-                          isVat 
-                            ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20" 
-                            : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
-                        }`}
-                      >
-                        +13% VAT
-                      </button>
-                      <button 
-                        type="button" 
-                        onClick={toggleDiscount} 
-                        className={`flex-1 min-h-[44px] h-11 rounded-[14px] text-[13px] font-semibold flex items-center justify-center gap-1.5 transition active:scale-[0.98] ${
-                          isDiscount 
-                            ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20" 
-                            : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
-                        }`}
-                      >
-                        -10% Disc
-                      </button>
-                    </div>
+                    {(isVatEnabled || isDiscountEnabled) && (
+                      <div className="mt-4 flex gap-2">
+                        {isVatEnabled && (
+                          <button 
+                            type="button" 
+                            onClick={toggleVat} 
+                            className={`flex-1 min-h-[44px] h-11 rounded-[14px] text-[13px] font-semibold flex items-center justify-center gap-1.5 transition active:scale-[0.98] ${
+                              isVat 
+                                ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20" 
+                                : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                            }`}
+                          >
+                            +13% VAT
+                          </button>
+                        )}
+                        {isDiscountEnabled && (
+                          <button 
+                            type="button" 
+                            onClick={toggleDiscount} 
+                            className={`flex-1 min-h-[44px] h-11 rounded-[14px] text-[13px] font-semibold flex items-center justify-center gap-1.5 transition active:scale-[0.98] ${
+                              isDiscount 
+                                ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20" 
+                                : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                            }`}
+                          >
+                            -10% Disc
+                          </button>
+                        )}
+                      </div>
+                    )}
 
                     {/* Live Tax/Discount Breakdown Preview */}
-                    {(isVat || isDiscount) && simpleAmountNum > 0 && (
+                    {((isVatEnabled && isVat) || (isDiscountEnabled && isDiscount)) && simpleAmountNum > 0 && (
                       <div className="mt-3 p-3 rounded-[14px] bg-zinc-50 border border-zinc-100 text-[12px] space-y-1.5 animate-slideUp">
                         <div className="flex justify-between text-zinc-500">
                           <span>Subtotal</span>
                           <span>Rs {simpleAmountNum.toFixed(2)}</span>
                         </div>
-                        {isDiscount && (
+                        {isDiscountEnabled && isDiscount && (
                           <div className="flex justify-between text-emerald-700 font-medium">
                             <span>Discount (-10%)</span>
                             <span>- Rs {simpleDiscountAmount.toFixed(2)}</span>
                           </div>
                         )}
-                        {isVat && (
+                        {isVatEnabled && isVat && (
                           <div className="flex justify-between text-emerald-700 font-medium">
-                            <span>VAT (+13%{isDiscount ? ` on Rs ${simpleTaxableAmount.toFixed(2)}` : ''})</span>
+                            <span>VAT (+13%{isDiscountEnabled && isDiscount ? ` on Rs ${simpleTaxableAmount.toFixed(2)}` : ''})</span>
                             <span>+ Rs {simpleVatAmount.toFixed(2)}</span>
                           </div>
                         )}
@@ -1103,46 +1140,52 @@ export default function App() {
                       
                       <div className="p-4 bg-zinc-50 border-t border-zinc-100">
                         {/* Tax / Discount Quick Chips in Basket */}
-                        <div className="flex gap-2 mb-3">
-                          <button 
-                            type="button" 
-                            onClick={toggleVat} 
-                            className={`flex-1 min-h-[44px] h-11 rounded-xl text-[12.5px] font-semibold flex items-center justify-center gap-1 transition active:scale-[0.98] ${
-                              isVat 
-                                ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20" 
-                                : "bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-100"
-                            }`}
-                          >
-                            +13% VAT
-                          </button>
-                          <button 
-                            type="button" 
-                            onClick={toggleDiscount} 
-                            className={`flex-1 min-h-[44px] h-11 rounded-xl text-[12.5px] font-semibold flex items-center justify-center gap-1 transition active:scale-[0.98] ${
-                              isDiscount 
-                                ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20" 
-                                : "bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-100"
-                            }`}
-                          >
-                            -10% Disc
-                          </button>
-                        </div>
+                        {(isVatEnabled || isDiscountEnabled) && (
+                          <div className="flex gap-2 mb-3">
+                            {isVatEnabled && (
+                              <button 
+                                type="button" 
+                                onClick={toggleVat} 
+                                className={`flex-1 min-h-[44px] h-11 rounded-xl text-[12.5px] font-semibold flex items-center justify-center gap-1 transition active:scale-[0.98] ${
+                                  isVat 
+                                    ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20" 
+                                    : "bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-100"
+                                }`}
+                              >
+                                +13% VAT
+                              </button>
+                            )}
+                            {isDiscountEnabled && (
+                              <button 
+                                type="button" 
+                                onClick={toggleDiscount} 
+                                className={`flex-1 min-h-[44px] h-11 rounded-xl text-[12.5px] font-semibold flex items-center justify-center gap-1 transition active:scale-[0.98] ${
+                                  isDiscount 
+                                    ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20" 
+                                    : "bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-100"
+                                }`}
+                              >
+                                -10% Disc
+                              </button>
+                            )}
+                          </div>
+                        )}
 
-                        {(isVat || isDiscount) && basketTotal > 0 && (
+                        {((isVatEnabled && isVat) || (isDiscountEnabled && isDiscount)) && basketTotal > 0 && (
                           <div className="mb-3 p-3 rounded-xl bg-white border border-zinc-100 text-[11.5px] space-y-1 animate-slideUp">
                             <div className="flex justify-between text-zinc-500">
                               <span>Basket Subtotal</span>
                               <span>Rs {basketTotal.toFixed(2)}</span>
                             </div>
-                            {isDiscount && (
+                            {isDiscountEnabled && isDiscount && (
                               <div className="flex justify-between text-emerald-700 font-medium">
                                 <span>Discount (-10%)</span>
                                 <span>- Rs {itemizedDiscountAmount.toFixed(2)}</span>
                               </div>
                             )}
-                            {isVat && (
+                            {isVatEnabled && isVat && (
                               <div className="flex justify-between text-emerald-700 font-medium">
-                                <span>VAT (+13%{isDiscount ? ` on Rs ${itemizedTaxableAmount.toFixed(2)}` : ''})</span>
+                                <span>VAT (+13%{isDiscountEnabled && isDiscount ? ` on Rs ${itemizedTaxableAmount.toFixed(2)}` : ''})</span>
                                 <span>+ Rs {itemizedVatAmount.toFixed(2)}</span>
                               </div>
                             )}
@@ -1567,6 +1610,65 @@ export default function App() {
                     <div>
                       <label className="text-[11px] font-semibold tracking-[0.12em] uppercase text-zinc-500">Starting Bill Number</label>
                       <input value={setupStartingBill} onChange={e => setSetupStartingBill(e.target.value.replace(/\D/g, ''))} placeholder="1" inputMode="numeric" className="mt-2 w-full h-12 rounded-[14px] bg-zinc-50 border border-zinc-100 px-4 text-[14px] outline-none focus:bg-white focus:border-zinc-300 transition" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Taxes & Discounts Options Card */}
+                <div className="rounded-[24px] bg-white border border-zinc-100 shadow-[0_12px_40px_rgba(0,0,0,0.06)] p-6 mb-4">
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="text-[14px] font-semibold text-zinc-800">Taxes & Discounts</h3>
+                    <span className="text-[10.5px] font-medium px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600">POS Options</span>
+                  </div>
+                  <p className="text-[12px] text-zinc-500 mb-4 leading-relaxed">
+                    Toggle quick calculation buttons on the billing keypad and itemized checkout screen.
+                  </p>
+
+                  <div className="space-y-3.5 divide-y divide-zinc-100">
+                    {/* VAT (+13%) Toggle */}
+                    <div 
+                      onClick={() => handleToggleVatSetting(!setupVatEnabled)}
+                      className="flex items-center justify-between pt-1 cursor-pointer select-none group"
+                    >
+                      <div className="pr-4">
+                        <p className="text-[13.5px] font-semibold text-zinc-800 group-hover:text-black transition">Enable VAT (+13%)</p>
+                        <p className="text-[11.5px] text-zinc-500 mt-0.5">Show +13% VAT button on billing screen</p>
+                      </div>
+                      <button 
+                        type="button" 
+                        role="switch"
+                        aria-checked={setupVatEnabled}
+                        onClick={(e) => { e.stopPropagation(); handleToggleVatSetting(!setupVatEnabled); }}
+                        className="min-w-[44px] min-h-[44px] flex items-center justify-end focus:outline-none"
+                        aria-label="Toggle VAT (+13%)"
+                      >
+                        <span className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${setupVatEnabled ? 'bg-zinc-900' : 'bg-zinc-200'}`}>
+                          <span aria-hidden="true" className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${setupVatEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                        </span>
+                      </button>
+                    </div>
+
+                    {/* Discount (-10%) Toggle */}
+                    <div 
+                      onClick={() => handleToggleDiscountSetting(!setupDiscountEnabled)}
+                      className="flex items-center justify-between pt-3.5 cursor-pointer select-none group"
+                    >
+                      <div className="pr-4">
+                        <p className="text-[13.5px] font-semibold text-zinc-800 group-hover:text-black transition">Enable Discount (-10%)</p>
+                        <p className="text-[11.5px] text-zinc-500 mt-0.5">Show -10% Disc button on billing screen</p>
+                      </div>
+                      <button 
+                        type="button" 
+                        role="switch"
+                        aria-checked={setupDiscountEnabled}
+                        onClick={(e) => { e.stopPropagation(); handleToggleDiscountSetting(!setupDiscountEnabled); }}
+                        className="min-w-[44px] min-h-[44px] flex items-center justify-end focus:outline-none"
+                        aria-label="Toggle Discount (-10%)"
+                      >
+                        <span className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${setupDiscountEnabled ? 'bg-zinc-900' : 'bg-zinc-200'}`}>
+                          <span aria-hidden="true" className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${setupDiscountEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                        </span>
+                      </button>
                     </div>
                   </div>
                 </div>
