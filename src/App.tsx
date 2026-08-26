@@ -549,7 +549,7 @@ export default function App() {
         billItems = [
           {
             id: generateId(),
-            name: 'Base Amount',
+            name: 'Grocery item',
             qty: 1,
             unit_price: subtotalAmount,
             line_total: subtotalAmount
@@ -576,7 +576,7 @@ export default function App() {
       } else {
         billItems = [{
           id: generateId(),
-          name: 'Total Amount',
+          name: 'Grocery item',
           qty: 1,
           unit_price: total,
           line_total: total
