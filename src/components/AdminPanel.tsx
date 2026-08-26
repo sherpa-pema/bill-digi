@@ -5,20 +5,14 @@ import {
   Crown, 
   Sparkles, 
   Clock, 
-  AlertTriangle, 
   ArrowLeft, 
   Check, 
   X, 
   RefreshCw, 
   DollarSign, 
   LogOut, 
-  ShieldCheck, 
   Loader2, 
-  User, 
-  Lock, 
   CheckCircle2, 
-  Eye, 
-  EyeOff,
   FileText
 } from 'lucide-react';
 import type { ShopAdminView, SubscriptionPayment } from '../types';
@@ -30,25 +24,15 @@ import {
   fetchSubscriptionPayments,
   getSubscriptionInfo
 } from '../lib/dbService';
-import { loginBusiness, signOutBusiness, isUserAdmin } from '../lib/authService';
+import { signOutBusiness } from '../lib/authService';
 
 interface AdminPanelProps {
   currentUser: any;
   onBackToPOS?: () => void;
-  onAdminAuthSuccess: (user: any) => void;
   onSignOut?: () => void;
 }
 
-export default function AdminPanel({ currentUser, onBackToPOS, onAdminAuthSuccess, onSignOut }: AdminPanelProps) {
-  const isAdmin = isUserAdmin(currentUser);
-
-  // Admin Login State (if not authenticated as admin)
-  const [adminEmail, setAdminEmail] = useState('user@gmail.com');
-  const [adminPassword, setAdminPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [loginError, setLoginError] = useState<string | null>(null);
-
+export default function AdminPanel({ currentUser, onBackToPOS, onSignOut }: AdminPanelProps) {
   // Dashboard Data State
   const [shops, setShops] = useState<ShopAdminView[]>([]);
   const [payments, setPayments] = useState<SubscriptionPayment[]>([]);
@@ -67,7 +51,6 @@ export default function AdminPanel({ currentUser, onBackToPOS, onAdminAuthSucces
 
   // Load Admin Data
   const loadAdminData = useCallback(async () => {
-    if (!isAdmin) return;
     setIsLoading(true);
     try {
       const [shopsData, paymentsData] = await Promise.all([
@@ -78,48 +61,15 @@ export default function AdminPanel({ currentUser, onBackToPOS, onAdminAuthSucces
       setPayments(paymentsData);
     } catch (err: any) {
       console.error('Failed to load admin data:', err);
-      setActionNotice(err.message || 'Error loading shops. Ensure Supabase migration SQL has been run.');
+      setActionNotice(err.message || 'Error loading shops from Supabase.');
     } finally {
       setIsLoading(false);
     }
-  }, [isAdmin]);
+  }, []);
 
   useEffect(() => {
-    if (isAdmin) {
-      loadAdminData();
-    }
-  }, [isAdmin, loadAdminData]);
-
-  // Handle Admin Login
-  const handleAdminLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!adminEmail.trim() || !adminPassword) return;
-
-    setIsLoggingIn(true);
-    setLoginError(null);
-    try {
-      const res = await loginBusiness({
-        identifier: adminEmail.trim(),
-        password: adminPassword
-      });
-
-      if (!res.success) {
-        setLoginError(res.message || 'Failed to authenticate admin.');
-        return;
-      }
-
-      if (!isUserAdmin(res.user?.email)) {
-        setLoginError(`Access denied. Account (${res.user?.email}) is not an authorized administrator.`);
-        return;
-      }
-
-      onAdminAuthSuccess(res.user);
-    } catch (err: any) {
-      setLoginError(err.message || 'An error occurred during admin sign-in.');
-    } finally {
-      setIsLoggingIn(false);
-    }
-  };
+    loadAdminData();
+  }, [loadAdminData]);
 
   // Execute Subscription Action
   const handleConfirmAction = async () => {
@@ -227,116 +177,22 @@ export default function AdminPanel({ currentUser, onBackToPOS, onAdminAuthSucces
     });
   }, [shops, filterTier, searchQuery]);
 
-  // -------------------------------------------------------------
-  // VIEW: ADMIN SIGN-IN (IF NOT AUTHENTICATED)
-  // -------------------------------------------------------------
-  if (!isAdmin) {
-    return (
-      <div className="min-h-screen bg-[#f7f7f8] flex items-center justify-center p-4 sm:p-6 font-sans">
-        <div className="w-full max-w-[420px] bg-white rounded-[28px] p-6 sm:p-8 shadow-[0_20px_80px_rgba(0,0,0,0.1)] border border-zinc-100 flex flex-col">
-          <div className="flex items-center justify-between mb-6">
-            {onBackToPOS && (
-              <button 
-                type="button" 
-                onClick={onBackToPOS}
-                className="min-h-[40px] px-3 rounded-[12px] bg-zinc-100 text-zinc-700 text-[12.5px] font-medium hover:bg-zinc-200 transition flex items-center gap-1.5 active:scale-95 cursor-pointer"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" /> Back to Sign In
-              </button>
-            )}
-            <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-zinc-900 text-white ml-auto">Admin Only</span>
-          </div>
-
-          <div className="text-center mb-6">
-            <div className="w-14 h-14 rounded-[20px] bg-zinc-950 text-white flex items-center justify-center mx-auto mb-3 shadow-md">
-              <ShieldCheck className="w-7 h-7 text-amber-400" />
-            </div>
-            <h1 className="serif text-[26px] font-bold text-zinc-900">DigiBill Console</h1>
-            <p className="text-[12.5px] text-zinc-500 mt-1">
-              Authorized admin access: <span className="font-mono text-zinc-800 font-semibold">user@gmail.com</span>
-            </p>
-          </div>
-
-          {loginError && (
-            <div className="mb-4 p-3 rounded-[14px] bg-red-50 border border-red-200 text-red-700 text-[12px] flex items-start gap-2">
-              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-red-600" />
-              <span>{loginError}</span>
-            </div>
-          )}
-
-          <form onSubmit={handleAdminLogin} className="space-y-4">
-            <div>
-              <label className="text-[11px] font-semibold tracking-[0.12em] uppercase text-zinc-500">Admin Email</label>
-              <div className="mt-1.5 relative flex items-center">
-                <User className="w-4 h-4 text-zinc-400 absolute left-3.5" />
-                <input 
-                  type="email"
-                  value={adminEmail} 
-                  onChange={e => setAdminEmail(e.target.value)} 
-                  placeholder="user@gmail.com"
-                  className="w-full h-12 pl-10 pr-4 rounded-[14px] bg-zinc-50 border border-zinc-200 text-[13.5px] font-medium outline-none focus:bg-white focus:border-zinc-900 transition" 
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-[11px] font-semibold tracking-[0.12em] uppercase text-zinc-500">Password</label>
-              <div className="mt-1.5 relative flex items-center">
-                <Lock className="w-4 h-4 text-zinc-400 absolute left-3.5" />
-                <input 
-                  type={showPassword ? 'text' : 'password'}
-                  value={adminPassword} 
-                  onChange={e => setAdminPassword(e.target.value)} 
-                  placeholder="••••••••"
-                  className="w-full h-12 pl-10 pr-11 rounded-[14px] bg-zinc-50 border border-zinc-200 text-[13.5px] font-medium outline-none focus:bg-white focus:border-zinc-900 transition" 
-                  required
-                />
-                <button 
-                  type="button" 
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 text-zinc-400 hover:text-zinc-700"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            <button 
-              type="submit"
-              disabled={isLoggingIn}
-              className="mt-2 w-full min-h-[48px] h-12 rounded-[14px] bg-zinc-950 text-white font-semibold text-[14px] disabled:opacity-50 active:scale-95 transition flex items-center justify-center gap-2 shadow-sm cursor-pointer"
-            >
-              {isLoggingIn ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Verifying Credentials...</span>
-                </>
-              ) : (
-                <>
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>Log in as Administrator</span>
-                </>
-              )}
-            </button>
-          </form>
-
-          <p className="mt-6 text-center text-[11px] text-zinc-400 leading-relaxed">
-            Admin credentials grant platform-wide access to manage all registered shops and approve subscription payments.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // -------------------------------------------------------------
-  // VIEW: AUTHENTICATED ADMIN DASHBOARD
-  // -------------------------------------------------------------
   return (
     <div className="min-h-screen bg-[#f5f5f7] text-zinc-900 font-sans pb-12">
       {/* Top Navbar */}
       <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-zinc-200/80 px-4 sm:px-8 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-3">
+          {onBackToPOS && (
+            <button 
+              type="button" 
+              onClick={onBackToPOS}
+              className="min-h-[40px] px-3 rounded-[12px] bg-zinc-100 text-zinc-700 text-[12.5px] font-medium hover:bg-zinc-200 transition flex items-center gap-1.5 active:scale-95 cursor-pointer mr-1"
+              title="Return to POS Billing Screen"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">POS Screen</span>
+            </button>
+          )}
           <div className="w-9 h-9 rounded-[12px] bg-zinc-950 text-white flex items-center justify-center shadow-sm">
             <Crown className="w-4.5 h-4.5 text-amber-400" />
           </div>
@@ -367,15 +223,10 @@ export default function AdminPanel({ currentUser, onBackToPOS, onAdminAuthSucces
             type="button" 
             onClick={async () => {
               await signOutBusiness();
-              if (typeof window !== 'undefined') {
-                window.location.hash = '';
-                if (window.location.pathname.startsWith('/admin')) {
-                  window.history.pushState(null, '', '/');
-                }
-              }
               if (onSignOut) {
                 onSignOut();
               } else {
+                window.location.hash = '';
                 window.location.reload();
               }
             }}
