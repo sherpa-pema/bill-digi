@@ -202,22 +202,34 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         if (newAmount === '0') {
           return newAmount;
         }
-        const rawLen = newAmount.replace('.', '').length;
-        if (rawLen >= 9) {
-          return newAmount;
-        } else if (rawLen === 8) {
-          newAmount = newAmount + '0';
-        } else {
-          newAmount = newAmount + '00';
+        if (newAmount.includes('.')) {
+          const decimalPart = newAmount.split('.')[1] || '';
+          if (decimalPart.length >= 2) return newAmount;
+          if (decimalPart.length === 1) return newAmount + '0';
+          return newAmount + '00';
         }
+        const rawLen = newAmount.replace('.', '').length;
+        if (rawLen >= 8) {
+          if (rawLen === 8) return newAmount + '0';
+          return newAmount;
+        }
+        return newAmount + '00';
       } else if (key === '.') {
         if (newAmount.includes('.')) return newAmount;
         newAmount = newAmount + '.';
       } else if (key === '0') {
         if (newAmount === '0') return newAmount;
+        if (newAmount.includes('.')) {
+          const decimalPart = newAmount.split('.')[1] || '';
+          if (decimalPart.length >= 2) return newAmount;
+        }
         if (newAmount.replace('.', '').length >= 9) return newAmount;
         newAmount = newAmount + '0';
       } else {
+        if (newAmount.includes('.')) {
+          const decimalPart = newAmount.split('.')[1] || '';
+          if (decimalPart.length >= 2) return newAmount;
+        }
         if (newAmount === '0') {
           newAmount = key;
         } else {
@@ -280,13 +292,19 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const updateBasketQty = useCallback((id: string, delta: number) => {
     setBasket(prev => prev.map(b => {
       if (b.id !== id) return b;
-      const newQty = Math.max(1, b.qty + delta);
-      return { ...b, qty: newQty, line_total: newQty * b.unit_price };
+      const newQty = Math.min(Math.max(1, b.qty + delta), 99999);
+      return { ...b, qty: newQty, line_total: Number((newQty * b.unit_price).toFixed(2)) };
     }));
   }, []);
 
   const updateBasketPrice = useCallback((id: string, price: number) => {
-    setBasket(prev => prev.map(b => b.id === id ? { ...b, unit_price: price, line_total: b.qty * price } : b));
+    const sanitized = Math.min(Math.max(0, isNaN(price) ? 0 : price), 9999999.99);
+    const rounded = Number(sanitized.toFixed(2));
+    setBasket(prev => prev.map(b => b.id === id ? { 
+      ...b, 
+      unit_price: rounded, 
+      line_total: Number((b.qty * rounded).toFixed(2)) 
+    } : b));
   }, []);
 
   const removeFromBasket = useCallback((id: string) => {
@@ -326,23 +344,24 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [showCustomItemModal]);
 
   const openCustomItemDialog = useCallback(() => {
-    setCustomItemName(searchQuery.trim() || 'Custom Item');
+    setCustomItemName(searchQuery.trim().slice(0, 120) || 'Custom Item');
     setCustomItemPrice('');
     setShowCustomItemModal(true);
   }, [searchQuery]);
 
   const handleConfirmCustomItem = useCallback((e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const name = customItemName.trim() || 'Custom Item';
+    const name = customItemName.trim().slice(0, 120) || 'Custom Item';
     const price = parseFloat(customItemPrice);
-    if (isNaN(price) || price <= 0) return;
+    if (isNaN(price) || price <= 0 || price > 9999999.99) return;
+    const roundedPrice = Number(price.toFixed(2));
 
     setBasket(prev => [...prev, {
       id: generateId(),
       name,
       qty: 1,
-      unit_price: price,
-      line_total: price
+      unit_price: roundedPrice,
+      line_total: roundedPrice
     }]);
     setSearchQuery('');
     setShowCustomItemModal(false);
@@ -376,7 +395,16 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       let bType: 'simple' | 'itemized' = 'simple';
 
       if (isItemizedMode) {
-        if (basketTotal <= 0) return;
+        if (basket.length === 0 || basketTotal <= 0) return;
+        const invalidItem = basket.find(b => b.unit_price < 0 || b.qty <= 0 || isNaN(b.unit_price) || isNaN(b.qty));
+        if (invalidItem) {
+          alert(`Invalid item "${invalidItem.name}": Unit price and quantity must be positive numbers.`);
+          return;
+        }
+        if (finalItemizedTotal <= 0 || finalItemizedTotal > 99999999.99) {
+          alert('Bill total must be between Rs 0.01 and Rs 99,999,999.99.');
+          return;
+        }
         subtotalAmount = basketTotal;
         discAmt = itemizedDiscountAmount;
         vatAmt = itemizedVatAmount;
@@ -403,7 +431,14 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
         bType = 'itemized';
       } else {
-        if (simpleAmountNum <= 0) return;
+        if (simpleAmountNum <= 0 || simpleAmountNum > 99999999.99) {
+          alert('Please enter a valid bill amount.');
+          return;
+        }
+        if (finalSimpleTotal <= 0 || finalSimpleTotal > 99999999.99) {
+          alert('Bill total must be between Rs 0.01 and Rs 99,999,999.99.');
+          return;
+        }
         subtotalAmount = simpleAmountNum;
         discAmt = simpleDiscountAmount;
         vatAmt = simpleVatAmount;
@@ -509,9 +544,10 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Item CRUD
   const handleSaveItem = useCallback(async () => {
-    const name = editItemName.trim();
+    const name = editItemName.trim().slice(0, 120);
     const price = Number(editItemPrice);
-    if (!name || isNaN(price) || price < 0 || !shop) return;
+    if (!name || isNaN(price) || price < 0 || price > 9999999.99 || !shop) return;
+    const roundedPrice = Number(price.toFixed(2));
 
     if (!checkIsOnline()) {
       alert('Internet connection required to modify inventory items in Supabase.');
@@ -521,11 +557,11 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setIsSavingItem(true);
     try {
       if (editItemId) {
-        const updated = await updateItem(editItemId, { name, price });
+        const updated = await updateItem(editItemId, { name, price: roundedPrice });
         setItems(prev => prev.map(i => i.id === editItemId ? updated : i));
         setEditItemId(null);
       } else {
-        const created = await createItem(shop.id, { name, price });
+        const created = await createItem(shop.id, { name, price: roundedPrice });
         setItems(prev => [...prev, created]);
       }
       setEditItemName('');

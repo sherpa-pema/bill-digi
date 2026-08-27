@@ -40,6 +40,7 @@ export const CustomItemModal: React.FC = () => {
             <input 
               value={customItemName} 
               onChange={e => setCustomItemName(e.target.value)} 
+              maxLength={120}
               placeholder="e.g. Special Dish, Extra Service" 
               className="mt-1.5 w-full h-12 rounded-[14px] bg-zinc-50 border border-zinc-200 px-3.5 text-[14px] font-medium outline-none focus:bg-white focus:border-zinc-400 transition" 
             />
@@ -53,6 +54,7 @@ export const CustomItemModal: React.FC = () => {
                 ref={customPriceInputRef}
                 type="text"
                 inputMode="decimal"
+                maxLength={10}
                 value={customItemPrice} 
                 onChange={e => setCustomItemPrice(e.target.value.replace(/[^0-9.]/g, ''))} 
                 placeholder="0.00" 
@@ -61,6 +63,9 @@ export const CustomItemModal: React.FC = () => {
             </div>
             {customItemPrice !== '' && (parseFloat(customItemPrice) <= 0 || isNaN(parseFloat(customItemPrice))) && (
               <p className="mt-1.5 text-[11px] text-red-500 font-medium">Price must be greater than Rs 0</p>
+            )}
+            {customItemPrice !== '' && parseFloat(customItemPrice) > 9999999.99 && (
+              <p className="mt-1.5 text-[11px] text-red-500 font-medium">Price cannot exceed Rs 9,999,999.99</p>
             )}
           </div>
 
@@ -88,7 +93,7 @@ export const CustomItemModal: React.FC = () => {
             </button>
             <button 
               type="submit" 
-              disabled={!customItemPrice || isNaN(parseFloat(customItemPrice)) || parseFloat(customItemPrice) <= 0} 
+              disabled={!customItemPrice || isNaN(parseFloat(customItemPrice)) || parseFloat(customItemPrice) <= 0 || parseFloat(customItemPrice) > 9999999.99} 
               className="flex-[2] min-h-[48px] h-12 rounded-[14px] bg-black text-white font-semibold text-[13.5px] disabled:opacity-30 disabled:pointer-events-none active:scale-95 transition flex items-center justify-center gap-1.5 shadow-sm"
             >
               <Plus className="w-4 h-4" /> Add to Basket

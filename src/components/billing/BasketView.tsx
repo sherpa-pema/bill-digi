@@ -50,9 +50,35 @@ export const BasketView: React.FC = () => {
                   <span className="text-[12px] text-zinc-500">Rs</span>
                   <input 
                     type="number" 
-                    value={b.unit_price} 
-                    onChange={(e) => updateBasketPrice(b.id, Number(e.target.value) || 0)} 
-                    className="w-[72px] h-8 rounded-[8px] bg-zinc-50 border border-zinc-200 text-[13px] px-2 font-medium outline-none focus:bg-white focus:border-zinc-400" 
+                    min="0"
+                    max="9999999"
+                    step="any"
+                    inputMode="decimal"
+                    value={b.unit_price === 0 ? '' : b.unit_price} 
+                    placeholder="0"
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        updateBasketPrice(b.id, 0);
+                        return;
+                      }
+                      const parsed = parseFloat(val);
+                      if (!isNaN(parsed)) {
+                        updateBasketPrice(b.id, Math.min(Math.max(0, parsed), 9999999.99));
+                      }
+                    }} 
+                    onKeyDown={(e) => {
+                      if (e.key === '-' || e.key === '+' || e.key === 'e' || e.key === 'E') {
+                        e.preventDefault();
+                      }
+                    }}
+                    onPaste={(e) => {
+                      const pasted = e.clipboardData.getData('text');
+                      if (/[^0-9.]/.test(pasted) || Number(pasted) < 0) {
+                        e.preventDefault();
+                      }
+                    }}
+                    className="w-[76px] h-8 rounded-[8px] bg-zinc-50 border border-zinc-200 text-[13px] px-2 font-medium outline-none focus:bg-white focus:border-zinc-400" 
                   />
                   <span className="text-[12px] text-zinc-400">× {b.qty}</span>
                 </div>
