@@ -1,8 +1,9 @@
 import React from 'react';
-import { Crown, X, Sparkles, CheckCircle2, Copy, Check } from 'lucide-react';
+import { X, Sparkles, CheckCircle2, Copy, Check } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useShop } from '../../hooks/useShop';
 import { useReceiptExport } from '../../hooks/useReceiptExport';
+import sanoBillLogo from '../../assets/sano-bill-logo.png';
 
 export const UpgradeModal: React.FC = () => {
   const { shop, showUpgradeModal, setShowUpgradeModal } = useShop();
@@ -23,18 +24,22 @@ export const UpgradeModal: React.FC = () => {
         {/* Header */}
         <div className="flex items-center justify-between pb-3.5 border-b border-zinc-100">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center shadow-sm">
-              <Crown className="w-4 h-4" />
+            <div className="w-9 h-9 rounded-[10px] overflow-hidden flex items-center justify-center shadow-sm shrink-0">
+              <img 
+                src={sanoBillLogo} 
+                alt="Sano Bill" 
+                className="w-full h-full object-contain"
+              />
             </div>
             <div>
-              <h3 className="serif text-[22px] leading-none text-zinc-900">DigiBill Pro</h3>
+              <h3 className="serif text-[22px] leading-none text-zinc-900">Sano Bill Pro</h3>
               <span className="text-[10.5px] font-semibold uppercase tracking-wider text-amber-600">Unlimited Bill Generation</span>
             </div>
           </div>
           <button 
             type="button" 
             onClick={() => setShowUpgradeModal(false)}
-            className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-500 hover:text-zinc-900 active:scale-95 transition"
+            className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-500 hover:text-zinc-900 active:scale-95 transition cursor-pointer"
             title="Close"
           >
             <X className="w-4.5 h-4.5" />
@@ -63,10 +68,6 @@ export const UpgradeModal: React.FC = () => {
             </div>
             <div className="flex items-center gap-2 text-zinc-200">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>High-res thermal image download & IRD lottery QR</span>
-            </div>
-            <div className="flex items-center gap-2 text-zinc-200">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
               <span>Real-time cloud database backup & sync</span>
             </div>
           </div>
@@ -79,16 +80,19 @@ export const UpgradeModal: React.FC = () => {
           </div>
 
           {/* QR Code Container */}
-          <div className="bg-white p-3.5 rounded-[16px] shadow-sm border border-zinc-200 inline-block mx-auto mb-3">
-            <QRCodeSVG 
-              value={`https://pay.digibill.app/deposit?amount=500&shop=${encodeURIComponent(shop?.shop_name || 'DigiBill')}&pan=${shop?.pan_number || ''}`}
-              size={160}
-              level="H"
-              includeMargin={false}
-            />
-            <p className="mt-2 text-[10.5px] font-medium text-zinc-500 tracking-wide">
-              Scan with Mobile Banking / Fonepay / eSewa / Khalti
-            </p>
+          <div className="flex flex-col items-center justify-center">
+            <div className="bg-white p-3.5 rounded-[16px] shadow-sm border border-zinc-200 flex flex-col items-center justify-center mx-auto mb-3">
+              <QRCodeSVG 
+                value={`https://pay.digibill.app/deposit?amount=500&shop=${encodeURIComponent(shop?.shop_name || 'Sano Bill')}&pan=${shop?.pan_number || ''}`}
+                size={160}
+                level="H"
+                includeMargin={false}
+                className="mx-auto block"
+              />
+              <p className="mt-2 text-[10.5px] font-medium text-zinc-500 tracking-wide text-center max-w-[220px]">
+                Scan with Mobile Banking / Fonepay / eSewa / Khalti
+              </p>
+            </div>
           </div>
 
           {/* Bank Account Details */}
@@ -99,7 +103,7 @@ export const UpgradeModal: React.FC = () => {
             </div>
             <div className="flex justify-between items-center text-zinc-600">
               <span>Account Name:</span>
-              <span className="font-semibold text-zinc-900">DigiBill POS Tech</span>
+              <span className="font-semibold text-zinc-900">Sano Bill POS Tech</span>
             </div>
             <div className="flex justify-between items-center text-zinc-600">
               <span>Account Number:</span>
@@ -122,7 +126,7 @@ export const UpgradeModal: React.FC = () => {
             <div className="flex justify-between items-center text-zinc-600">
               <span>Remarks:</span>
               <span className="font-mono text-[11px] text-zinc-800 bg-zinc-100 px-1.5 py-0.5 rounded">
-                {shop?.shop_name ? shop.shop_name.slice(0, 10).replace(/\s+/g, '') : 'DigiBill'}-{shop?.pan_number || 'PRO'}
+                {shop?.shop_name ? shop.shop_name.slice(0, 10).replace(/\s+/g, '') : 'SanoBill'}-{shop?.pan_number || 'PRO'}
               </span>
             </div>
           </div>
@@ -133,7 +137,7 @@ export const UpgradeModal: React.FC = () => {
           <button
             type="button"
             onClick={() => {
-              const text = `Hi DigiBill Team, I have deposited Rs 500 for the Pro subscription (Unlimited Bill Generation).\n\nShop: ${shop?.shop_name || 'N/A'}\nPAN: ${shop?.pan_number || 'N/A'}`;
+              const text = `Hi Sano Bill Team, I have deposited Rs 500 for the Pro subscription (Unlimited Bill Generation).\n\nShop: ${shop?.shop_name || 'N/A'}\nPAN: ${shop?.pan_number || 'N/A'}`;
               window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
             }}
             className="w-full min-h-[48px] h-12 rounded-[14px] bg-[#25D366] text-white font-semibold text-[13.5px] hover:bg-[#20ba59] active:scale-95 transition flex items-center justify-center gap-2 shadow-sm cursor-pointer"

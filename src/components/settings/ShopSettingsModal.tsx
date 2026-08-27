@@ -269,11 +269,11 @@ export const ShopSettingsModal: React.FC = () => {
 
             <p className="text-[12px] text-zinc-600 mb-4 leading-relaxed">
               {subscriptionInfo.isPro ? (
-                <span>Your <strong className="text-zinc-900 font-semibold">DigiBill Pro Plan</strong> is active with unlimited bill generation. {subscriptionInfo.message}</span>
+                <span>Your <strong className="text-zinc-900 font-semibold">Sano Bill Pro Plan</strong> is active with unlimited bill generation. {subscriptionInfo.message}</span>
               ) : subscriptionInfo.isTrial ? (
                 <span>You are on the <strong className="text-zinc-900 font-semibold">7-Day Free Trial</strong> ({subscriptionInfo.daysLeft} days remaining). Upgrade to Pro for unlimited uninterrupted billing.</span>
               ) : (
-                <span>Your 7-day trial has <strong className="text-red-600 font-semibold">expired</strong>. Upgrade to DigiBill Pro for Rs 500/mo to resume bill generation.</span>
+                <span>Your 7-day trial has <strong className="text-red-600 font-semibold">expired</strong>. Upgrade to Sano Bill Pro for Rs 500/mo to resume bill generation.</span>
               )}
             </p>
 
