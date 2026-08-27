@@ -79,6 +79,7 @@ export const ManageItemsModal: React.FC = () => {
             <input 
               value={editItemName} 
               onChange={e => setEditItemName(e.target.value)} 
+              maxLength={120}
               placeholder="Name e.g. Tea" 
               className="flex-1 h-12 rounded-[14px] bg-zinc-50 border border-zinc-200 px-3.5 text-[14px] outline-none focus:bg-white focus:border-zinc-400 transition" 
             />
@@ -88,12 +89,16 @@ export const ManageItemsModal: React.FC = () => {
               placeholder="Rs" 
               type="text" 
               inputMode="decimal" 
+              maxLength={10}
               className="w-[100px] h-12 rounded-[14px] bg-zinc-50 border border-zinc-200 px-3.5 text-[14px] outline-none focus:bg-white focus:border-zinc-400 transition font-medium" 
             />
           </div>
+          {editItemPrice !== '' && parseFloat(editItemPrice) > 9999999.99 && (
+            <p className="mt-1.5 text-[11px] text-red-500 font-medium">Price cannot exceed Rs 9,999,999.99</p>
+          )}
           <button 
             onClick={handleSaveItem} 
-            disabled={!editItemName.trim() || !editItemPrice || isSavingItem || !isOnline} 
+            disabled={!editItemName.trim() || !editItemPrice || isNaN(parseFloat(editItemPrice)) || parseFloat(editItemPrice) < 0 || parseFloat(editItemPrice) > 9999999.99 || isSavingItem || !isOnline} 
             className="mt-3.5 w-full min-h-[48px] h-12 rounded-[14px] bg-black text-white text-[13.5px] font-semibold disabled:opacity-30 active:scale-[0.99] transition flex items-center justify-center gap-2 shadow-sm"
           >
             {isSavingItem ? (

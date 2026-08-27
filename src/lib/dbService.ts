@@ -511,6 +511,27 @@ export const generateBill = async (
   const billId = 'bill_' + generateId();
   const now = new Date().toISOString();
 
+  // Validate bill inputs prior to database execution
+  if (!billData || typeof billData.totalAmount !== 'number' || isNaN(billData.totalAmount) || billData.totalAmount <= 0 || billData.totalAmount > 99999999.99) {
+    throw new Error('Invalid bill total amount. Amount must be between Rs 0.01 and Rs 99,999,999.99.');
+  }
+
+  if (!Array.isArray(billData.items) || billData.items.length === 0 || billData.items.length > 200) {
+    throw new Error('Bill items must contain between 1 and 200 items.');
+  }
+
+  for (const item of billData.items) {
+    if (!item.name || typeof item.name !== 'string' || item.name.trim().length === 0) {
+      throw new Error('All bill items must have a valid name.');
+    }
+    if (typeof item.qty !== 'number' || isNaN(item.qty) || item.qty <= 0) {
+      throw new Error(`Invalid quantity for item "${item.name}".`);
+    }
+    if (typeof item.unit_price !== 'number' || isNaN(item.unit_price)) {
+      throw new Error(`Invalid price for item "${item.name}".`);
+    }
+  }
+
   // 1. Primary path: Use atomic RPC stored procedure with PostgreSQL row locking
   try {
     const { data: rpcResult, error: rpcError } = await supabase.rpc('create_bill_atomic', {
