@@ -351,7 +351,9 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const handleConfirmCustomItem = useCallback((e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const name = customItemName.trim().slice(0, 120) || 'Custom Item';
+    let name = customItemName.trim().slice(0, 120) || 'Custom Item';
+    // Defense-in-depth: strip leading formula characters
+    name = name.replace(/^[=+\-@\t\r%|]+/, '').trim() || 'Custom Item';
     const price = parseFloat(customItemPrice);
     if (isNaN(price) || price <= 0 || price > 9999999.99) return;
     const roundedPrice = Number(price.toFixed(2));
@@ -544,7 +546,9 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Item CRUD
   const handleSaveItem = useCallback(async () => {
-    const name = editItemName.trim().slice(0, 120);
+    let name = editItemName.trim().slice(0, 120);
+    // Defense-in-depth: strip leading formula characters
+    name = name.replace(/^[=+\-@\t\r%|]+/, '').trim();
     const price = Number(editItemPrice);
     if (!name || isNaN(price) || price < 0 || price > 9999999.99 || !shop) return;
     const roundedPrice = Number(price.toFixed(2));
