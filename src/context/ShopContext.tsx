@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Shop } from '../types';
 import { checkIsOnline, fetchShop, createInitialShop, updateShop, getSubscriptionInfo } from '../lib/dbService';
-import { signOutBusiness, getActiveUser, isUserAdmin } from '../lib/authService';
+import { signOutBusiness, getActiveUser, isUserAdmin, checkIsAdminServerSide } from '../lib/authService';
 import { ShopContext, type ShopContextType } from './shopContextDef';
 
 export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -79,7 +79,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setShop(activeShop);
         }
 
-        if (isUserAdmin(user) || isUserAdmin(activeShop)) {
+        const serverIsAdmin = user ? await checkIsAdminServerSide() : false;
+        if (serverIsAdmin || isUserAdmin(user) || isUserAdmin(activeShop)) {
           setIsAdminView(true);
           if (
             typeof window !== 'undefined' &&
@@ -146,7 +147,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [loadCloudData]);
 
   const handleAuthSuccess = useCallback(
-    (authData: {
+    async (authData: {
       mode: 'login' | 'register';
       data: Record<string, string>;
       user?: any;
@@ -161,7 +162,10 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setShop(authData.shop);
       }
 
-      const isAdmin = isUserAdmin(authData.user) || isUserAdmin(authData.shop);
+      let isAdmin = isUserAdmin(authData.user) || isUserAdmin(authData.shop);
+      if (!isAdmin && authData.user) {
+        isAdmin = await checkIsAdminServerSide();
+      }
 
       if (isAdmin) {
         setIsAdminView(true);
@@ -182,7 +186,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       setShowAuthScreen(false);
-      loadCloudData(authData.shop);
+      void loadCloudData(authData.shop);
     },
     [loadCloudData]
   );
