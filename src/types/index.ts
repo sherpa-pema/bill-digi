@@ -91,3 +91,10 @@ export interface PaginatedBillsResult {
   totalCount: number;
   hasMore: boolean;
 }
+
+export interface AdminShopsFetchResult {
+  shops: ShopAdminView[];
+  isFallback: boolean;
+  warningMessage?: string;
+}
+
