@@ -24,7 +24,7 @@ export const ManageItemsModal: React.FC = () => {
   return (
     <div className="min-h-[calc(100vh-28px)] bg-[#fcfcfc] flex flex-col">
       {/* Header */}
-      <div className="px-5 pt-5 pb-3 bg-white border-b border-zinc-100 flex items-center gap-3">
+      <div className="sticky top-0 z-20 px-5 pt-5 pb-3 bg-white/95 backdrop-blur-md border-b border-zinc-100 flex items-center gap-3">
         <button 
           onClick={() => setShowItemsModal(false)} 
           className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-zinc-100 flex items-center justify-center active:scale-95 hover:bg-zinc-200 transition"

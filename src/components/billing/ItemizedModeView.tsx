@@ -64,7 +64,7 @@ export const ItemizedModeView: React.FC = () => {
             <span className="text-[11px] font-semibold tracking-[0.12em] uppercase text-zinc-400">My Items</span>
             <span className="text-[11px] font-medium text-zinc-400">{filteredItems.length} items</span>
           </div>
-          <div className="max-h-[260px] md:max-h-[calc(100vh-320px)] md:min-h-[300px] overflow-y-auto divide-y divide-zinc-100">
+          <div className="max-h-[300px] md:max-h-[calc(100vh-320px)] md:min-h-[300px] overflow-y-auto overscroll-y-contain divide-y divide-zinc-100">
             {/* Custom Item Trigger */}
             <button 
               onClick={openCustomItemDialog} 

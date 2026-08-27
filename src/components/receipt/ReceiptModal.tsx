@@ -30,7 +30,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ bill }) => {
   return (
     <div className="min-h-[calc(100vh-28px)] bg-[#fcfcfc] flex flex-col">
       {/* Header */}
-      <div className="px-5 pt-6 pb-4 bg-white border-b border-zinc-100">
+      <div className="sticky top-0 z-20 px-5 pt-5 pb-3 bg-white/95 backdrop-blur-md border-b border-zinc-100">
         <div className="flex items-center justify-between max-w-[420px] mx-auto w-full">
           <button 
             onClick={handleClose} 

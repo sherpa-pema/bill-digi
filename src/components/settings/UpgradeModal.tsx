@@ -11,8 +11,14 @@ export const UpgradeModal: React.FC = () => {
   if (!showUpgradeModal) return null;
 
   return (
-    <div className="absolute inset-0 z-[50] bg-black/60 backdrop-blur-[2px] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-slideUp">
-      <div className="w-full max-w-[460px] bg-white rounded-t-[28px] sm:rounded-[28px] max-h-[92vh] overflow-y-auto p-5 sm:p-6 shadow-[0_20px_80px_rgba(0,0,0,0.3)] flex flex-col">
+    <div 
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-4 animate-slideUp"
+      onClick={() => setShowUpgradeModal(false)}
+    >
+      <div 
+        className="w-full max-w-[460px] bg-white rounded-[28px] max-h-[90vh] overflow-y-auto overscroll-y-contain p-5 sm:p-6 shadow-[0_20px_80px_rgba(0,0,0,0.3)] flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
         
         {/* Header */}
         <div className="flex items-center justify-between pb-3.5 border-b border-zinc-100">

@@ -41,7 +41,7 @@ export const BasketView: React.FC = () => {
           <p className="text-[12px] text-zinc-400 mt-0.5">Tap items on the left to add</p>
         </div>
       ) : (
-        <div className="max-h-[260px] md:max-h-[calc(100vh-420px)] overflow-y-auto divide-y divide-zinc-100">
+        <div className="max-h-[300px] md:max-h-[calc(100vh-420px)] overflow-y-auto overscroll-y-contain divide-y divide-zinc-100">
           {basket.map(b => (
             <div key={b.id} className="px-4 py-3 flex items-center gap-3">
               <div className="flex-1 min-w-0">
