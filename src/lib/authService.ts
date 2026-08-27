@@ -380,7 +380,6 @@ export const loginBusiness = async (params: LoginParams): Promise<AuthResult> =>
     }
 
     let items: Item[] = [];
-    let bills: Bill[] = [];
 
     if (shop) {
       // Load items directly from Supabase (protected by shop ownership RLS)
@@ -393,17 +392,6 @@ export const loginBusiness = async (params: LoginParams): Promise<AuthResult> =>
       if (itemsRows) {
         items = itemsRows as Item[];
       }
-
-      // Load bills directly from Supabase (protected by shop ownership RLS)
-      const { data: billsRows } = await supabase
-        .from('bills')
-        .select('*')
-        .eq('shop_id', shop.id)
-        .order('bill_number', { ascending: false });
-
-      if (billsRows) {
-        bills = billsRows as Bill[];
-      }
     }
 
     return {
@@ -413,7 +401,7 @@ export const loginBusiness = async (params: LoginParams): Promise<AuthResult> =>
       session: authData.session,
       shop: shop || undefined,
       items,
-      bills
+      bills: []
     };
   } catch (err: any) {
     console.error('Login exception:', err);

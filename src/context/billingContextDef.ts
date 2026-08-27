@@ -1,5 +1,5 @@
 import { createContext } from 'react';
-import type { Item, Bill, BasketItem } from '../types';
+import type { Item, Bill, BasketItem, HistoryDateFilter } from '../types';
 
 export interface BillingContextType {
   // Navigation
@@ -69,7 +69,7 @@ export interface BillingContextType {
   showQr: boolean;
   setShowQr: (val: boolean) => void;
 
-  // History State
+  // History & Pagination State
   bills: Bill[];
   setBills: React.Dispatch<React.SetStateAction<Bill[]>>;
   historySearch: string;
@@ -77,6 +77,17 @@ export interface BillingContextType {
   filteredHistory: Bill[];
   billDetailSheet: Bill | null;
   setBillDetailSheet: (bill: Bill | null) => void;
+  historyDateFilter: HistoryDateFilter;
+  setHistoryDateFilter: (filter: HistoryDateFilter) => void;
+  isLoadingBills: boolean;
+  isLoadingMore: boolean;
+  hasMoreBills: boolean;
+  totalBillsCount: number;
+  loadMoreBills: () => Promise<void>;
+
+  // CSV Export
+  isExportingCsv: boolean;
+  handleExportCsv: (scope?: 'current_filter' | 'all_time') => Promise<void>;
 
   // Manage Items State
   isSavingItem: boolean;

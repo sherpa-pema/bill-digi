@@ -134,6 +134,7 @@ CREATE INDEX IF NOT EXISTS idx_shops_user_id ON shops(user_id);
 CREATE INDEX IF NOT EXISTS idx_shops_pan ON shops(pan_number);
 CREATE INDEX IF NOT EXISTS idx_items_shop ON items(shop_id);
 CREATE INDEX IF NOT EXISTS idx_bills_shop_number ON bills(shop_id, bill_number DESC);
+CREATE INDEX IF NOT EXISTS idx_bills_shop_created_at ON bills(shop_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_bills_created_at ON bills(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_subscription_payments_shop ON subscription_payments(shop_id);
 CREATE INDEX IF NOT EXISTS idx_subscription_payments_created ON subscription_payments(created_at DESC);
