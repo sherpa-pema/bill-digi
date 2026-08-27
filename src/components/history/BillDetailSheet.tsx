@@ -18,19 +18,20 @@ export const BillDetailSheet: React.FC<BillDetailSheetProps> = ({ bill, onClose 
   const historyReceiptRef = useRef<HTMLDivElement>(null);
 
   return (
-    <div className="absolute inset-0 z-40 bg-black/40 backdrop-blur-[2px] flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="w-full max-w-[460px] bg-[#fcfcfc] rounded-t-[28px] sm:rounded-[28px] max-h-[90vh] overflow-hidden flex flex-col shadow-[0_20px_80px_rgba(0,0,0,0.2)] animate-slideUp">
-        {/* Drag Pill */}
-        <div className="p-3 flex justify-center">
-          <div className="w-10 h-1 rounded-full bg-zinc-200"></div>
-        </div>
-
+    <div 
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-4 animate-slideUp"
+      onClick={onClose}
+    >
+      <div 
+        className="w-full max-w-[460px] bg-[#fcfcfc] rounded-[28px] max-h-[90vh] overflow-hidden flex flex-col shadow-[0_20px_80px_rgba(0,0,0,0.25)]"
+        onClick={e => e.stopPropagation()}
+      >
         {/* Sheet Header */}
-        <div className="px-5 pb-3 flex items-center justify-between">
-          <h3 className="serif text-[20px]">Bill #{bill.bill_number}</h3>
+        <div className="px-5 pt-5 pb-3 flex items-center justify-between border-b border-zinc-100/80">
+          <h3 className="serif text-[20px] text-zinc-900">Bill #{bill.bill_number}</h3>
           <button 
             onClick={onClose} 
-            className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-zinc-100 flex items-center justify-center active:scale-95 hover:bg-zinc-200 transition"
+            className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-zinc-100 flex items-center justify-center active:scale-95 hover:bg-zinc-200 transition text-zinc-600"
             title="Close"
           >
             <X className="w-4.5 h-4.5" />
@@ -38,7 +39,7 @@ export const BillDetailSheet: React.FC<BillDetailSheetProps> = ({ bill, onClose 
         </div>
 
         {/* Sheet Content */}
-        <div className="flex-1 overflow-y-auto px-4 pb-4">
+        <div className="flex-1 overflow-y-auto overscroll-y-contain px-5 py-4">
           <ReceiptCard ref={historyReceiptRef} bill={bill} shop={shop} />
 
           {/* Action Buttons */}

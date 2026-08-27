@@ -170,7 +170,7 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
         </div>
 
         {/* Scrollable Content Container */}
-        <div className="flex-1 overflow-y-auto px-5 pt-3 pb-8">
+        <div className="flex-1 overflow-y-auto overscroll-y-contain px-5 pt-3 pb-16 sm:pb-20">
           
           {/* Header Brand */}
           <div className="text-center mb-6">

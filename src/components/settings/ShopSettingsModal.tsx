@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Crown, Sparkles, LogOut, Loader2 } from 'lucide-react';
+import { Crown, Sparkles, LogOut, Loader2, X } from 'lucide-react';
 import { useShop } from '../../hooks/useShop';
 import { useBilling } from '../../hooks/useBilling';
 import { checkIsOnline } from '../../lib/dbService';
@@ -105,9 +105,21 @@ export const ShopSettingsModal: React.FC = () => {
   if (!isSetupMode) return null;
 
   return (
-    <div className="absolute inset-0 z-[50] bg-[#fcfcfc] flex flex-col overflow-y-auto">
-      <div className="flex-1 p-5 pb-10">
-        <div className="w-full max-w-[440px] mx-auto">
+    <div className="fixed inset-0 z-50 bg-[#fcfcfc] overflow-y-auto overscroll-y-contain">
+      <div className="min-h-full flex flex-col justify-start p-5 pb-28 sm:pb-32">
+        <div className="w-full max-w-[440px] mx-auto relative">
+          {/* Close Button when editing */}
+          {isEditingShop && (
+            <button 
+              type="button"
+              onClick={() => { setIsSetupMode(false); setIsEditingShop(false); }} 
+              className="absolute -top-1 right-0 min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-500 hover:text-zinc-900 active:scale-95 transition cursor-pointer z-10"
+              title="Close Settings"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
+
           {/* Logo & Heading */}
           <div className="text-center mb-6">
             <div className="w-16 h-16 mx-auto rounded-[18px] overflow-hidden flex items-center justify-center shadow-sm">

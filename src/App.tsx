@@ -75,14 +75,10 @@ function AppContent() {
   // 3. Unauthenticated Auth Screen
   if (showAuthScreen && !shop) {
     return (
-      <div className="min-h-screen bg-[#f2f2f2] flex justify-center font-[Inter,system-ui,sans-serif]">
-        <div className="w-full max-w-[430px] bg-[#fcfcfc] min-h-screen relative flex flex-col shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_20px_60px_rgba(0,0,0,0.12)] overflow-hidden">
-          <AuthScreen 
-            initialMode={authInitialMode}
-            onSuccess={handleAuthSuccess}
-          />
-        </div>
-      </div>
+      <AuthScreen 
+        initialMode={authInitialMode}
+        onSuccess={handleAuthSuccess}
+      />
     );
   }
 
@@ -115,7 +111,7 @@ function AppContent() {
 
         {/* Logged-in Auth Screen Overlay (for account switching) */}
         {showAuthScreen && shop && (
-          <div className="absolute inset-0 z-[60] bg-[#fcfcfc] flex flex-col animate-slideUp">
+          <div className="fixed inset-0 z-50 bg-[#fcfcfc] overflow-y-auto overscroll-y-contain animate-slideUp">
             <AuthScreen 
               initialMode={authInitialMode}
               onClose={() => setShowAuthScreen(false)}
