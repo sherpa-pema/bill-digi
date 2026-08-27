@@ -17,8 +17,14 @@ export const CustomItemModal: React.FC = () => {
   if (!showCustomItemModal) return null;
 
   return (
-    <div className="absolute inset-0 z-[45] bg-black/50 backdrop-blur-[2px] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-slideUp">
-      <div className="w-full max-w-[440px] bg-white rounded-t-[28px] sm:rounded-[28px] p-6 shadow-[0_20px_80px_rgba(0,0,0,0.25)] flex flex-col">
+    <div 
+      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-[2px] flex items-center justify-center p-4 animate-slideUp"
+      onClick={() => setShowCustomItemModal(false)}
+    >
+      <div 
+        className="w-full max-w-[440px] bg-white rounded-[28px] p-6 shadow-[0_20px_80px_rgba(0,0,0,0.25)] flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between mb-4">
           <div>
             <span className="text-[11px] font-semibold tracking-[0.12em] uppercase text-zinc-400">Itemized Mode</span>
