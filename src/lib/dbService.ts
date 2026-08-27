@@ -1,6 +1,17 @@
 import { getSupabaseClient } from './supabase';
-import type { Shop, Item, Bill, BasketItem, SubscriptionPayment, ShopAdminView } from '../types';
+import type { 
+  Shop, 
+  Item, 
+  Bill, 
+  BasketItem, 
+  SubscriptionPayment, 
+  ShopAdminView,
+  HistoryDateFilter,
+  FetchBillsOptions,
+  PaginatedBillsResult
+} from '../types';
 import { generateId } from './storage';
+import { formatDateTime, getBillBreakdown } from './formatters';
 
 /**
  * Check if the browser is currently online
@@ -231,26 +242,249 @@ export const deleteItem = async (itemId: string): Promise<void> => {
 };
 
 /**
- * Fetch all bills for a shop directly from Supabase
+ * Fetch paginated bills for a shop directly from Supabase with date-range filters
  */
-export const fetchBills = async (shopId: string): Promise<Bill[]> => {
+export const fetchBillsPaginated = async (
+  shopId: string,
+  options: FetchBillsOptions = {}
+): Promise<PaginatedBillsResult> => {
   const supabase = getSupabaseClient();
   if (!supabase) {
     throw new Error('Supabase client is not configured.');
   }
 
-  const { data, error } = await supabase
+  const {
+    limit = 50,
+    offset = 0,
+    dateFilter = '30days',
+    startDate,
+    endDate,
+    searchQuery
+  } = options;
+
+  let query = supabase
     .from('bills')
-    .select('*')
-    .eq('shop_id', shopId)
-    .order('bill_number', { ascending: false });
+    .select('*', { count: 'exact' })
+    .eq('shop_id', shopId);
+
+  // Apply date filters
+  if (startDate) {
+    query = query.gte('created_at', startDate);
+  } else if (dateFilter === 'today') {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    query = query.gte('created_at', todayStart.toISOString());
+  } else if (dateFilter === '7days') {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    query = query.gte('created_at', sevenDaysAgo.toISOString());
+  } else if (dateFilter === '30days') {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    query = query.gte('created_at', thirtyDaysAgo.toISOString());
+  }
+
+  if (endDate) {
+    query = query.lte('created_at', endDate);
+  }
+
+  // If searchQuery is numeric, allow exact bill_number match query
+  const trimmedSearch = searchQuery?.trim();
+  if (trimmedSearch && /^\d+$/.test(trimmedSearch)) {
+    query = query.eq('bill_number', parseInt(trimmedSearch, 10));
+  }
+
+  query = query
+    .order('bill_number', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  const { data, error, count } = await query;
 
   if (error) {
-    console.error('Error fetching bills from Supabase:', error);
+    console.error('Error fetching paginated bills from Supabase:', error);
     throw error;
   }
 
-  return (data as Bill[]) || [];
+  const bills = (data as Bill[]) || [];
+  const totalCount = count ?? bills.length;
+  const hasMore = offset + bills.length < totalCount;
+
+  return {
+    bills,
+    totalCount,
+    hasMore
+  };
+};
+
+/**
+ * Fetch bills for a shop directly from Supabase (backward compatible, defaults to last 30 days)
+ */
+export const fetchBills = async (
+  shopId: string,
+  options?: FetchBillsOptions
+): Promise<Bill[]> => {
+  const result = await fetchBillsPaginated(shopId, options || { limit: 50, dateFilter: '30days' });
+  return result.bills;
+};
+
+/**
+ * Stream/fetch all bills for a shop on demand for CSV export without keeping everything in permanent state.
+ * Fetches in chunks of 1,000 to safely exceed PostgREST's default max_rows limit without timeout.
+ */
+export const fetchAllBillsForExport = async (
+  shopId: string,
+  options?: {
+    dateFilter?: HistoryDateFilter;
+    startDate?: string;
+    endDate?: string;
+  }
+): Promise<Bill[]> => {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    throw new Error('Supabase client is not configured.');
+  }
+
+  const CHUNK_SIZE = 1000;
+  let allBills: Bill[] = [];
+  let offset = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    let query = supabase
+      .from('bills')
+      .select('*')
+      .eq('shop_id', shopId);
+
+    if (options?.startDate) {
+      query = query.gte('created_at', options.startDate);
+    } else if (options?.dateFilter === 'today') {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      query = query.gte('created_at', todayStart.toISOString());
+    } else if (options?.dateFilter === '7days') {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      query = query.gte('created_at', sevenDaysAgo.toISOString());
+    } else if (options?.dateFilter === '30days') {
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      query = query.gte('created_at', thirtyDaysAgo.toISOString());
+    }
+
+    if (options?.endDate) {
+      query = query.lte('created_at', options.endDate);
+    }
+
+    query = query
+      .order('bill_number', { ascending: false })
+      .range(offset, offset + CHUNK_SIZE - 1);
+
+    const { data, error } = await query;
+    if (error) {
+      console.error('Error fetching export chunk from Supabase:', error);
+      throw error;
+    }
+
+    const chunk = (data as Bill[]) || [];
+    allBills = allBills.concat(chunk);
+
+    if (chunk.length < CHUNK_SIZE) {
+      hasMore = false;
+    } else {
+      offset += CHUNK_SIZE;
+    }
+  }
+
+  return allBills;
+};
+
+/**
+ * Format bill records into CSV string with UTF-8 BOM for Microsoft Excel compatibility
+ */
+export const generateBillsCsv = (bills: Bill[], shop?: Shop | null): string => {
+  const headers = [
+    'Bill Number',
+    'Date & Time',
+    'Type',
+    'Subtotal (Rs)',
+    'Discount (Rs)',
+    'Taxable Amount (Rs)',
+    'VAT 13% (Rs)',
+    'Total Amount (Rs)',
+    'Items Summary',
+    'Shop Name',
+    'PAN Number'
+  ];
+
+  const escapeCsv = (str: string | number | undefined | null): string => {
+    if (str == null) return '""';
+    const s = String(str).replace(/"/g, '""');
+    return `"${s}"`;
+  };
+
+  const rows = bills.map((bill) => {
+    const { subtotal, discountAmount, taxableAmount, vatAmount, regularItems } = getBillBreakdown(bill);
+    const itemsSummary = bill.bill_type === 'itemized'
+      ? regularItems.map(i => `${i.name} (x${i.qty} @ Rs ${i.unit_price})`).join('; ')
+      : 'Simple Mode Entry';
+
+    return [
+      escapeCsv(bill.bill_number),
+      escapeCsv(formatDateTime(bill.created_at)),
+      escapeCsv(bill.bill_type.toUpperCase()),
+      escapeCsv(subtotal.toFixed(2)),
+      escapeCsv(discountAmount.toFixed(2)),
+      escapeCsv(taxableAmount.toFixed(2)),
+      escapeCsv(vatAmount.toFixed(2)),
+      escapeCsv(bill.total_amount.toFixed(2)),
+      escapeCsv(itemsSummary),
+      escapeCsv(shop?.shop_name || ''),
+      escapeCsv(shop?.pan_number || '')
+    ].join(',');
+  });
+
+  // Prepend UTF-8 BOM so Excel opens non-ASCII characters without encoding glitches
+  return '\uFEFF' + [headers.join(','), ...rows].join('\r\n');
+};
+
+/**
+ * Trigger download of generated CSV file
+ */
+export const downloadBillsCsv = async (
+  bills: Bill[], 
+  shop?: Shop | null,
+  fileNamePrefix: string = 'Bills_Export'
+): Promise<void> => {
+  if (!bills || bills.length === 0) {
+    throw new Error('No bills available to export for the selected date range.');
+  }
+
+  const csvContent = generateBillsCsv(bills, shop);
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const dateStr = new Date().toISOString().split('T')[0];
+  const safeShopName = shop?.shop_name ? shop.shop_name.replace(/[^a-zA-Z0-9_-]/g, '_') : 'DigiBill';
+  const fileName = `${fileNamePrefix}_${safeShopName}_${dateStr}.csv`;
+
+  const file = new File([blob], fileName, { type: 'text/csv' });
+
+  if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({
+        files: [file],
+        title: `DigiBill CSV Export - ${shop?.shop_name || ''}`,
+        text: `Exported ${bills.length} bills from DigiBill POS`
+      });
+      return;
+    } catch (shareErr: any) {
+      if (shareErr.name === 'AbortError') return;
+      console.warn('Navigator share failed for CSV, falling back to direct download:', shareErr);
+    }
+  }
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 
 /**

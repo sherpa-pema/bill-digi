@@ -74,3 +74,20 @@ export interface SyncConfig {
   supabaseUrl: string;
   supabaseAnonKey: string;
 }
+
+export type HistoryDateFilter = 'today' | '7days' | '30days' | 'all';
+
+export interface FetchBillsOptions {
+  limit?: number;
+  offset?: number;
+  dateFilter?: HistoryDateFilter;
+  startDate?: string;
+  endDate?: string;
+  searchQuery?: string;
+}
+
+export interface PaginatedBillsResult {
+  bills: Bill[];
+  totalCount: number;
+  hasMore: boolean;
+}

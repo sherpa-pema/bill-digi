@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import type { Item, Bill, BasketItem } from '../types';
+import type { Item, Bill, BasketItem, HistoryDateFilter } from '../types';
 import { getItem, setItem, STORAGE_KEYS, generateId } from '../lib/storage';
 import { 
   checkIsOnline, 
@@ -7,12 +7,16 @@ import {
   createItem, 
   updateItem, 
   deleteItem, 
-  fetchBills, 
+  fetchBillsPaginated,
+  fetchAllBillsForExport,
+  downloadBillsCsv,
   generateBill 
 } from '../lib/dbService';
 import { useShop } from '../hooks/useShop';
 import { formatDateTime } from '../lib/formatters';
 import { BillingContext, type BillingContextType } from './billingContextDef';
+
+const PAGE_SIZE = 50;
 
 export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { shop, setShop, subscriptionInfo, setShowUpgradeModal } = useShop();
@@ -52,9 +56,15 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [generatedBill, setGeneratedBill] = useState<Bill | null>(null);
   const [showQr, setShowQr] = useState(false);
 
-  // History State
+  // History & Pagination State
   const [historySearch, setHistorySearch] = useState('');
   const [billDetailSheet, setBillDetailSheet] = useState<Bill | null>(null);
+  const [historyDateFilter, setHistoryDateFilter] = useState<HistoryDateFilter>('30days');
+  const [isLoadingBills, setIsLoadingBills] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMoreBills, setHasMoreBills] = useState(false);
+  const [totalBillsCount, setTotalBillsCount] = useState(0);
+  const [isExportingCsv, setIsExportingCsv] = useState(false);
 
   // Manage Items State
   const [isSavingItem, setIsSavingItem] = useState(false);
@@ -62,20 +72,87 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [editItemName, setEditItemName] = useState('');
   const [editItemPrice, setEditItemPrice] = useState('');
 
-  // Fetch Items & Bills whenever shop is available or changed
-  const refreshBillingData = useCallback(async () => {
+  // Fetch Items & Paginated Bills whenever shop is available or changed
+  const refreshBillingData = useCallback(async (forcedFilter?: HistoryDateFilter) => {
     if (!shop) return;
+    setIsLoadingBills(true);
+    const filterToUse = forcedFilter || historyDateFilter;
     try {
-      const [cloudItems, cloudBills] = await Promise.all([
+      const [cloudItems, billsResult] = await Promise.all([
         fetchItems(shop.id),
-        fetchBills(shop.id)
+        fetchBillsPaginated(shop.id, {
+          limit: PAGE_SIZE,
+          offset: 0,
+          dateFilter: filterToUse
+        })
       ]);
       setItems(cloudItems);
-      setBills(cloudBills);
+      setBills(billsResult.bills);
+      setTotalBillsCount(billsResult.totalCount);
+      setHasMoreBills(billsResult.hasMore);
     } catch (err) {
       console.error('Error fetching items and bills:', err);
+    } finally {
+      setIsLoadingBills(false);
     }
-  }, [shop]);
+  }, [shop, historyDateFilter]);
+
+  // Load more bills (pagination)
+  const loadMoreBills = useCallback(async () => {
+    if (!shop || isLoadingMore || !hasMoreBills) return;
+    setIsLoadingMore(true);
+    try {
+      const result = await fetchBillsPaginated(shop.id, {
+        limit: PAGE_SIZE,
+        offset: bills.length,
+        dateFilter: historyDateFilter,
+        searchQuery: historySearch
+      });
+      setBills(prev => {
+        const existingIds = new Set(prev.map(b => b.id));
+        const newUnique = result.bills.filter(b => !existingIds.has(b.id));
+        return [...prev, ...newUnique];
+      });
+      setTotalBillsCount(result.totalCount);
+      setHasMoreBills(result.hasMore);
+    } catch (err) {
+      console.error('Error loading more bills:', err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [shop, isLoadingMore, hasMoreBills, bills.length, historyDateFilter, historySearch]);
+
+  // Handle changing date filter
+  const handleSetHistoryDateFilter = useCallback((filter: HistoryDateFilter) => {
+    setHistoryDateFilter(filter);
+    if (shop?.id) {
+      void refreshBillingData(filter);
+    }
+  }, [shop?.id, refreshBillingData]);
+
+  // Handle on-demand CSV Export (streams without polluting state)
+  const handleExportCsv = useCallback(async (scope: 'current_filter' | 'all_time' = 'current_filter') => {
+    if (!shop || isExportingCsv) return;
+    setIsExportingCsv(true);
+    try {
+      const exportFilter = scope === 'all_time' ? 'all' : historyDateFilter;
+      const billsToExport = await fetchAllBillsForExport(shop.id, {
+        dateFilter: exportFilter
+      });
+      
+      if (billsToExport.length === 0) {
+        alert('No bills found for the selected export range.');
+        return;
+      }
+      
+      await downloadBillsCsv(billsToExport, shop, `DigiBill_${exportFilter}`);
+    } catch (err: any) {
+      console.error('Error exporting bills to CSV:', err);
+      alert('CSV Export failed: ' + (err.message || 'Please check your connection.'));
+    } finally {
+      setIsExportingCsv(false);
+    }
+  }, [shop, isExportingCsv, historyDateFilter]);
 
   useEffect(() => {
     if (shop?.id) {
@@ -87,6 +164,8 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setSimpleAmount('0');
       setGeneratedBill(null);
       setBillDetailSheet(null);
+      setTotalBillsCount(0);
+      setHasMoreBills(false);
     }
   }, [shop?.id, refreshBillingData]);
 
@@ -380,6 +459,7 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       // Update state with confirmed Supabase data
       setBills(prev => [result.bill, ...prev]);
+      setTotalBillsCount(prev => prev + 1);
       setShop(result.updatedShop);
       setGeneratedBill(result.bill);
       setShowQr(false);
@@ -422,7 +502,8 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return sorted.filter(b => 
       String(b.bill_number).includes(q) || 
       String(b.total_amount).includes(q) || 
-      formatDateTime(b.created_at).toLowerCase().includes(q)
+      formatDateTime(b.created_at).toLowerCase().includes(q) ||
+      b.items.some(i => i.name.toLowerCase().includes(q))
     );
   }, [bills, historySearch]);
 
@@ -544,6 +625,15 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     filteredHistory,
     billDetailSheet,
     setBillDetailSheet,
+    historyDateFilter,
+    setHistoryDateFilter: handleSetHistoryDateFilter,
+    isLoadingBills,
+    isLoadingMore,
+    hasMoreBills,
+    totalBillsCount,
+    loadMoreBills,
+    isExportingCsv,
+    handleExportCsv,
     isSavingItem,
     editItemId,
     setEditItemId,
