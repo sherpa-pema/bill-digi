@@ -31,7 +31,9 @@ export const ShopSettingsModal: React.FC = () => {
 
   const [setupShopName, setSetupShopName] = useState(shop?.shop_name || '');
   const [setupPanNumber, setSetupPanNumber] = useState(shop?.pan_number || '');
-  const [setupStartingBill, setSetupStartingBill] = useState(String(shop?.starting_bill_number || '1'));
+  const [setupStartingBill, setSetupStartingBill] = useState(() => {
+    return isEditingShop ? String(shop?.next_bill_number || 1) : String(shop?.starting_bill_number || 1);
+  });
   const [setupVatEnabled, setSetupVatEnabled] = useState(isVatEnabled);
   const [setupDiscountEnabled, setSetupDiscountEnabled] = useState(isDiscountEnabled);
   const [isSavingSetup, setIsSavingSetup] = useState(false);
@@ -40,19 +42,23 @@ export const ShopSettingsModal: React.FC = () => {
     if (shop) {
       setSetupShopName(shop.shop_name);
       setSetupPanNumber(shop.pan_number);
-      setSetupStartingBill(String(shop.starting_bill_number));
+      setSetupStartingBill(isEditingShop ? String(shop.next_bill_number || 1) : String(shop.starting_bill_number || 1));
     }
     setSetupVatEnabled(isVatEnabled);
     setSetupDiscountEnabled(isDiscountEnabled);
-  }, [shop, isVatEnabled, isDiscountEnabled, isSetupMode]);
+  }, [shop, isVatEnabled, isDiscountEnabled, isSetupMode, isEditingShop]);
+
+  const minBillNumber = isEditingShop ? (Number(shop?.next_bill_number) || 1) : 1;
+  const enteredBillNumber = Number(setupStartingBill);
+  const isBillNumberValid = !isNaN(enteredBillNumber) && enteredBillNumber >= minBillNumber;
 
   const isValidSetup = useMemo(() => {
     return (
       setupShopName.trim().length > 0 &&
       /^\d{9}$/.test(setupPanNumber) &&
-      Number(setupStartingBill) >= 1
+      isBillNumberValid
     );
-  }, [setupShopName, setupPanNumber, setupStartingBill]);
+  }, [setupShopName, setupPanNumber, isBillNumberValid]);
 
   const handleSaveSetup = async () => {
     if (!isValidSetup || !shop) return;
@@ -66,9 +72,17 @@ export const ShopSettingsModal: React.FC = () => {
       handleToggleVatSetting(setupVatEnabled);
       handleToggleDiscountSetting(setupDiscountEnabled);
 
-      const newStartingBill = Number(setupStartingBill) || shop.starting_bill_number;
-      const newNextBill =
-        newStartingBill !== shop.starting_bill_number ? newStartingBill : shop.next_bill_number;
+      let newStartingBill = shop.starting_bill_number;
+      let newNextBill = shop.next_bill_number;
+
+      if (isEditingShop) {
+        if (enteredBillNumber > shop.next_bill_number) {
+          newNextBill = enteredBillNumber;
+        }
+      } else {
+        newStartingBill = enteredBillNumber || 1;
+        newNextBill = enteredBillNumber || 1;
+      }
 
       await saveShopSettings({
         shop_name: setupShopName.trim(),
@@ -136,14 +150,27 @@ export const ShopSettingsModal: React.FC = () => {
                 </p>
               </div>
               <div>
-                <label className="text-[11px] font-semibold tracking-[0.12em] uppercase text-zinc-500">Starting Bill Number</label>
+                <label className="text-[11px] font-semibold tracking-[0.12em] uppercase text-zinc-500">
+                  {isEditingShop ? 'Next Bill Number' : 'Starting Bill Number'}
+                </label>
                 <input 
                   value={setupStartingBill} 
                   onChange={e => setSetupStartingBill(e.target.value.replace(/\D/g, ''))} 
-                  placeholder="1" 
+                  placeholder={String(minBillNumber)} 
                   inputMode="numeric" 
-                  className="mt-2 w-full h-12 rounded-[14px] bg-zinc-50 border border-zinc-100 px-4 text-[14px] outline-none focus:bg-white focus:border-zinc-300 transition" 
+                  className={`mt-2 w-full h-12 rounded-[14px] px-4 text-[14px] outline-none transition ${
+                    isBillNumberValid 
+                      ? 'bg-zinc-50 border border-zinc-100 focus:bg-white focus:border-zinc-300' 
+                      : 'bg-red-50 border border-red-200 text-red-900 focus:border-red-300'
+                  }`}
                 />
+                <p className={`mt-1.5 text-[11px] leading-relaxed ${isBillNumberValid ? 'text-zinc-400' : 'text-red-600 font-medium'}`}>
+                  {isEditingShop 
+                    ? (isBillNumberValid 
+                        ? `Current active bill counter. You can increase this to sync with physical bills (minimum #${minBillNumber}).` 
+                        : `Cannot decrease below #${minBillNumber}. Only forward increments are allowed to prevent duplicates.`)
+                    : `Initial starting bill number for your shop (minimum 1).`}
+                </p>
               </div>
             </div>
           </div>

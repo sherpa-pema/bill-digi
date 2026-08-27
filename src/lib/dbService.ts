@@ -571,14 +571,16 @@ export const generateBill = async (
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
-      // Re-fetch latest next_bill_number directly from Supabase to prevent stale state collisions
-      const { data: freshShopData } = await supabase
-        .from('shops')
-        .select('next_bill_number')
-        .eq('id', shop.id)
-        .single();
+      // Re-fetch latest next_bill_number and max existing bill number to ensure sequence healing
+      const [shopResponse, maxBillResponse] = await Promise.all([
+        supabase.from('shops').select('next_bill_number').eq('id', shop.id).single(),
+        supabase.from('bills').select('bill_number').eq('shop_id', shop.id).order('bill_number', { ascending: false }).limit(1).maybeSingle()
+      ]);
 
-      const targetBillNumber = freshShopData?.next_bill_number ? Number(freshShopData.next_bill_number) : shop.next_bill_number;
+      const baseTarget = shopResponse.data?.next_bill_number ? Number(shopResponse.data.next_bill_number) : shop.next_bill_number;
+      const maxExisting = maxBillResponse.data?.bill_number ? Number(maxBillResponse.data.bill_number) : 0;
+      
+      const targetBillNumber = Math.max(baseTarget, maxExisting + 1);
 
       const fallbackBill: Bill = {
         id: billId,
