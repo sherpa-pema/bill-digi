@@ -53,27 +53,55 @@ export const isUserAdmin = (
 ): boolean => {
   if (!userOrShopOrEmail) return false;
 
-  // 1. Direct database / metadata admin boolean flag
+  // 1. Server-controlled app_metadata claim (signed by Supabase Auth service role)
   if (typeof userOrShopOrEmail === 'object') {
-    if (userOrShopOrEmail.is_admin === true) return true;
-    if (userOrShopOrEmail.app_metadata?.is_admin === true || userOrShopOrEmail.app_metadata?.role === 'admin') return true;
-    if (userOrShopOrEmail.user_metadata?.is_admin === true || userOrShopOrEmail.user_metadata?.role === 'admin') return true;
+    if (userOrShopOrEmail.app_metadata?.is_admin === true || userOrShopOrEmail.app_metadata?.role === 'admin') {
+      return true;
+    }
+    // Verified shop flag (when loaded from trusted DB session)
+    if (userOrShopOrEmail.is_admin === true) {
+      return true;
+    }
   }
 
-  // 2. Email matching against VITE_ADMIN_EMAILS (only if explicitly set in environment)
+  // 2. Email matching against VITE_ADMIN_EMAILS (only if explicitly set in environment for dev convenience)
   const adminEmails = getAdminEmails();
-  if (adminEmails.length === 0) return false;
+  if (adminEmails.length > 0) {
+    let emailToTest: string | undefined;
+    if (typeof userOrShopOrEmail === 'string') {
+      emailToTest = userOrShopOrEmail;
+    } else if (typeof userOrShopOrEmail === 'object') {
+      emailToTest = userOrShopOrEmail.email;
+    }
 
-  let emailToTest: string | undefined;
-  if (typeof userOrShopOrEmail === 'string') {
-    emailToTest = userOrShopOrEmail;
-  } else if (typeof userOrShopOrEmail === 'object') {
-    emailToTest = userOrShopOrEmail.email || userOrShopOrEmail.user_metadata?.email;
+    if (emailToTest) {
+      const cleanEmail = emailToTest.toLowerCase().trim();
+      if (adminEmails.includes(cleanEmail)) return true;
+    }
   }
 
-  if (!emailToTest) return false;
-  const cleanEmail = emailToTest.toLowerCase().trim();
-  return adminEmails.includes(cleanEmail);
+  return false;
+};
+
+/**
+ * Verify administrative privileges directly against Supabase PostgreSQL server.
+ * Uses public.is_admin() RPC to prevent any client-side manipulation.
+ */
+export const checkIsAdminServerSide = async (): Promise<boolean> => {
+  const supabase = getSupabaseClient();
+  if (!supabase) return false;
+
+  try {
+    const { data, error } = await supabase.rpc('is_admin');
+    if (error) {
+      console.warn('is_admin RPC query notice:', error.message);
+      return false;
+    }
+    return Boolean(data);
+  } catch (err) {
+    console.warn('Error checking server-side admin status:', err);
+    return false;
+  }
 };
 
 /**

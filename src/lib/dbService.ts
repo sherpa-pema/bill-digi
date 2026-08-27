@@ -631,6 +631,43 @@ export const activateShopSubscription = async (
     throw new Error('Supabase client is not configured.');
   }
 
+  // 1. Try atomic PostgreSQL RPC with server-side admin check
+  try {
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_set_shop_subscription', {
+      p_shop_id: shop.id,
+      p_tier: 'pro',
+      p_status: 'active',
+      p_duration_days: days,
+      p_amount: amount,
+      p_payment_method: 'bank_qr',
+      p_transaction_ref: transactionRef.trim() || null,
+      p_notes: notes.trim() || null,
+      p_activated_by: activatedBy
+    });
+
+    if (!rpcError && rpcResult?.shop) {
+      return {
+        updatedShop: rpcResult.shop as Shop,
+        payment: (rpcResult.payment as SubscriptionPayment) || {
+          id: 'pay_' + generateId(),
+          shop_id: shop.id,
+          shop_name: shop.shop_name,
+          pan_number: shop.pan_number,
+          amount,
+          duration_days: days,
+          payment_method: 'bank_qr',
+          transaction_ref: transactionRef.trim() || undefined,
+          activated_by: activatedBy,
+          notes: notes.trim() || undefined,
+          created_at: new Date().toISOString()
+        }
+      };
+    }
+  } catch (rpcEx) {
+    console.warn('admin_set_shop_subscription RPC notice (using fallback):', rpcEx);
+  }
+
+  // 2. Resilient Direct Query Fallback
   const now = Date.now();
   let baseTime = now;
 
@@ -645,7 +682,6 @@ export const activateShopSubscription = async (
   const newExpiryDate = new Date(baseTime + days * 24 * 60 * 60 * 1000).toISOString();
   const nowDateIso = new Date().toISOString();
 
-  // 1. Update shop in Supabase
   const updatedShopFields = {
     subscription_tier: 'pro' as const,
     subscription_status: 'active' as const,
@@ -666,7 +702,6 @@ export const activateShopSubscription = async (
     throw shopError;
   }
 
-  // 2. Create subscription payment log
   const newPayment: SubscriptionPayment = {
     id: 'pay_' + generateId(),
     shop_id: shop.id,
@@ -684,7 +719,7 @@ export const activateShopSubscription = async (
   try {
     await supabase.from('subscription_payments').insert(newPayment);
   } catch (payErr) {
-    console.warn('Could not insert subscription payment log (table may not exist yet):', payErr);
+    console.warn('Could not insert subscription payment log:', payErr);
   }
 
   return {
@@ -702,6 +737,23 @@ export const extendShopTrial = async (shop: Shop, extraDays = 7): Promise<Shop> 
     throw new Error('Supabase client is not configured.');
   }
 
+  // 1. Try atomic PostgreSQL RPC
+  try {
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_set_shop_subscription', {
+      p_shop_id: shop.id,
+      p_tier: 'free',
+      p_status: 'trial',
+      p_duration_days: extraDays
+    });
+
+    if (!rpcError && rpcResult?.shop) {
+      return rpcResult.shop as Shop;
+    }
+  } catch (rpcEx) {
+    console.warn('admin_set_shop_subscription RPC notice for trial extend (using fallback):', rpcEx);
+  }
+
+  // 2. Resilient Direct Query Fallback
   const now = Date.now();
   const currentTrial = shop.trial_expires_at ? new Date(shop.trial_expires_at).getTime() : now;
   const baseTime = currentTrial > now ? currentTrial : now;
@@ -739,6 +791,22 @@ export const setShopToFree = async (shop: Shop): Promise<Shop> => {
     throw new Error('Supabase client is not configured.');
   }
 
+  // 1. Try atomic PostgreSQL RPC
+  try {
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('admin_set_shop_subscription', {
+      p_shop_id: shop.id,
+      p_tier: 'free',
+      p_status: 'expired'
+    });
+
+    if (!rpcError && rpcResult?.shop) {
+      return rpcResult.shop as Shop;
+    }
+  } catch (rpcEx) {
+    console.warn('admin_set_shop_subscription RPC notice for downgrade (using fallback):', rpcEx);
+  }
+
+  // 2. Resilient Direct Query Fallback
   const expiredDate = new Date(Date.now() - 1000).toISOString();
   const nowDateIso = new Date().toISOString();
 
