@@ -12,7 +12,8 @@ import {
   LogOut, 
   Loader2, 
   CheckCircle2, 
-  FileText
+  FileText,
+  AlertTriangle
 } from 'lucide-react';
 import type { ShopAdminView, SubscriptionPayment } from '../types';
 import { 
@@ -41,6 +42,7 @@ export default function AdminPanel({ currentUser, onSignOut }: AdminPanelProps) 
   const [filterTier, setFilterTier] = useState<'all' | 'pro' | 'trial' | 'expiring' | 'expired'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [fallbackWarning, setFallbackWarning] = useState<string | null>(null);
 
   // Quick Action Modal State
   const [selectedShop, setSelectedShop] = useState<ShopAdminView | null>(null);
@@ -53,12 +55,17 @@ export default function AdminPanel({ currentUser, onSignOut }: AdminPanelProps) 
   const loadAdminData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [shopsData, paymentsData] = await Promise.all([
+      const [shopsResult, paymentsData] = await Promise.all([
         fetchAllShopsForAdmin(),
         fetchSubscriptionPayments()
       ]);
-      setShops(shopsData);
+      setShops(shopsResult.shops);
       setPayments(paymentsData);
+      if (shopsResult.isFallback) {
+        setFallbackWarning(shopsResult.warningMessage || 'Database aggregation RPC unavailable. Displaying estimates via query fallback.');
+      } else {
+        setFallbackWarning(null);
+      }
     } catch (err: any) {
       console.error('Failed to load admin data:', err);
       setActionNotice(err.message || 'Error loading shops from Supabase.');
@@ -243,14 +250,35 @@ export default function AdminPanel({ currentUser, onSignOut }: AdminPanelProps) 
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-4 sm:px-8 pt-6">
         
-        {/* Notice Toast */}
+        {/* Action Notice Toast */}
         {actionNotice && (
           <div className="mb-6 p-4 rounded-[16px] bg-emerald-900 text-white text-[13px] font-medium flex items-center justify-between shadow-lg animate-slideUp">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-300" />
               <span>{actionNotice}</span>
             </div>
-            <button onClick={() => setActionNotice(null)} className="p-1 hover:opacity-75">
+            <button onClick={() => setActionNotice(null)} className="p-1 hover:opacity-75" title="Dismiss notice">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Fallback Degradation Warning Banner */}
+        {fallbackWarning && (
+          <div className="mb-6 p-4 rounded-[16px] bg-amber-50 border border-amber-300 text-amber-950 text-[13px] font-medium flex items-start justify-between shadow-sm animate-slideUp">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-amber-900">Database Aggregation Notice</p>
+                <p className="text-[12px] text-amber-800 mt-0.5 leading-relaxed">{fallbackWarning}</p>
+              </div>
+            </div>
+            <button 
+              type="button"
+              onClick={() => setFallbackWarning(null)} 
+              className="p-1 text-amber-700 hover:text-amber-950 hover:bg-amber-100 rounded-lg transition shrink-0 ml-2"
+              title="Dismiss warning"
+            >
               <X className="w-4 h-4" />
             </button>
           </div>

@@ -8,7 +8,8 @@ import type {
   ShopAdminView,
   HistoryDateFilter,
   FetchBillsOptions,
-  PaginatedBillsResult
+  PaginatedBillsResult,
+  AdminShopsFetchResult
 } from '../types';
 import { generateId } from './storage';
 import { formatDateTime, getBillBreakdown } from './formatters';
@@ -727,11 +728,11 @@ export const getSubscriptionInfo = (shop: Shop | null) => {
 
 /**
  * ADMIN: Fetch all shops with their accurate bill counts and revenue totals
- * Priority 1: PostgreSQL get_admin_shops_summary RPC (accurate, server-side COUNT/SUM, no 1,000 row cap)
+ * Priority 1: PostgreSQL get_admin_shops_summary RPC (accurate, server-side COUNT/SUM, no row cap)
  * Priority 2: PostgREST embedded resource count query `select('*, bills(count)')`
- * Priority 3: Fallback client query with sequential counter reconciliation
+ * Priority 3: Chunked fallback client query with sequential counter reconciliation & alerting
  */
-export const fetchAllShopsForAdmin = async (): Promise<ShopAdminView[]> => {
+export const fetchAllShopsForAdmin = async (): Promise<AdminShopsFetchResult> => {
   const supabase = getSupabaseClient();
   if (!supabase) {
     throw new Error('Supabase client is not configured.');
@@ -741,22 +742,27 @@ export const fetchAllShopsForAdmin = async (): Promise<ShopAdminView[]> => {
   try {
     const { data: rpcShops, error: rpcError } = await supabase.rpc('get_admin_shops_summary');
     if (!rpcError && rpcShops && Array.isArray(rpcShops) && rpcShops.length > 0) {
-      return rpcShops.map((s: any) => ({
+      const formattedShops: ShopAdminView[] = rpcShops.map((s: any) => ({
         ...s,
         starting_bill_number: Number(s.starting_bill_number || 1),
         next_bill_number: Number(s.next_bill_number || 1),
         bill_count: Number(s.bill_count || 0),
         total_revenue: Number(s.total_revenue || 0)
       }));
+
+      return {
+        shops: formattedShops,
+        isFallback: false
+      };
     }
     if (rpcError) {
-      console.warn('get_admin_shops_summary RPC call notice (using resilient query fallback):', rpcError.message);
+      console.warn('get_admin_shops_summary RPC call error (activating resilient query fallback):', rpcError.message);
     }
   } catch (rpcEx) {
-    console.warn('get_admin_shops_summary RPC exception (using query fallback):', rpcEx);
+    console.warn('get_admin_shops_summary RPC exception (activating resilient query fallback):', rpcEx);
   }
 
-  // 2. Fetch all shops with embedded bills count
+  // 2. Fetch all shops with embedded bills count (database-level foreign key count)
   let shops: any[] = [];
   try {
     const { data: shopsWithCount, error: shopsCountError } = await supabase
@@ -776,41 +782,67 @@ export const fetchAllShopsForAdmin = async (): Promise<ShopAdminView[]> => {
       shops = standardShops || [];
     }
   } catch (err: any) {
-    console.error('Error fetching shops for admin:', err);
+    console.error('Error fetching shops for admin in fallback mode:', err);
     throw err;
   }
 
-  if (!shops || shops.length === 0) return [];
+  if (!shops || shops.length === 0) {
+    return {
+      shops: [],
+      isFallback: true,
+      warningMessage: 'Database aggregation RPC failed. Showing fallback estimates.'
+    };
+  }
 
-  // 3. Fetch bill sums if accessible (using elevated limit)
+  // 3. Fetch bill sums using chunked pagination (in ranges of 1,000) up to safety limit (25,000)
   const billCountMap: Record<string, number> = {};
   const revenueMap: Record<string, number> = {};
+  const CHUNK_SIZE = 1000;
+  const MAX_FALLBACK_BILLS = 25000;
+  let offset = 0;
+  let hasMore = true;
+  let isTruncated = false;
 
   try {
-    const { data: bills, error: billsError } = await supabase
-      .from('bills')
-      .select('shop_id, total_amount')
-      .limit(10000);
+    while (hasMore && offset < MAX_FALLBACK_BILLS) {
+      const { data: billsChunk, error: billsError } = await supabase
+        .from('bills')
+        .select('shop_id, total_amount')
+        .order('created_at', { ascending: false })
+        .range(offset, offset + CHUNK_SIZE - 1);
 
-    if (billsError) {
-      console.warn('Direct bills query notice in admin view:', billsError.message);
-    } else if (bills) {
-      bills.forEach((b: { shop_id?: string; total_amount?: number }) => {
-        if (b.shop_id) {
-          billCountMap[b.shop_id] = (billCountMap[b.shop_id] || 0) + 1;
-          revenueMap[b.shop_id] = (revenueMap[b.shop_id] || 0) + (Number(b.total_amount) || 0);
+      if (billsError) {
+        console.warn('Direct bills query error in admin fallback mode:', billsError.message);
+        break;
+      }
+
+      if (billsChunk && billsChunk.length > 0) {
+        billsChunk.forEach((b: { shop_id?: string; total_amount?: number }) => {
+          if (b.shop_id) {
+            billCountMap[b.shop_id] = (billCountMap[b.shop_id] || 0) + 1;
+            revenueMap[b.shop_id] = (revenueMap[b.shop_id] || 0) + (Number(b.total_amount) || 0);
+          }
+        });
+
+        if (billsChunk.length < CHUNK_SIZE) {
+          hasMore = false;
+        } else {
+          offset += CHUNK_SIZE;
         }
-      });
+      } else {
+        hasMore = false;
+      }
+    }
+
+    if (hasMore && offset >= MAX_FALLBACK_BILLS) {
+      isTruncated = true;
+      console.warn(`Admin fallback capped at ${MAX_FALLBACK_BILLS} bills to avoid browser memory exhaustion.`);
     }
   } catch (bErr) {
     console.warn('Error aggregating bills in fallback mode:', bErr);
   }
 
-  return shops.map((s: any) => {
-    // Determine accurate bill count:
-    // a) PostgREST embedded bills count
-    // b) billCountMap from fetched bills
-    // c) sequential counter fallback: next_bill_number - starting_bill_number
+  const aggregatedShops: ShopAdminView[] = shops.map((s: any) => {
     const embeddedCount = Array.isArray(s.bills) && s.bills[0]?.count != null ? Number(s.bills[0].count) : null;
     const directQueryCount = billCountMap[s.id];
     const sequentialCount = Math.max(0, (Number(s.next_bill_number) || 1) - (Number(s.starting_bill_number) || 1));
@@ -821,7 +853,6 @@ export const fetchAllShopsForAdmin = async (): Promise<ShopAdminView[]> => {
     } else if (directQueryCount != null && directQueryCount > 0) {
       finalCount = directQueryCount;
     } else {
-      // Fall back to sequential counter if RLS or query limits blocked bill row counting
       finalCount = sequentialCount;
     }
 
@@ -847,6 +878,16 @@ export const fetchAllShopsForAdmin = async (): Promise<ShopAdminView[]> => {
       total_revenue: revenueMap[s.id] || 0
     };
   });
+
+  const warningMessage = isTruncated
+    ? `Fallback safety ceiling (${MAX_FALLBACK_BILLS.toLocaleString()} bills) reached. Revenue totals are truncated. Please ensure get_admin_shops_summary RPC migration is applied.`
+    : 'Database aggregation RPC is unavailable. Metric values were aggregated via client-side fallback query.';
+
+  return {
+    shops: aggregatedShops,
+    isFallback: true,
+    warningMessage
+  };
 };
 
 /**
