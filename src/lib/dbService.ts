@@ -12,7 +12,7 @@ import type {
   AdminShopsFetchResult
 } from '../types';
 import { generateId } from './storage';
-import { formatDateTime, getBillBreakdown } from './formatters';
+import { formatDateTime, getBillBreakdown, escapeCsvSafe } from './formatters';
 
 /**
  * Check if the browser is currently online
@@ -413,12 +413,6 @@ export const generateBillsCsv = (bills: Bill[], shop?: Shop | null): string => {
     'PAN Number'
   ];
 
-  const escapeCsv = (str: string | number | undefined | null): string => {
-    if (str == null) return '""';
-    const s = String(str).replace(/"/g, '""');
-    return `"${s}"`;
-  };
-
   const rows = bills.map((bill) => {
     const { subtotal, discountAmount, taxableAmount, vatAmount, regularItems } = getBillBreakdown(bill);
     const itemsSummary = bill.bill_type === 'itemized'
@@ -426,17 +420,17 @@ export const generateBillsCsv = (bills: Bill[], shop?: Shop | null): string => {
       : 'Simple Mode Entry';
 
     return [
-      escapeCsv(bill.bill_number),
-      escapeCsv(formatDateTime(bill.created_at)),
-      escapeCsv(bill.bill_type.toUpperCase()),
-      escapeCsv(subtotal.toFixed(2)),
-      escapeCsv(discountAmount.toFixed(2)),
-      escapeCsv(taxableAmount.toFixed(2)),
-      escapeCsv(vatAmount.toFixed(2)),
-      escapeCsv(bill.total_amount.toFixed(2)),
-      escapeCsv(itemsSummary),
-      escapeCsv(shop?.shop_name || ''),
-      escapeCsv(shop?.pan_number || '')
+      escapeCsvSafe(bill.bill_number),
+      escapeCsvSafe(formatDateTime(bill.created_at)),
+      escapeCsvSafe(bill.bill_type.toUpperCase()),
+      escapeCsvSafe(subtotal.toFixed(2)),
+      escapeCsvSafe(discountAmount.toFixed(2)),
+      escapeCsvSafe(taxableAmount.toFixed(2)),
+      escapeCsvSafe(vatAmount.toFixed(2)),
+      escapeCsvSafe(bill.total_amount.toFixed(2)),
+      escapeCsvSafe(itemsSummary),
+      escapeCsvSafe(shop?.shop_name || ''),
+      escapeCsvSafe(shop?.pan_number || '')
     ].join(',');
   });
 

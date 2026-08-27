@@ -41,3 +41,40 @@ export const getBillBreakdown = (bill: Bill) => {
 
   return { subtotal, discountAmount, taxableAmount, vatAmount, regularItems, discountItem, vatItem };
 };
+
+/**
+ * Sanitizes and escapes CSV field values according to RFC 4180 and OWASP CSV Injection mitigation guidelines.
+ * 
+ * Formula injection (CWE-1236) occurs when values starting with '=', '+', '-', '@', '\t', '\r', '%', or '|'
+ * are opened in spreadsheet programs (Excel, Google Sheets) and interpreted as executable formulas.
+ */
+export const escapeCsvSafe = (value: string | number | undefined | null): string => {
+  if (value == null) return '""';
+  
+  // If it's a number, standard numeric output is safe
+  if (typeof value === 'number') {
+    return `"${Number.isFinite(value) ? value : ''}"`;
+  }
+
+  let str = String(value);
+
+  // Replace raw newlines and carriage returns with spaces to prevent row splitting issues
+  str = str.replace(/[\r\n]+/g, ' ');
+
+  // Check if string starts with formula-triggering characters
+  const trimmed = str.trimStart();
+  const formulaChars = ['=', '+', '-', '@', '\t', '\r', '%', '|'];
+  
+  if (trimmed.length > 0 && formulaChars.some(char => trimmed.startsWith(char))) {
+    // If it's a pure number string like "-12.50" or "+5", it's safe if it parses strictly as a finite number
+    // But for general user text like "=HYPERLINK(...)" or "-something", prefix with a single quote
+    const isPureNumber = !isNaN(Number(trimmed)) && !trimmed.includes('0x') && !trimmed.includes('0b');
+    if (!isPureNumber) {
+      str = `'${str}`;
+    }
+  }
+
+  // Escape standard double quotes per RFC 4180
+  const escaped = str.replace(/"/g, '""');
+  return `"${escaped}"`;
+};
