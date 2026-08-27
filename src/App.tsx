@@ -7,7 +7,6 @@ import AdminPanel from './components/AdminPanel';
 import AuthScreen from './components/AuthScreen';
 import { LumaSpin } from '@/components/ui/luma-spin';
 import { Header } from './components/layout/Header';
-import { BottomNav } from './components/layout/BottomNav';
 import { NetworkStatusBar } from './components/layout/NetworkStatusBar';
 import { NewBillScreen } from './components/billing/NewBillScreen';
 import { HistoryScreen } from './components/history/HistoryScreen';
@@ -109,9 +108,6 @@ function AppContent() {
             <HistoryScreen />
           )}
         </div>
-
-        {/* Sticky Bottom Navigation */}
-        {!generatedBill && !showItemsModal && !isSetupMode && <BottomNav />}
 
         {/* Overlays / Modals */}
         <ShopSettingsModal />

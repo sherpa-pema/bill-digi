@@ -1,12 +1,12 @@
 import React from 'react';
-import { Settings, Hash, Sparkles, Crown } from 'lucide-react';
+import { Settings, Hash, Sparkles, Crown, Clock, ArrowLeft } from 'lucide-react';
 import { useShop } from '../../hooks/useShop';
 import { useBilling } from '../../hooks/useBilling';
 import { isUserAdmin } from '../../lib/authService';
 
 export const Header: React.FC = () => {
   const { shop, authUser, subscriptionInfo, setShowUpgradeModal, setIsAdminView, openShopSettings } = useShop();
-  const { activeTab } = useBilling();
+  const { activeTab, setActiveTab } = useBilling();
 
   const isAdmin = isUserAdmin(authUser) || isUserAdmin(shop);
 
@@ -53,6 +53,15 @@ export const Header: React.FC = () => {
               </button>
             )}
             <button 
+              type="button" 
+              onClick={() => setActiveTab('history')} 
+              className="min-h-[44px] px-3.5 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-[12.5px] font-semibold flex items-center gap-1.5 active:scale-95 transition cursor-pointer"
+              title="View Bill History"
+            >
+              <Clock className="w-4 h-4 text-zinc-600" />
+              <span>History</span>
+            </button>
+            <button 
               onClick={openShopSettings} 
               className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-zinc-100 hover:bg-zinc-200/80 flex items-center justify-center active:scale-95 transition" 
               title="Settings"
@@ -63,8 +72,19 @@ export const Header: React.FC = () => {
         </div>
       ) : (
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="serif text-[26px] tracking-tight">History</h1>
+          <div className="flex items-center gap-3">
+            <button 
+              type="button" 
+              onClick={() => setActiveTab('newBill')} 
+              className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-700 active:scale-95 transition cursor-pointer"
+              title="Back to New Bill"
+            >
+              <ArrowLeft className="w-4.5 h-4.5" />
+            </button>
+            <div>
+              <h1 className="serif text-[24px] tracking-tight leading-tight">Bill History</h1>
+              <p className="text-[11.5px] text-zinc-400 font-medium">{shop?.shop_name || 'My Shop'}</p>
+            </div>
           </div>
           <div className="flex items-center gap-1.5">
             {isAdmin && (

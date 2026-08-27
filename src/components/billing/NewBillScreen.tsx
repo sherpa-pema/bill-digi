@@ -8,7 +8,7 @@ export const NewBillScreen: React.FC = () => {
   const { isItemizedMode } = useBilling();
 
   return (
-    <div className="p-4 pb-24">
+    <div className="p-4 pb-6 sm:pb-8">
       {!isItemizedMode ? <SimpleModeView /> : <ItemizedModeView />}
       <CustomItemModal />
     </div>
