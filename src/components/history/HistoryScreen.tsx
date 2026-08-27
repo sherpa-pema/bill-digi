@@ -31,7 +31,7 @@ export const HistoryScreen: React.FC = () => {
   ];
 
   return (
-    <div className="p-4 pb-24 max-w-4xl mx-auto w-full">
+    <div className="p-4 pb-8 max-w-4xl mx-auto w-full">
       {/* Top Filter & Export Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
         {/* Date Filter Pills */}
