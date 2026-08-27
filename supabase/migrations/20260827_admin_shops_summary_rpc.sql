@@ -4,7 +4,7 @@
 -- completely eliminating PostgREST 1,000-row limits and cross-tenant RLS issues.
 -- ==============================================================================
 
--- 1. Helper Function: Verify Admin Privilege
+-- 1. Helper Function: Verify Admin Privilege (Secure RBAC via app_metadata & admin_users)
 CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS BOOLEAN
 LANGUAGE sql
@@ -14,18 +14,17 @@ SET search_path = public
 AS $$
   SELECT COALESCE(
     (auth.jwt() -> 'app_metadata' ->> 'is_admin')::boolean,
-    (auth.jwt() -> 'user_metadata' ->> 'is_admin')::boolean,
-    (auth.jwt() ->> 'email' IN ('admin@digibill.app', 'sherpachungba3@gmail.com', 'admin@digibill.com')),
+    (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin'),
     EXISTS (
-      SELECT 1 FROM public.shops 
-      WHERE user_id = auth.uid() 
-        AND is_admin = true
+      SELECT 1 FROM public.admin_users 
+      WHERE user_id = auth.uid()
     ),
     false
   );
 $$;
 
 GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_admin() TO anon;
 
 -- 2. Create the get_admin_shops_summary() RPC function
 CREATE OR REPLACE FUNCTION public.get_admin_shops_summary()
