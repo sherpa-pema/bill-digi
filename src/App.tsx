@@ -39,13 +39,13 @@ function AppContent() {
   // 1. Loading Screen with LumaSpin
   if (isLoadingData) {
     return (
-      <div className="min-h-screen bg-[#f2f2f2] flex items-center justify-center font-[Inter,system-ui,sans-serif]">
-        <div className="w-full max-w-[430px] bg-[#fcfcfc] min-h-screen flex flex-col items-center justify-center p-6 text-center shadow-lg">
+      <div className="min-h-screen bg-[#f2f2f2] dark:bg-zinc-950 flex items-center justify-center font-[Inter,system-ui,sans-serif]">
+        <div className="w-full max-w-[430px] bg-[#fcfcfc] dark:bg-zinc-900 min-h-screen flex flex-col items-center justify-center p-6 text-center shadow-lg text-zinc-900 dark:text-zinc-100">
           <div className="mb-8 flex items-center justify-center">
             <LumaSpin />
           </div>
           <h2 className="serif text-xl font-medium tracking-tight mb-2">Sano Bill</h2>
-          <p className="text-xs text-zinc-500 max-w-[260px] leading-relaxed">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-[260px] leading-relaxed">
             Initializing your Sano Bill & cloud workspace...
           </p>
         </div>
@@ -84,8 +84,8 @@ function AppContent() {
 
   // 4. Main POS Application
   return (
-    <div className="min-h-screen bg-[#f2f2f2] flex justify-center font-[Inter,system-ui,sans-serif]">
-      <div className="w-full max-w-[430px] md:max-w-4xl lg:max-w-5xl bg-[#fcfcfc] min-h-screen relative flex flex-col shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_20px_60px_rgba(0,0,0,0.12)] overflow-hidden transition-all duration-200">
+    <div className="min-h-screen bg-[#f2f2f2] dark:bg-zinc-950 flex justify-center font-[Inter,system-ui,sans-serif] text-zinc-900 dark:text-zinc-100 transition-colors duration-200">
+      <div className="w-full max-w-[430px] md:max-w-4xl lg:max-w-5xl bg-[#fcfcfc] dark:bg-zinc-900 min-h-screen relative flex flex-col shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_20px_60px_rgba(0,0,0,0.12)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_20px_60px_rgba(0,0,0,0.6)] overflow-hidden transition-all duration-200">
         {/* Network and Feedback Status Banners */}
         <NetworkStatusBar />
 
@@ -111,7 +111,7 @@ function AppContent() {
 
         {/* Logged-in Auth Screen Overlay (for account switching) */}
         {showAuthScreen && shop && (
-          <div className="fixed inset-0 z-50 bg-[#fcfcfc] overflow-y-auto overscroll-y-contain animate-slideUp">
+          <div className="fixed inset-0 z-50 bg-[#fcfcfc] dark:bg-zinc-900 overflow-y-auto overscroll-y-contain animate-slideUp">
             <AuthScreen 
               initialMode={authInitialMode}
               onClose={() => setShowAuthScreen(false)}

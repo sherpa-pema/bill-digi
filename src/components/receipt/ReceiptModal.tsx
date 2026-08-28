@@ -28,18 +28,18 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ bill }) => {
   }
 
   return (
-    <div className="min-h-[calc(100vh-28px)] bg-[#fcfcfc] flex flex-col">
+    <div className="min-h-[calc(100vh-28px)] bg-[#fcfcfc] dark:bg-zinc-950 flex flex-col text-zinc-900 dark:text-zinc-100 transition-colors">
       {/* Header */}
-      <div className="sticky top-0 z-20 px-5 pt-5 pb-3 bg-white/95 backdrop-blur-md border-b border-zinc-100">
+      <div className="sticky top-0 z-20 px-5 pt-5 pb-3 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-800">
         <div className="flex items-center justify-between max-w-[420px] mx-auto w-full">
           <button 
             onClick={handleClose} 
-            className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-zinc-100 flex items-center justify-center active:scale-95 hover:bg-zinc-200 transition"
+            className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 flex items-center justify-center active:scale-95 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition cursor-pointer"
             title="Close receipt"
           >
             <X className="w-4.5 h-4.5" />
           </button>
-          <span className="text-[12px] font-semibold tracking-[0.12em] uppercase text-zinc-400">Bill Recorded</span>
+          <span className="text-[12px] font-semibold tracking-[0.12em] uppercase text-zinc-400 dark:text-zinc-500">Bill Recorded</span>
           <div className="w-11"></div>
         </div>
       </div>
@@ -54,28 +54,28 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ bill }) => {
             type="button"
             disabled={isDownloadingBill}
             onClick={() => handleDownloadBillImage(bill, receiptRef.current)} 
-            className="min-h-[64px] h-[72px] rounded-[18px] bg-white border border-zinc-100 shadow-sm flex flex-col items-center justify-center gap-1 active:scale-95 transition disabled:opacity-50"
+            className="min-h-[64px] h-[72px] rounded-[18px] bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 shadow-sm flex flex-col items-center justify-center gap-1 active:scale-95 transition disabled:opacity-50 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/80"
             title="Download bill image to phone gallery"
           >
             {isDownloadingBill ? (
-              <Loader2 className="w-5 h-5 animate-spin text-zinc-700" />
+              <Loader2 className="w-5 h-5 animate-spin text-zinc-700 dark:text-zinc-300" />
             ) : (
-              <Download className="w-5 h-5 text-zinc-800" />
+              <Download className="w-5 h-5 text-zinc-800 dark:text-zinc-200" />
             )}
-            <span className="text-[12px] font-medium text-zinc-800">
+            <span className="text-[12px] font-medium text-zinc-800 dark:text-zinc-200">
               {isDownloadingBill ? 'Saving...' : 'Download'}
             </span>
           </button>
           <button 
             onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(generateBillText(bill))}`, '_blank')} 
-            className="min-h-[64px] h-[72px] rounded-[18px] bg-white border border-zinc-100 shadow-sm flex flex-col items-center justify-center gap-1 active:scale-95 transition"
+            className="min-h-[64px] h-[72px] rounded-[18px] bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 shadow-sm flex flex-col items-center justify-center gap-1 active:scale-95 transition cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/80"
           >
             <div className="w-5 h-5 rounded-full bg-[#25D366] text-white flex items-center justify-center text-[12px] font-bold">W</div>
-            <span className="text-[12px] font-medium">WhatsApp</span>
+            <span className="text-[12px] font-medium text-zinc-800 dark:text-zinc-200">WhatsApp</span>
           </button>
           <button 
             onClick={() => setShowQr(true)} 
-            className="min-h-[64px] h-[72px] rounded-[18px] bg-black text-white flex flex-col items-center justify-center gap-1 active:scale-95 transition"
+            className="min-h-[64px] h-[72px] rounded-[18px] bg-black dark:bg-white text-white dark:text-zinc-950 flex flex-col items-center justify-center gap-1 active:scale-95 transition cursor-pointer hover:bg-zinc-900 dark:hover:bg-zinc-100"
           >
             <Database className="w-5 h-5" />
             <span className="text-[12px] font-medium">Show QR</span>
@@ -83,24 +83,24 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ bill }) => {
         </div>
 
         {/* IRD Info Card */}
-        <div className="mt-4 rounded-[14px] bg-amber-50 border border-amber-100 p-3 flex gap-2.5 max-w-[380px] mx-auto">
+        <div className="mt-4 rounded-[14px] bg-amber-50 dark:bg-amber-950/40 border border-amber-100 dark:border-amber-900/60 p-3 flex gap-2.5 max-w-[380px] mx-auto">
           <div className="w-7 h-7 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0 font-bold text-xs">!</div>
-          <p className="text-[11px] leading-[1.4] text-amber-900">
+          <p className="text-[11px] leading-[1.4] text-amber-900 dark:text-amber-300">
             Bill recorded directly on Supabase. Customer can download bill image, scan QR, or save bill for IRD lottery prize.ird.gov.np
           </p>
         </div>
       </div>
 
       {/* Done Button Footer */}
-      <div className="p-4 pb-6 bg-white border-t border-zinc-100">
+      <div className="p-4 pb-6 bg-white dark:bg-zinc-900 border-t border-zinc-100 dark:border-zinc-800">
         <div className="max-w-[380px] mx-auto w-full">
           <button 
             onClick={handleClose} 
-            className="w-full min-h-[52px] h-[54px] rounded-[16px] bg-zinc-100 text-zinc-900 font-semibold text-[14px] active:bg-zinc-200 transition flex items-center justify-center"
+            className="w-full min-h-[52px] h-[54px] rounded-[16px] bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-semibold text-[14px] active:bg-zinc-200 dark:active:bg-zinc-700 transition flex items-center justify-center cursor-pointer hover:bg-zinc-200 dark:hover:bg-zinc-700"
           >
             Done — New Bill
           </button>
-          <p className="mt-3 text-center text-[11px] text-zinc-400">Bill No #{bill.bill_number} • Saved to Supabase Cloud • Live</p>
+          <p className="mt-3 text-center text-[11px] text-zinc-400 dark:text-zinc-500">Bill No #{bill.bill_number} • Saved to Supabase Cloud • Live</p>
         </div>
       </div>
     </div>
