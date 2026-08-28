@@ -14,7 +14,7 @@ export const Keypad: React.FC = () => {
             key={k} 
             type="button" 
             onClick={() => handleKeypadPress(k)} 
-            className="min-h-[60px] h-[60px] rounded-[16px] bg-[#f6f6f6] border border-zinc-100 text-[22px] font-medium active:bg-zinc-900 active:text-white active:scale-[0.97] transition shadow-sm"
+            className="min-h-[60px] h-[60px] rounded-[16px] bg-[#f6f6f6] dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700/70 text-zinc-900 dark:text-zinc-100 text-[22px] font-medium active:bg-zinc-900 active:text-white dark:active:bg-zinc-600 active:scale-[0.97] transition shadow-sm cursor-pointer"
           >
             {k}
           </button>
@@ -26,28 +26,28 @@ export const Keypad: React.FC = () => {
         <button 
           type="button" 
           onClick={() => handleKeypadPress('0')} 
-          className="min-h-[60px] h-[60px] rounded-[16px] bg-[#f6f6f6] border border-zinc-100 text-[21px] font-medium active:bg-zinc-900 active:text-white active:scale-[0.97] transition shadow-sm flex items-center justify-center"
+          className="min-h-[60px] h-[60px] rounded-[16px] bg-[#f6f6f6] dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700/70 text-zinc-900 dark:text-zinc-100 text-[21px] font-medium active:bg-zinc-900 active:text-white dark:active:bg-zinc-600 active:scale-[0.97] transition shadow-sm flex items-center justify-center cursor-pointer"
         >
           0
         </button>
         <button 
           type="button" 
           onClick={() => handleKeypadPress('00')} 
-          className="min-h-[60px] h-[60px] rounded-[16px] bg-[#f6f6f6] border border-zinc-100 text-[19px] font-medium active:bg-zinc-900 active:text-white active:scale-[0.97] transition shadow-sm flex items-center justify-center"
+          className="min-h-[60px] h-[60px] rounded-[16px] bg-[#f6f6f6] dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700/70 text-zinc-900 dark:text-zinc-100 text-[19px] font-medium active:bg-zinc-900 active:text-white dark:active:bg-zinc-600 active:scale-[0.97] transition shadow-sm flex items-center justify-center cursor-pointer"
         >
           00
         </button>
         <button 
           type="button" 
           onClick={() => handleKeypadPress('.')} 
-          className="min-h-[60px] h-[60px] rounded-[16px] bg-[#f6f6f6] border border-zinc-100 text-[22px] font-bold active:bg-zinc-900 active:text-white active:scale-[0.97] transition shadow-sm flex items-center justify-center"
+          className="min-h-[60px] h-[60px] rounded-[16px] bg-[#f6f6f6] dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700/70 text-zinc-900 dark:text-zinc-100 text-[22px] font-bold active:bg-zinc-900 active:text-white dark:active:bg-zinc-600 active:scale-[0.97] transition shadow-sm flex items-center justify-center cursor-pointer"
         >
           .
         </button>
         <button 
           type="button" 
           onClick={() => handleKeypadPress('⌫')} 
-          className="min-h-[60px] h-[60px] rounded-[16px] bg-zinc-900 text-white text-[15px] font-semibold active:bg-black active:scale-[0.97] transition shadow-sm flex items-center justify-center"
+          className="min-h-[60px] h-[60px] rounded-[16px] bg-zinc-900 dark:bg-zinc-700 text-white text-[15px] font-semibold active:bg-black dark:active:bg-zinc-600 active:scale-[0.97] transition shadow-sm flex items-center justify-center cursor-pointer"
           title="Backspace"
         >
           <Delete className="w-5 h-5" />

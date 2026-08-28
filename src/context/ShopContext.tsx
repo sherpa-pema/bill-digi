@@ -32,6 +32,38 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Subscription Details
   const subscriptionInfo = useMemo(() => getSubscriptionInfo(shop), [shop]);
 
+  // Dark Mode Theme State
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const savedTheme = localStorage.getItem('sanobill_theme');
+      if (savedTheme === 'dark') return true;
+      if (savedTheme === 'light') return false;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return false;
+  });
+
+  // Synchronize documentElement class with dark mode state
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      if (isDarkMode) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    }
+  }, [isDarkMode]);
+
+  const toggleDarkMode = useCallback(() => {
+    setIsDarkMode(prev => {
+      const next = !prev;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('sanobill_theme', next ? 'dark' : 'light');
+      }
+      return next;
+    });
+  }, []);
+
   // Route Listener
   useEffect(() => {
     const handleLocationChange = () => {
@@ -252,6 +284,9 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setShowUpgradeModal,
     showItemsModal,
     setShowItemsModal,
+    isDarkMode,
+    setIsDarkMode,
+    toggleDarkMode,
     saveShopSettings,
     signOut,
   };

@@ -26,28 +26,28 @@ export const BasketView: React.FC = () => {
   } = useBilling();
 
   return (
-    <div className="rounded-[24px] bg-white border border-zinc-200/80 shadow-[0_8px_30px_rgba(0,0,0,0.04)] overflow-hidden flex flex-col">
-      <div className="px-5 py-4 flex items-center justify-between border-b border-zinc-100 bg-zinc-50/50">
-        <h3 className="serif text-[20px] text-zinc-900">Basket</h3>
-        <span className="text-[12px] px-2.5 py-1 rounded-full bg-zinc-100 font-semibold text-zinc-700">{basket.length} items</span>
+    <div className="rounded-[24px] bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-[0_8px_30px_rgba(0,0,0,0.04)] dark:shadow-none overflow-hidden flex flex-col transition-colors">
+      <div className="px-5 py-4 flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/50">
+        <h3 className="serif text-[20px] text-zinc-900 dark:text-zinc-100">Basket</h3>
+        <span className="text-[12px] px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 font-semibold text-zinc-700 dark:text-zinc-300">{basket.length} items</span>
       </div>
       
       {basket.length === 0 ? (
         <div className="px-5 py-10 text-center">
-          <div className="w-14 h-14 mx-auto rounded-full bg-zinc-50 border border-zinc-100 flex items-center justify-center mb-2.5">
-            <ShoppingBag className="w-6 h-6 text-zinc-400" />
+          <div className="w-14 h-14 mx-auto rounded-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 flex items-center justify-center mb-2.5">
+            <ShoppingBag className="w-6 h-6 text-zinc-400 dark:text-zinc-500" />
           </div>
-          <p className="text-[13.5px] font-medium text-zinc-600">Your basket is empty</p>
-          <p className="text-[12px] text-zinc-400 mt-0.5">Tap items on the left to add</p>
+          <p className="text-[13.5px] font-medium text-zinc-600 dark:text-zinc-400">Your basket is empty</p>
+          <p className="text-[12px] text-zinc-400 dark:text-zinc-500 mt-0.5">Tap items on the left to add</p>
         </div>
       ) : (
-        <div className="max-h-[300px] md:max-h-[calc(100vh-420px)] overflow-y-auto overscroll-y-contain divide-y divide-zinc-100">
+        <div className="max-h-[300px] md:max-h-[calc(100vh-420px)] overflow-y-auto overscroll-y-contain divide-y divide-zinc-100 dark:divide-zinc-800">
           {basket.map(b => (
             <div key={b.id} className="px-4 py-3 flex items-center gap-3">
               <div className="flex-1 min-w-0">
-                <p className="text-[14px] font-medium text-zinc-900 truncate">{b.name}</p>
+                <p className="text-[14px] font-medium text-zinc-900 dark:text-zinc-100 truncate">{b.name}</p>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[12px] text-zinc-500">Rs</span>
+                  <span className="text-[12px] text-zinc-500 dark:text-zinc-400">Rs</span>
                   <input 
                     type="number" 
                     min="0"
@@ -78,36 +78,36 @@ export const BasketView: React.FC = () => {
                         e.preventDefault();
                       }
                     }}
-                    className="w-[76px] h-8 rounded-[8px] bg-zinc-50 border border-zinc-200 text-[13px] px-2 font-medium outline-none focus:bg-white focus:border-zinc-400" 
+                    className="w-[76px] h-8 rounded-[8px] bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-[13px] text-zinc-900 dark:text-zinc-100 px-2 font-medium outline-none focus:bg-white dark:focus:bg-zinc-800 focus:border-zinc-400 dark:focus:border-zinc-500" 
                   />
-                  <span className="text-[12px] text-zinc-400">× {b.qty}</span>
+                  <span className="text-[12px] text-zinc-400 dark:text-zinc-500">× {b.qty}</span>
                 </div>
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 <button 
                   type="button"
                   onClick={() => updateBasketQty(b.id, -1)} 
-                  className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center active:scale-95 transition"
+                  className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 flex items-center justify-center active:scale-95 transition cursor-pointer"
                   title="Decrease quantity"
                 >
                   <span className="font-bold text-lg leading-none select-none">-</span>
                 </button>
-                <span className="w-6 text-center text-[13px] font-semibold">{b.qty}</span>
+                <span className="w-6 text-center text-[13px] font-semibold text-zinc-900 dark:text-zinc-100">{b.qty}</span>
                 <button 
                   type="button"
                   onClick={() => updateBasketQty(b.id, 1)} 
-                  className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-zinc-900 hover:bg-black text-white flex items-center justify-center active:scale-95 transition shadow-sm"
+                  className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-zinc-900 dark:bg-white hover:bg-black dark:hover:bg-zinc-100 text-white dark:text-zinc-950 flex items-center justify-center active:scale-95 transition shadow-sm cursor-pointer"
                   title="Increase quantity"
                 >
                   <Plus className="w-4 h-4" />
                 </button>
               </div>
               <div className="text-right min-w-[64px] flex flex-col items-end">
-                <p className="text-[13.5px] font-bold text-zinc-900">Rs {b.line_total}</p>
+                <p className="text-[13.5px] font-bold text-zinc-900 dark:text-zinc-100">Rs {b.line_total}</p>
                 <button 
                   type="button"
                   onClick={() => removeFromBasket(b.id)} 
-                  className="min-h-[36px] px-1 flex items-center justify-end text-[11px] text-zinc-400 hover:text-red-600 transition"
+                  className="min-h-[36px] px-1 flex items-center justify-end text-[11px] text-zinc-400 dark:text-zinc-500 hover:text-red-600 dark:hover:text-red-400 transition cursor-pointer"
                 >
                   Remove
                 </button>
@@ -117,7 +117,7 @@ export const BasketView: React.FC = () => {
         </div>
       )}
       
-      <div className="p-4 bg-zinc-50 border-t border-zinc-100">
+      <div className="p-4 bg-zinc-50 dark:bg-zinc-850 border-t border-zinc-100 dark:border-zinc-800">
         {/* Tax / Discount Quick Chips in Basket */}
         {(isVatEnabled || isDiscountEnabled) && (
           <div className="flex gap-2 mb-3">
@@ -125,10 +125,10 @@ export const BasketView: React.FC = () => {
               <button 
                 type="button" 
                 onClick={toggleVat} 
-                className={`flex-1 min-h-[44px] h-11 rounded-xl text-[12.5px] font-semibold flex items-center justify-center gap-1 transition active:scale-[0.98] ${
+                className={`flex-1 min-h-[44px] h-11 rounded-xl text-[12.5px] font-semibold flex items-center justify-center gap-1 transition active:scale-[0.98] cursor-pointer ${
                   isVat 
-                    ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20" 
-                    : "bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-100"
+                    ? "bg-emerald-600 dark:bg-emerald-500 text-white shadow-sm shadow-emerald-600/20" 
+                    : "bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700"
                 }`}
               >
                 +13% VAT
@@ -138,10 +138,10 @@ export const BasketView: React.FC = () => {
               <button 
                 type="button" 
                 onClick={toggleDiscount} 
-                className={`flex-1 min-h-[44px] h-11 rounded-xl text-[12.5px] font-semibold flex items-center justify-center gap-1 transition active:scale-[0.98] ${
+                className={`flex-1 min-h-[44px] h-11 rounded-xl text-[12.5px] font-semibold flex items-center justify-center gap-1 transition active:scale-[0.98] cursor-pointer ${
                   isDiscount 
-                    ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20" 
-                    : "bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-100"
+                    ? "bg-emerald-600 dark:bg-emerald-500 text-white shadow-sm shadow-emerald-600/20" 
+                    : "bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700"
                 }`}
               >
                 -10% Disc
@@ -152,19 +152,19 @@ export const BasketView: React.FC = () => {
 
         {/* Live Calculation Preview */}
         {((isVatEnabled && isVat) || (isDiscountEnabled && isDiscount)) && basketTotal > 0 && (
-          <div className="mb-3 p-3 rounded-xl bg-white border border-zinc-100 text-[11.5px] space-y-1 animate-slideUp">
-            <div className="flex justify-between text-zinc-500">
+          <div className="mb-3 p-3 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 text-[11.5px] space-y-1 animate-slideUp">
+            <div className="flex justify-between text-zinc-500 dark:text-zinc-400">
               <span>Basket Subtotal</span>
               <span>Rs {basketTotal.toFixed(2)}</span>
             </div>
             {isDiscountEnabled && isDiscount && (
-              <div className="flex justify-between text-emerald-700 font-medium">
+              <div className="flex justify-between text-emerald-700 dark:text-emerald-400 font-medium">
                 <span>Discount (-10%)</span>
                 <span>- Rs {itemizedDiscountAmount.toFixed(2)}</span>
               </div>
             )}
             {isVatEnabled && isVat && (
-              <div className="flex justify-between text-emerald-700 font-medium">
+              <div className="flex justify-between text-emerald-700 dark:text-emerald-400 font-medium">
                 <span>VAT (+13%{isDiscountEnabled && isDiscount ? ` on Rs ${itemizedTaxableAmount.toFixed(2)}` : ''})</span>
                 <span>+ Rs {itemizedVatAmount.toFixed(2)}</span>
               </div>
@@ -173,13 +173,13 @@ export const BasketView: React.FC = () => {
         )}
 
         <div className="flex items-center justify-between mb-3">
-          <span className="text-[13px] font-medium text-zinc-500">Running total</span>
-          <span className="serif text-[26px] font-semibold text-zinc-900">Rs {finalItemizedTotal.toFixed(2)}</span>
+          <span className="text-[13px] font-medium text-zinc-500 dark:text-zinc-400">Running total</span>
+          <span className="serif text-[26px] font-semibold text-zinc-900 dark:text-zinc-100">Rs {finalItemizedTotal.toFixed(2)}</span>
         </div>
         <button 
           disabled={basketTotal <= 0 || isGeneratingBill || !isOnline} 
           onClick={handleGenerateBill} 
-          className="w-full min-h-[52px] h-[52px] rounded-[16px] bg-black text-white font-semibold text-[14px] disabled:opacity-30 disabled:pointer-events-none active:scale-[0.99] transition flex items-center justify-center gap-2 shadow-sm"
+          className="w-full min-h-[52px] h-[52px] rounded-[16px] bg-black dark:bg-white text-white dark:text-zinc-950 font-semibold text-[14px] disabled:opacity-30 disabled:pointer-events-none active:scale-[0.99] transition flex items-center justify-center gap-2 shadow-sm cursor-pointer hover:bg-zinc-900 dark:hover:bg-zinc-100"
         >
           {isGeneratingBill ? (
             <>

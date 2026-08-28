@@ -17,14 +17,14 @@ export const UpgradeModal: React.FC = () => {
       onClick={() => setShowUpgradeModal(false)}
     >
       <div 
-        className="w-full max-w-[460px] bg-white rounded-[28px] max-h-[90vh] overflow-y-auto overscroll-y-contain p-5 sm:p-6 shadow-[0_20px_80px_rgba(0,0,0,0.3)] flex flex-col"
+        className="w-full max-w-[460px] bg-white dark:bg-zinc-900 rounded-[28px] max-h-[90vh] overflow-y-auto overscroll-y-contain p-5 sm:p-6 shadow-[0_20px_80px_rgba(0,0,0,0.3)] border border-transparent dark:border-zinc-800 flex flex-col text-zinc-900 dark:text-zinc-100 transition-colors"
         onClick={e => e.stopPropagation()}
       >
         
         {/* Header */}
-        <div className="flex items-center justify-between pb-3.5 border-b border-zinc-100">
+        <div className="flex items-center justify-between pb-3.5 border-b border-zinc-100 dark:border-zinc-800">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-[10px] overflow-hidden flex items-center justify-center shadow-sm shrink-0">
+            <div className="w-9 h-9 rounded-[10px] overflow-hidden flex items-center justify-center shadow-sm shrink-0 bg-white dark:bg-zinc-800 p-0.5 border border-zinc-200/60 dark:border-zinc-700">
               <img 
                 src={sanoBillLogo} 
                 alt="Sano Bill" 
@@ -32,14 +32,14 @@ export const UpgradeModal: React.FC = () => {
               />
             </div>
             <div>
-              <h3 className="serif text-[22px] leading-none text-zinc-900">Sano Bill Pro</h3>
-              <span className="text-[10.5px] font-semibold uppercase tracking-wider text-amber-600">Unlimited Bill Generation</span>
+              <h3 className="serif text-[22px] leading-none text-zinc-900 dark:text-zinc-100">Sano Bill Pro</h3>
+              <span className="text-[10.5px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">Unlimited Bill Generation</span>
             </div>
           </div>
           <button 
             type="button" 
             onClick={() => setShowUpgradeModal(false)}
-            className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-500 hover:text-zinc-900 active:scale-95 transition cursor-pointer"
+            className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 active:scale-95 transition cursor-pointer"
             title="Close"
           >
             <X className="w-4.5 h-4.5" />
@@ -47,7 +47,7 @@ export const UpgradeModal: React.FC = () => {
         </div>
 
         {/* Price Plan Card */}
-        <div className="mt-4 rounded-[20px] bg-gradient-to-br from-zinc-900 via-zinc-800 to-black text-white p-5 shadow-sm">
+        <div className="mt-4 rounded-[20px] bg-gradient-to-br from-zinc-900 via-zinc-800 to-black dark:from-zinc-800 dark:via-zinc-850 dark:to-zinc-900 text-white p-5 shadow-sm border border-transparent dark:border-zinc-700">
           <div className="flex items-baseline justify-between">
             <div>
               <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-400">Pro Subscription</span>
@@ -74,8 +74,8 @@ export const UpgradeModal: React.FC = () => {
         </div>
 
         {/* Bank Payment QR Card */}
-        <div className="mt-4 rounded-[20px] bg-zinc-50 border border-zinc-200/80 p-4 text-center">
-          <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-100 border border-amber-200/80 text-amber-950 text-[11.5px] font-bold mb-3">
+        <div className="mt-4 rounded-[20px] bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200/80 dark:border-zinc-700 p-4 text-center">
+          <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-950/80 border border-amber-200/80 dark:border-amber-800 text-amber-950 dark:text-amber-300 text-[11.5px] font-bold mb-3">
             <span>Deposit Rs 500 in this Bank QR</span>
           </div>
 
@@ -96,36 +96,36 @@ export const UpgradeModal: React.FC = () => {
           </div>
 
           {/* Bank Account Details */}
-          <div className="bg-white rounded-[14px] p-3 text-left border border-zinc-200/80 text-[12px] space-y-1.5">
-            <div className="flex justify-between items-center text-zinc-600">
+          <div className="bg-white dark:bg-zinc-850 rounded-[14px] p-3 text-left border border-zinc-200/80 dark:border-zinc-700 text-[12px] space-y-1.5">
+            <div className="flex justify-between items-center text-zinc-600 dark:text-zinc-400">
               <span>Bank Name:</span>
-              <span className="font-semibold text-zinc-900">Global IME Bank / Nabil Bank</span>
+              <span className="font-semibold text-zinc-900 dark:text-zinc-100">Global IME Bank / Nabil Bank</span>
             </div>
-            <div className="flex justify-between items-center text-zinc-600">
+            <div className="flex justify-between items-center text-zinc-600 dark:text-zinc-400">
               <span>Account Name:</span>
-              <span className="font-semibold text-zinc-900">Sano Bill POS Tech</span>
+              <span className="font-semibold text-zinc-900 dark:text-zinc-100">Sano Bill POS Tech</span>
             </div>
-            <div className="flex justify-between items-center text-zinc-600">
+            <div className="flex justify-between items-center text-zinc-600 dark:text-zinc-400">
               <span>Account Number:</span>
               <div className="flex items-center gap-1.5">
-                <span className="font-mono font-bold text-zinc-900">0120100003456</span>
+                <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100">0120100003456</span>
                 <button 
                   type="button" 
                   onClick={() => handleCopyAccount('0120100003456')}
-                  className="p-1 rounded bg-zinc-100 hover:bg-zinc-200 transition text-zinc-700 active:scale-95 cursor-pointer"
+                  className="p-1 rounded bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition text-zinc-700 dark:text-zinc-300 active:scale-95 cursor-pointer"
                   title="Copy account number"
                 >
                   {copiedBankInfo ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
               </div>
             </div>
-            <div className="flex justify-between items-center text-zinc-600">
+            <div className="flex justify-between items-center text-zinc-600 dark:text-zinc-400">
               <span>Deposit Amount:</span>
-              <span className="font-bold text-emerald-700">Rs 500.00</span>
+              <span className="font-bold text-emerald-700 dark:text-emerald-400">Rs 500.00</span>
             </div>
-            <div className="flex justify-between items-center text-zinc-600">
+            <div className="flex justify-between items-center text-zinc-600 dark:text-zinc-400">
               <span>Remarks:</span>
-              <span className="font-mono text-[11px] text-zinc-800 bg-zinc-100 px-1.5 py-0.5 rounded">
+              <span className="font-mono text-[11px] text-zinc-800 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
                 {shop?.shop_name ? shop.shop_name.slice(0, 10).replace(/\s+/g, '') : 'SanoBill'}-{shop?.pan_number || 'PRO'}
               </span>
             </div>
@@ -149,7 +149,7 @@ export const UpgradeModal: React.FC = () => {
           <button
             type="button"
             onClick={() => setShowUpgradeModal(false)}
-            className="w-full min-h-[44px] h-11 rounded-[14px] bg-zinc-100 text-zinc-700 font-medium text-[13px] hover:bg-zinc-200 active:scale-95 transition flex items-center justify-center cursor-pointer"
+            className="w-full min-h-[44px] h-11 rounded-[14px] bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-medium text-[13px] hover:bg-zinc-200 dark:hover:bg-zinc-700 active:scale-95 transition flex items-center justify-center cursor-pointer"
           >
             Close
           </button>

@@ -147,13 +147,13 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
   };
 
   return (
-    <div className="min-h-screen bg-[#f2f2f2] flex justify-center font-[Inter,system-ui,sans-serif]">
-      <div className="w-full max-w-[430px] md:max-w-[480px] bg-[#fcfcfc] min-h-screen relative flex flex-col shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_20px_60px_rgba(0,0,0,0.12)] overflow-hidden transition-all duration-200">
+    <div className="min-h-screen bg-[#f2f2f2] dark:bg-zinc-950 flex justify-center font-[Inter,system-ui,sans-serif] text-zinc-900 dark:text-zinc-100 transition-colors">
+      <div className="w-full max-w-[430px] md:max-w-[480px] bg-[#fcfcfc] dark:bg-zinc-900 min-h-screen relative flex flex-col shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_20px_60px_rgba(0,0,0,0.12)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_20px_60px_rgba(0,0,0,0.6)] overflow-hidden transition-all duration-200">
         
         {/* Top bar with optional close button */}
         <div className="px-5 pt-5 pb-2 flex items-center justify-between">
-          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-zinc-100 border border-zinc-200/60 text-[11px] font-medium text-zinc-700">
-            <ShieldCheck className="w-3.5 h-3.5 text-zinc-900" />
+          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200/60 dark:border-zinc-700 text-[11px] font-medium text-zinc-700 dark:text-zinc-300">
+            <ShieldCheck className="w-3.5 h-3.5 text-zinc-900 dark:text-zinc-100" />
             <span>Sano Bill Cloud</span>
           </div>
 
@@ -161,7 +161,7 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
             <button 
               type="button"
               onClick={onClose}
-              className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-700 flex items-center justify-center active:scale-95 transition"
+              className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 flex items-center justify-center active:scale-95 transition cursor-pointer"
               aria-label="Close"
             >
               <X className="w-4.5 h-4.5" />
@@ -181,10 +181,10 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
                 className="w-full h-full object-contain"
               />
             </div>
-            <h1 className="serif text-[32px] mt-3.5 tracking-tight text-zinc-900 leading-tight">
+            <h1 className="serif text-[32px] mt-3.5 tracking-tight text-zinc-900 dark:text-zinc-100 leading-tight">
               {mode === 'login' ? 'Sano Bill' : 'Register Business'}
             </h1>
-            <p className="text-[13px] text-zinc-500 mt-1">
+            <p className="text-[13px] text-zinc-500 dark:text-zinc-400 mt-1">
               {mode === 'login' 
                 ? 'Sign in to access your shop & cloud sync' 
                 : 'Create your Sano Bill account to start billing'}
@@ -192,15 +192,15 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
           </div>
 
           {/* Segmented Mode Switcher */}
-          <div className="bg-zinc-100/90 p-1 rounded-[16px] grid grid-cols-2 gap-1 mb-6 border border-zinc-200/50">
+          <div className="bg-zinc-100/90 dark:bg-zinc-800 p-1 rounded-[16px] grid grid-cols-2 gap-1 mb-6 border border-zinc-200/50 dark:border-zinc-700">
             <button
               type="button"
               disabled={isSubmitting}
               onClick={() => { setMode('login'); setNotice(null); setErrorMessage(null); }}
-              className={`py-2.5 rounded-[12px] text-[13px] font-semibold transition-all duration-200 flex items-center justify-center gap-1.5 ${
+              className={`py-2.5 rounded-[12px] text-[13px] font-semibold transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer ${
                 mode === 'login'
-                  ? 'bg-white text-zinc-900 shadow-[0_2px_8px_rgba(0,0,0,0.06)]'
-                  : 'text-zinc-500 hover:text-zinc-900'
+                  ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-[0_2px_8px_rgba(0,0,0,0.06)]'
+                  : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
               }`}
             >
               Sign In
@@ -209,10 +209,10 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
               type="button"
               disabled={isSubmitting}
               onClick={() => { setMode('register'); setNotice(null); setErrorMessage(null); }}
-              className={`py-2.5 rounded-[12px] text-[13px] font-semibold transition-all duration-200 flex items-center justify-center gap-1.5 ${
+              className={`py-2.5 rounded-[12px] text-[13px] font-semibold transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer ${
                 mode === 'register'
-                  ? 'bg-white text-zinc-900 shadow-[0_2px_8px_rgba(0,0,0,0.06)]'
-                  : 'text-zinc-500 hover:text-zinc-900'
+                  ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-[0_2px_8px_rgba(0,0,0,0.06)]'
+                  : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
               }`}
             >
               Register Business
@@ -221,13 +221,13 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
 
           {/* Error Message Banner */}
           {errorMessage && (
-            <div className="mb-5 rounded-[14px] bg-red-50 border border-red-200 text-red-700 p-3.5 text-[12.5px] flex items-start gap-2.5 shadow-sm animate-slideUp">
-              <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+            <div className="mb-5 rounded-[14px] bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 p-3.5 text-[12.5px] flex items-start gap-2.5 shadow-sm animate-slideUp">
+              <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
               <div className="flex-1 leading-relaxed">{errorMessage}</div>
               <button 
                 type="button" 
                 onClick={() => setErrorMessage(null)}
-                className="text-red-400 hover:text-red-700"
+                className="text-red-400 hover:text-red-700 dark:hover:text-red-200 cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -236,13 +236,13 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
 
           {/* Success Notice Feedback Banner */}
           {notice && (
-            <div className="mb-5 rounded-[14px] bg-zinc-900 text-white p-3.5 text-[12px] flex items-start gap-2.5 shadow-sm animate-slideUp">
+            <div className="mb-5 rounded-[14px] bg-zinc-900 dark:bg-zinc-800 text-white p-3.5 text-[12px] flex items-start gap-2.5 shadow-sm animate-slideUp border border-transparent dark:border-zinc-700">
               <Sparkles className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
               <div className="flex-1 leading-relaxed">{notice}</div>
               <button 
                 type="button" 
                 onClick={() => setNotice(null)}
-                className="text-zinc-400 hover:text-white"
+                className="text-zinc-400 hover:text-white cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -252,11 +252,11 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
           {/* LOGIN FORM */}
           {mode === 'login' && (
             <form onSubmit={handleLoginSubmit} className="space-y-4">
-              <div className="rounded-[24px] bg-white border border-zinc-100 shadow-[0_12px_40px_rgba(0,0,0,0.06)] p-6 space-y-4">
+              <div className="rounded-[24px] bg-white dark:bg-zinc-850 border border-zinc-100 dark:border-zinc-750 shadow-[0_12px_40px_rgba(0,0,0,0.06)] dark:shadow-none p-6 space-y-4">
                 
                 {/* Email / Phone Field */}
                 <div>
-                  <label className="text-[11px] font-semibold tracking-[0.12em] uppercase text-zinc-500 block mb-1.5">
+                  <label className="text-[11px] font-semibold tracking-[0.12em] uppercase text-zinc-500 dark:text-zinc-400 block mb-1.5">
                     Email or Phone *
                   </label>
                   <div className="relative">
@@ -268,9 +268,9 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
                       autoComplete="username"
                       disabled={isSubmitting}
                       required
-                      className="w-full h-12 rounded-[14px] bg-zinc-50 border border-zinc-100 pl-11 pr-4 text-[14px] text-zinc-900 placeholder:text-zinc-400 outline-none focus:bg-white focus:border-zinc-300 focus:ring-2 focus:ring-zinc-900/5 transition disabled:opacity-60"
+                      className="w-full h-12 rounded-[14px] bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 pl-11 pr-4 text-[14px] text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 outline-none focus:bg-white dark:focus:bg-zinc-800 focus:border-zinc-300 dark:focus:border-zinc-600 focus:ring-2 focus:ring-zinc-900/5 transition disabled:opacity-60"
                     />
-                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none">
+                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 dark:text-zinc-500 pointer-events-none">
                       <Mail className="w-4 h-4" />
                     </div>
                   </div>
@@ -279,13 +279,13 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
                 {/* Password Field */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-[11px] font-semibold tracking-[0.12em] uppercase text-zinc-500">
+                    <label className="text-[11px] font-semibold tracking-[0.12em] uppercase text-zinc-500 dark:text-zinc-400">
                       Password *
                     </label>
                     <button 
                       type="button"
                       onClick={() => setNotice('For password reset, please contact your Supabase administrator.')}
-                      className="text-[11px] font-medium text-zinc-500 hover:text-zinc-900 transition"
+                      className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition cursor-pointer"
                     >
                       Forgot password?
                     </button>
@@ -299,15 +299,15 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
                       autoComplete="current-password"
                       disabled={isSubmitting}
                       required
-                      className="w-full h-12 rounded-[14px] bg-zinc-50 border border-zinc-100 pl-11 pr-11 text-[14px] text-zinc-900 placeholder:text-zinc-400 outline-none focus:bg-white focus:border-zinc-300 focus:ring-2 focus:ring-zinc-900/5 transition disabled:opacity-60"
+                      className="w-full h-12 rounded-[14px] bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 pl-11 pr-11 text-[14px] text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 outline-none focus:bg-white dark:focus:bg-zinc-800 focus:border-zinc-300 dark:focus:border-zinc-600 focus:ring-2 focus:ring-zinc-900/5 transition disabled:opacity-60"
                     />
-                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none">
+                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 dark:text-zinc-500 pointer-events-none">
                       <Lock className="w-4 h-4" />
                     </div>
                     <button
                       type="button"
                       onClick={() => setShowLoginPassword(!showLoginPassword)}
-                      className="absolute right-1 top-1/2 -translate-y-1/2 min-w-[44px] min-h-[44px] w-11 h-11 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-600 active:scale-95 transition"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 min-w-[44px] min-h-[44px] w-11 h-11 rounded-full flex items-center justify-center text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 active:scale-95 transition cursor-pointer"
                       aria-label={showLoginPassword ? 'Hide password' : 'Show password'}
                     >
                       {showLoginPassword ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
@@ -317,12 +317,12 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
 
                 {/* Remember Me Checkbox */}
                 <div className="pt-1 flex items-center justify-between">
-                  <label className="inline-flex items-center gap-2 cursor-pointer select-none text-[13px] text-zinc-600">
+                  <label className="inline-flex items-center gap-2 cursor-pointer select-none text-[13px] text-zinc-600 dark:text-zinc-400">
                     <input
                       type="checkbox"
                       checked={rememberMe}
                       onChange={(e) => setRememberMe(e.target.checked)}
-                      className="w-4 h-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 accent-zinc-900"
+                      className="w-4 h-4 rounded border-zinc-300 dark:border-zinc-600 text-zinc-900 focus:ring-zinc-900 accent-zinc-900"
                     />
                     <span>Remember this device</span>
                   </label>
@@ -334,7 +334,7 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
               <button
                 type="submit"
                 disabled={!isLoginValid || isSubmitting}
-                className="w-full h-[52px] rounded-[14px] bg-black text-white font-semibold text-[14px] tracking-wide disabled:opacity-30 disabled:pointer-events-none active:scale-[0.99] transition flex items-center justify-center gap-2 shadow-sm"
+                className="w-full h-[52px] rounded-[14px] bg-black dark:bg-white text-white dark:text-zinc-950 font-semibold text-[14px] tracking-wide disabled:opacity-30 disabled:pointer-events-none active:scale-[0.99] transition flex items-center justify-center gap-2 shadow-sm cursor-pointer hover:bg-zinc-900 dark:hover:bg-zinc-100"
               >
                 {isSubmitting ? (
                   <>
@@ -351,12 +351,12 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
 
               {/* Bottom Switch Prompt */}
               <div className="pt-2 text-center space-y-2">
-                <p className="text-[12px] text-zinc-500">
+                <p className="text-[12px] text-zinc-500 dark:text-zinc-400">
                   Don't have a business account?{' '}
                   <button
                     type="button"
                     onClick={() => { setMode('register'); setNotice(null); setErrorMessage(null); }}
-                    className="font-semibold text-zinc-900 underline underline-offset-4 decoration-zinc-300 hover:decoration-zinc-900 ml-1"
+                    className="font-semibold text-zinc-900 dark:text-zinc-100 underline underline-offset-4 decoration-zinc-300 dark:decoration-zinc-600 hover:decoration-zinc-900 dark:hover:decoration-zinc-100 ml-1 cursor-pointer"
                   >
                     Register Business
                   </button>
@@ -372,7 +372,7 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
                         });
                       }
                     }}
-                    className="text-[11.5px] font-medium text-zinc-400 hover:text-zinc-700 underline underline-offset-2 decoration-zinc-200 transition"
+                    className="text-[11.5px] font-medium text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 underline underline-offset-2 decoration-zinc-200 dark:decoration-zinc-700 transition cursor-pointer"
                   >
                     Skip & Continue Offline
                   </button>
@@ -384,11 +384,11 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
           {/* REGISTER BUSINESS FORM */}
           {mode === 'register' && (
             <form onSubmit={handleRegisterSubmit} className="space-y-4">
-              <div className="rounded-[24px] bg-white border border-zinc-100 shadow-[0_12px_40px_rgba(0,0,0,0.06)] p-6 space-y-4">
+              <div className="rounded-[24px] bg-white dark:bg-zinc-850 border border-zinc-100 dark:border-zinc-750 shadow-[0_12px_40px_rgba(0,0,0,0.06)] dark:shadow-none p-6 space-y-4">
                 
                 {/* 1. Business Name */}
                 <div>
-                  <label className="text-[11px] font-semibold tracking-[0.12em] uppercase text-zinc-500 block mb-1.5">
+                  <label className="text-[11px] font-semibold tracking-[0.12em] uppercase text-zinc-500 dark:text-zinc-400 block mb-1.5">
                     Business Name *
                   </label>
                   <div className="relative">
@@ -399,9 +399,9 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
                       placeholder="e.g. Shrestha Kirana Pasal"
                       disabled={isSubmitting}
                       required
-                      className="w-full h-12 rounded-[14px] bg-zinc-50 border border-zinc-100 pl-11 pr-4 text-[14px] text-zinc-900 placeholder:text-zinc-400 outline-none focus:bg-white focus:border-zinc-300 focus:ring-2 focus:ring-zinc-900/5 transition disabled:opacity-60"
+                      className="w-full h-12 rounded-[14px] bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 pl-11 pr-4 text-[14px] text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 outline-none focus:bg-white dark:focus:bg-zinc-800 focus:border-zinc-300 dark:focus:border-zinc-600 focus:ring-2 focus:ring-zinc-900/5 transition disabled:opacity-60"
                     />
-                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none">
+                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 dark:text-zinc-500 pointer-events-none">
                       <Building2 className="w-4 h-4" />
                     </div>
                   </div>
@@ -410,11 +410,11 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
                 {/* 2. PAN Number */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-[11px] font-semibold tracking-[0.12em] uppercase text-zinc-500">
+                    <label className="text-[11px] font-semibold tracking-[0.12em] uppercase text-zinc-500 dark:text-zinc-400">
                       PAN Number (9 digits) *
                     </label>
                     <span className={`text-[11px] font-medium transition ${
-                      panNumber.length === 9 ? 'text-emerald-600 font-semibold flex items-center gap-1' : 'text-zinc-400'
+                      panNumber.length === 9 ? 'text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1' : 'text-zinc-400 dark:text-zinc-500'
                     }`}>
                       {panNumber.length === 9 ? (
                         <>
@@ -435,17 +435,17 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
                       maxLength={9}
                       disabled={isSubmitting}
                       required
-                      className="w-full h-12 rounded-[14px] bg-zinc-50 border border-zinc-100 px-4 text-[15px] tracking-widest font-medium text-zinc-900 placeholder:tracking-normal placeholder:font-normal placeholder:text-zinc-400 outline-none focus:bg-white focus:border-zinc-300 focus:ring-2 focus:ring-zinc-900/5 transition disabled:opacity-60"
+                      className="w-full h-12 rounded-[14px] bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 px-4 text-[15px] tracking-widest font-medium text-zinc-900 dark:text-zinc-100 placeholder:tracking-normal placeholder:font-normal placeholder:text-zinc-400 dark:placeholder:text-zinc-500 outline-none focus:bg-white dark:focus:bg-zinc-800 focus:border-zinc-300 dark:focus:border-zinc-600 focus:ring-2 focus:ring-zinc-900/5 transition disabled:opacity-60"
                     />
                   </div>
-                  <p className="mt-1 text-[10.5px] text-zinc-400">
+                  <p className="mt-1 text-[10.5px] text-zinc-400 dark:text-zinc-500">
                     Required for official IRD lottery QR code billing.
                   </p>
                 </div>
 
                 {/* 3. Owner Name */}
                 <div>
-                  <label className="text-[11px] font-semibold tracking-[0.12em] uppercase text-zinc-500 block mb-1.5">
+                  <label className="text-[11px] font-semibold tracking-[0.12em] uppercase text-zinc-500 dark:text-zinc-400 block mb-1.5">
                     Owner Name *
                   </label>
                   <div className="relative">
@@ -456,9 +456,9 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
                       placeholder="e.g. Ram Bahadur Shrestha"
                       disabled={isSubmitting}
                       required
-                      className="w-full h-12 rounded-[14px] bg-zinc-50 border border-zinc-100 pl-11 pr-4 text-[14px] text-zinc-900 placeholder:text-zinc-400 outline-none focus:bg-white focus:border-zinc-300 focus:ring-2 focus:ring-zinc-900/5 transition disabled:opacity-60"
+                      className="w-full h-12 rounded-[14px] bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 pl-11 pr-4 text-[14px] text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 outline-none focus:bg-white dark:focus:bg-zinc-800 focus:border-zinc-300 dark:focus:border-zinc-600 focus:ring-2 focus:ring-zinc-900/5 transition disabled:opacity-60"
                     />
-                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none">
+                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 dark:text-zinc-500 pointer-events-none">
                       <User className="w-4 h-4" />
                     </div>
                   </div>
@@ -466,7 +466,7 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
 
                 {/* 4. Email / Phone */}
                 <div>
-                  <label className="text-[11px] font-semibold tracking-[0.12em] uppercase text-zinc-500 block mb-1.5">
+                  <label className="text-[11px] font-semibold tracking-[0.12em] uppercase text-zinc-500 dark:text-zinc-400 block mb-1.5">
                     Email or Phone *
                   </label>
                   <div className="relative">
@@ -478,11 +478,11 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
                       autoComplete="username"
                       disabled={isSubmitting}
                       required
-                      className="w-full h-12 rounded-[14px] bg-zinc-50 border border-zinc-100 pl-11 pr-4 text-[14px] text-zinc-900 placeholder:text-zinc-400 outline-none focus:bg-white focus:border-zinc-300 focus:ring-2 focus:ring-zinc-900/5 transition disabled:opacity-60"
+                      className="w-full h-12 rounded-[14px] bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 pl-11 pr-4 text-[14px] text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 outline-none focus:bg-white dark:focus:bg-zinc-800 focus:border-zinc-300 dark:focus:border-zinc-600 focus:ring-2 focus:ring-zinc-900/5 transition disabled:opacity-60"
                     />
-                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none flex items-center gap-1">
+                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 dark:text-zinc-500 pointer-events-none flex items-center gap-1">
                       <PhoneCall className="w-3.5 h-3.5 opacity-60" />
-                      <span className="text-[10px] text-zinc-300">/</span>
+                      <span className="text-[10px] text-zinc-300 dark:text-zinc-600">/</span>
                       <Mail className="w-3.5 h-3.5 opacity-60" />
                     </div>
                   </div>
@@ -490,7 +490,7 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
 
                 {/* 5. Password */}
                 <div>
-                  <label className="text-[11px] font-semibold tracking-[0.12em] uppercase text-zinc-500 block mb-1.5">
+                  <label className="text-[11px] font-semibold tracking-[0.12em] uppercase text-zinc-500 dark:text-zinc-400 block mb-1.5">
                     Password (min 6 characters) *
                   </label>
                   <div className="relative">
@@ -503,15 +503,15 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
                       disabled={isSubmitting}
                       required
                       minLength={6}
-                      className="w-full h-12 rounded-[14px] bg-zinc-50 border border-zinc-100 pl-11 pr-11 text-[14px] text-zinc-900 placeholder:text-zinc-400 outline-none focus:bg-white focus:border-zinc-300 focus:ring-2 focus:ring-zinc-900/5 transition disabled:opacity-60"
+                      className="w-full h-12 rounded-[14px] bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 pl-11 pr-11 text-[14px] text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 outline-none focus:bg-white dark:focus:bg-zinc-800 focus:border-zinc-300 dark:focus:border-zinc-600 focus:ring-2 focus:ring-zinc-900/5 transition disabled:opacity-60"
                     />
-                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none">
+                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 dark:text-zinc-500 pointer-events-none">
                       <Lock className="w-4 h-4" />
                     </div>
                     <button
                       type="button"
                       onClick={() => setShowRegisterPassword(!showRegisterPassword)}
-                      className="absolute right-1 top-1/2 -translate-y-1/2 min-w-[44px] min-h-[44px] w-11 h-11 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-600 active:scale-95 transition"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 min-w-[44px] min-h-[44px] w-11 h-11 rounded-full flex items-center justify-center text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 active:scale-95 transition cursor-pointer"
                       aria-label={showRegisterPassword ? 'Hide password' : 'Show password'}
                     >
                       {showRegisterPassword ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
@@ -525,7 +525,7 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
               <button
                 type="submit"
                 disabled={!isRegisterValid || isSubmitting}
-                className="w-full h-[52px] rounded-[14px] bg-black text-white font-semibold text-[14px] tracking-wide disabled:opacity-30 disabled:pointer-events-none active:scale-[0.99] transition flex items-center justify-center gap-2 shadow-sm"
+                className="w-full h-[52px] rounded-[14px] bg-black dark:bg-white text-white dark:text-zinc-950 font-semibold text-[14px] tracking-wide disabled:opacity-30 disabled:pointer-events-none active:scale-[0.99] transition flex items-center justify-center gap-2 shadow-sm cursor-pointer hover:bg-zinc-900 dark:hover:bg-zinc-100"
               >
                 {isSubmitting ? (
                   <>
@@ -542,12 +542,12 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
 
               {/* Bottom Switch Prompt */}
               <div className="pt-2 text-center">
-                <p className="text-[12px] text-zinc-500">
+                <p className="text-[12px] text-zinc-500 dark:text-zinc-400">
                   Already registered?{' '}
                   <button
                     type="button"
                     onClick={() => { setMode('login'); setNotice(null); setErrorMessage(null); }}
-                    className="font-semibold text-zinc-900 underline underline-offset-4 decoration-zinc-300 hover:decoration-zinc-900 ml-1"
+                    className="font-semibold text-zinc-900 dark:text-zinc-100 underline underline-offset-4 decoration-zinc-300 dark:decoration-zinc-600 hover:decoration-zinc-900 dark:hover:decoration-zinc-100 ml-1 cursor-pointer"
                   >
                     Sign In
                   </button>
@@ -558,10 +558,10 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
 
           {/* Footer Note */}
           <div className="mt-8 text-center space-y-1">
-            <p className="text-[11px] text-zinc-400">
+            <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
               Local-first • Works offline • Synced with Supabase Auth & Cloud Database
             </p>
-            <p className="text-[10.5px] text-zinc-400/80">
+            <p className="text-[10.5px] text-zinc-400/80 dark:text-zinc-500/80">
               Compliant with IRD billing guidelines
             </p>
           </div>

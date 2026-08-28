@@ -49,6 +49,11 @@ export interface ShopContextType {
   showItemsModal: boolean;
   setShowItemsModal: (val: boolean) => void;
 
+  // Theme & Appearance
+  isDarkMode: boolean;
+  setIsDarkMode: (val: boolean) => void;
+  toggleDarkMode: () => void;
+
   // Actions
   saveShopSettings: (shopData: Partial<Shop>) => Promise<Shop>;
   signOut: () => Promise<void>;
