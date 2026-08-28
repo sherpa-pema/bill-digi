@@ -3,6 +3,7 @@ import { Settings, Hash, Sparkles, Crown, Clock, ArrowLeft } from 'lucide-react'
 import { useShop } from '../../hooks/useShop';
 import { useBilling } from '../../hooks/useBilling';
 import { isUserAdmin } from '../../lib/authService';
+import { navigateToAdmin } from '../../lib/navigation';
 
 export const Header: React.FC = () => {
   const { shop, authUser, subscriptionInfo, setShowUpgradeModal, setIsAdminView, openShopSettings } = useShop();
@@ -44,7 +45,7 @@ export const Header: React.FC = () => {
             {isAdmin && (
               <button 
                 type="button" 
-                onClick={() => { setIsAdminView(true); window.location.hash = 'admin'; }} 
+                onClick={() => { setIsAdminView(true); navigateToAdmin(); }} 
                 className="min-h-[44px] px-3 rounded-full bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-300 text-[11.5px] font-bold flex items-center gap-1 hover:bg-amber-100 dark:hover:bg-amber-900/50 active:scale-95 transition cursor-pointer"
                 title="Open Admin Console"
               >
@@ -90,7 +91,7 @@ export const Header: React.FC = () => {
             {isAdmin && (
               <button 
                 type="button" 
-                onClick={() => { setIsAdminView(true); window.location.hash = 'admin'; }} 
+                onClick={() => { setIsAdminView(true); navigateToAdmin(); }} 
                 className="min-h-[44px] px-3 rounded-full bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-300 text-[11.5px] font-bold flex items-center gap-1 hover:bg-amber-100 dark:hover:bg-amber-900/50 active:scale-95 transition cursor-pointer"
                 title="Open Admin Console"
               >

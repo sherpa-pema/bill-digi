@@ -3,6 +3,7 @@ import { BillingProvider } from './context/BillingContext';
 import { useShop } from './hooks/useShop';
 import { useBilling } from './hooks/useBilling';
 import { isUserAdmin } from './lib/authService';
+import { navigateToPOS } from './lib/navigation';
 import AdminPanel from './components/AdminPanel';
 import AuthScreen from './components/AuthScreen';
 import { LumaSpin } from '@/components/ui/luma-spin';
@@ -60,12 +61,7 @@ function AppContent() {
         currentUser={authUser} 
         onBackToPOS={() => {
           setIsAdminView(false);
-          if (window.location.hash.includes('admin')) {
-            window.location.hash = '';
-          }
-          if (window.location.pathname.startsWith('/admin')) {
-            window.history.pushState(null, '', '/');
-          }
+          navigateToPOS();
         }} 
         onSignOut={signOut}
       />
