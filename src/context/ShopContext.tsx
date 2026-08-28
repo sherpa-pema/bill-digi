@@ -3,6 +3,7 @@ import type { Shop } from '../types';
 import { checkIsOnline, fetchShop, createInitialShop, updateShop, getSubscriptionInfo } from '../lib/dbService';
 import { signOutBusiness, getActiveUser, isUserAdmin, checkIsAdminServerSide } from '../lib/authService';
 import { ShopContext, type ShopContextType } from './shopContextDef';
+import { normalizeAdminRoute, isAdminRoute, navigateToAdmin, navigateToPOS, subscribeToRouteChanges } from '../lib/navigation';
 
 export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isOnline, setIsOnline] = useState(checkIsOnline());
@@ -16,7 +17,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Admin Route View State
   const [isAdminView, setIsAdminView] = useState(() => {
     if (typeof window !== 'undefined') {
-      return window.location.pathname.startsWith('/admin') || window.location.hash.includes('admin');
+      normalizeAdminRoute();
+      return isAdminRoute();
     }
     return false;
   });
@@ -66,16 +68,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Route Listener
   useEffect(() => {
-    const handleLocationChange = () => {
-      const onAdmin = window.location.pathname.startsWith('/admin') || window.location.hash.includes('admin');
-      setIsAdminView(onAdmin);
-    };
-    window.addEventListener('popstate', handleLocationChange);
-    window.addEventListener('hashchange', handleLocationChange);
-    return () => {
-      window.removeEventListener('popstate', handleLocationChange);
-      window.removeEventListener('hashchange', handleLocationChange);
-    };
+    return subscribeToRouteChanges(setIsAdminView);
   }, []);
 
   // Load shop & auth data directly from Supabase
@@ -114,12 +107,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const serverIsAdmin = user ? await checkIsAdminServerSide() : false;
         if (serverIsAdmin || isUserAdmin(user) || isUserAdmin(activeShop)) {
           setIsAdminView(true);
-          if (
-            typeof window !== 'undefined' &&
-            !window.location.hash.includes('admin') &&
-            !window.location.pathname.startsWith('/admin')
-          ) {
-            window.location.hash = 'admin';
+          if (typeof window !== 'undefined' && !isAdminRoute()) {
+            navigateToAdmin();
           }
         }
 
@@ -201,19 +190,13 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (isAdmin) {
         setIsAdminView(true);
-        if (typeof window !== 'undefined') {
-          window.location.hash = 'admin';
+        if (typeof window !== 'undefined' && !isAdminRoute()) {
+          navigateToAdmin();
         }
       } else {
         setIsAdminView(false);
-        if (
-          typeof window !== 'undefined' &&
-          (window.location.hash.includes('admin') || window.location.pathname.startsWith('/admin'))
-        ) {
-          window.location.hash = '';
-          if (window.location.pathname.startsWith('/admin')) {
-            window.history.pushState(null, '', '/');
-          }
+        if (typeof window !== 'undefined' && isAdminRoute()) {
+          navigateToPOS();
         }
       }
 
@@ -244,10 +227,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setShop(null);
     setIsAdminView(false);
     if (typeof window !== 'undefined') {
-      window.location.hash = '';
-      if (window.location.pathname.startsWith('/admin')) {
-        window.history.pushState(null, '', '/');
-      }
+      navigateToPOS();
     }
     setIsSetupMode(false);
     setIsEditingShop(false);

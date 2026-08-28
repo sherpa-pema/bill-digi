@@ -25,6 +25,7 @@ import {
   getSubscriptionInfo
 } from '../lib/dbService';
 import { signOutBusiness } from '../lib/authService';
+import { navigateToPOS } from '../lib/navigation';
 import sanoBillLogo from '../assets/sano-bill-logo.png';
 
 interface AdminPanelProps {
@@ -234,7 +235,7 @@ export default function AdminPanel({ currentUser, onSignOut }: AdminPanelProps) 
               if (onSignOut) {
                 onSignOut();
               } else {
-                window.location.hash = '';
+                navigateToPOS();
                 window.location.reload();
               }
             }}

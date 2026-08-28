@@ -4,6 +4,7 @@ import { useShop } from '../../hooks/useShop';
 import { useBilling } from '../../hooks/useBilling';
 import { checkIsOnline } from '../../lib/dbService';
 import { isUserAdmin } from '../../lib/authService';
+import { navigateToAdmin } from '../../lib/navigation';
 import sanoBillLogo from '../../assets/sano-bill-logo.png';
 
 export const ShopSettingsModal: React.FC = () => {
@@ -374,7 +375,7 @@ export const ShopSettingsModal: React.FC = () => {
                 onClick={() => {
                   setIsSetupMode(false);
                   setIsAdminView(true);
-                  window.location.hash = 'admin';
+                  navigateToAdmin();
                 }}
                 className="text-[12px] text-amber-800 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-200 font-semibold transition inline-flex items-center gap-1.5 py-1.5 px-3 bg-amber-50 dark:bg-amber-950/50 rounded-full border border-amber-200 dark:border-amber-800 cursor-pointer"
               >
