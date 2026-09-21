@@ -1,11 +1,13 @@
+import { useState, useEffect } from 'react';
 import { ShopProvider } from './context/ShopContext';
 import { BillingProvider } from './context/BillingContext';
 import { useShop } from './hooks/useShop';
 import { useBilling } from './hooks/useBilling';
 import { isUserAdmin } from './lib/authService';
-import { navigateToPOS } from './lib/navigation';
+import { navigateToPOS, isBillShareRoute, subscribeToBillShareRoute } from './lib/navigation';
 import AdminPanel from './components/AdminPanel';
 import AuthScreen from './components/AuthScreen';
+import { BillShareScreen } from './components/billshare/BillShareScreen';
 import { LumaSpin } from '@/components/ui/luma-spin';
 import { Header } from './components/layout/Header';
 import { NetworkStatusBar } from './components/layout/NetworkStatusBar';
@@ -17,6 +19,12 @@ import { ShopSettingsModal } from './components/settings/ShopSettingsModal';
 import { UpgradeModal } from './components/settings/UpgradeModal';
 
 function AppContent() {
+  const [isBillShare, setIsBillShare] = useState(() => isBillShareRoute());
+
+  useEffect(() => {
+    return subscribeToBillShareRoute(setIsBillShare);
+  }, []);
+
   const {
     shop,
     authUser,
@@ -36,6 +44,11 @@ function AppContent() {
     activeTab,
     generatedBill
   } = useBilling();
+
+  // 0. Public Customer Bill Share Screen (Bypasses auth and POS workspace)
+  if (isBillShare) {
+    return <BillShareScreen />;
+  }
 
   // 1. Loading Screen with LumaSpin
   if (isLoadingData) {
