@@ -1146,3 +1146,60 @@ export const fetchSubscriptionPayments = async (): Promise<SubscriptionPayment[]
 
   return (data as SubscriptionPayment[]) || [];
 };
+
+/**
+ * PUBLIC / SHARED: Fetch a single bill and shop details by bill ID
+ */
+export const fetchBillById = async (billId: string): Promise<{ bill: Bill; shop: Shop | null } | null> => {
+  const supabase = getSupabaseClient();
+  if (!supabase || !billId) return null;
+
+  try {
+    // 1. Try public RPC if deployed
+    const { data: rpcData, error: rpcError } = await supabase.rpc('get_public_bill', {
+      p_bill_id: billId
+    });
+
+    if (!rpcError && rpcData && rpcData.bill) {
+      return {
+        bill: rpcData.bill as Bill,
+        shop: (rpcData.shop as Shop) || null
+      };
+    }
+  } catch (rpcErr) {
+    console.warn('get_public_bill RPC call failed, falling back to direct select:', rpcErr);
+  }
+
+  try {
+    // 2. Fallback to direct query
+    const { data: billData, error: billError } = await supabase
+      .from('bills')
+      .select('*')
+      .eq('id', billId)
+      .maybeSingle();
+
+    if (billError || !billData) {
+      return null;
+    }
+
+    const bill = billData as Bill;
+    let shop: Shop | null = null;
+
+    if (bill.shop_id) {
+      const { data: shopData } = await supabase
+        .from('shops')
+        .select('*')
+        .eq('id', bill.shop_id)
+        .maybeSingle();
+
+      if (shopData) {
+        shop = shopData as Shop;
+      }
+    }
+
+    return { bill, shop };
+  } catch (err) {
+    console.warn('Error in fetchBillById:', err);
+    return null;
+  }
+};

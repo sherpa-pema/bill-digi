@@ -51,11 +51,53 @@ export const navigateToPOS = () => {
   }
 };
 
+export const isBillShareRoute = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  return window.location.pathname.startsWith('/billshare') || window.location.hash.includes('billshare');
+};
+
+export const getBillShareParams = (): { id: string | null; data: string | null } => {
+  if (typeof window === 'undefined') return { id: null, data: null };
+
+  // Check search params from window.location.search (?data=...&id=...)
+  const searchParams = new URLSearchParams(window.location.search);
+  let data = searchParams.get('data');
+  let id = searchParams.get('id');
+
+  // Also check hash query string if URL format is /#billshare?data=...
+  if (!data && !id && window.location.hash.includes('?')) {
+    const hashQuery = window.location.hash.split('?')[1];
+    if (hashQuery) {
+      const hashParams = new URLSearchParams(hashQuery);
+      data = hashParams.get('data');
+      id = hashParams.get('id');
+    }
+  }
+
+  return { id, data };
+};
+
 export const subscribeToRouteChanges = (callback: (isAdmin: boolean) => void) => {
   if (typeof window === 'undefined') return () => {};
 
   const handleLocationChange = () => {
     callback(isAdminRoute());
+  };
+
+  window.addEventListener('popstate', handleLocationChange);
+  window.addEventListener('hashchange', handleLocationChange);
+
+  return () => {
+    window.removeEventListener('popstate', handleLocationChange);
+    window.removeEventListener('hashchange', handleLocationChange);
+  };
+};
+
+export const subscribeToBillShareRoute = (callback: (isBillShare: boolean) => void) => {
+  if (typeof window === 'undefined') return () => {};
+
+  const handleLocationChange = () => {
+    callback(isBillShareRoute());
   };
 
   window.addEventListener('popstate', handleLocationChange);
