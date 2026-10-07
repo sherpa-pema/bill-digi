@@ -1,3 +1,4 @@
+import type { User, Session } from '@supabase/supabase-js';
 import { getSupabaseClient } from './supabase';
 import { generateId } from './storage';
 import type { Shop, Item, Bill } from '../types';
@@ -18,27 +19,19 @@ export interface LoginParams {
 export interface AuthResult {
   success: boolean;
   message?: string;
-  user?: any;
-  session?: any;
+  user?: User | null;
+  session?: Session | null;
   shop?: Shop;
   items?: Item[];
   bills?: Bill[];
 }
 
 /**
- * Retrieve admin emails dynamically from environment variables (comma-separated).
- * Defaults to an empty list so NO hardcoded backdoor exists.
+ * Admin emails array retained for backward compatibility.
+ * Admin authorization is strictly managed via server-side app_metadata or public.admin_users.
  */
-export const getAdminEmails = (): string[] => {
-  const envEmails = import.meta.env.VITE_ADMIN_EMAILS;
-  if (!envEmails || typeof envEmails !== 'string') return [];
-  return envEmails
-    .split(',')
-    .map((e: string) => e.trim().toLowerCase())
-    .filter(Boolean);
-};
-
-export const ADMIN_EMAILS: string[] = getAdminEmails();
+export const getAdminEmails = (): string[] => [];
+export const ADMIN_EMAILS: string[] = [];
 
 export interface AdminCheckable {
   email?: string;
@@ -48,12 +41,16 @@ export interface AdminCheckable {
   [key: string]: any;
 }
 
+/**
+ * Verify admin status against server-signed JWT claims or verified database records.
+ * Never performs client-side email string matching against environment bundles.
+ */
 export const isUserAdmin = (
   userOrShopOrEmail?: string | AdminCheckable | null
 ): boolean => {
   if (!userOrShopOrEmail) return false;
 
-  // 1. Server-controlled app_metadata claim (signed by Supabase Auth service role)
+  // Server-controlled app_metadata claim (signed by Supabase Auth service role)
   if (typeof userOrShopOrEmail === 'object') {
     if (userOrShopOrEmail.app_metadata?.is_admin === true || userOrShopOrEmail.app_metadata?.role === 'admin') {
       return true;
@@ -61,22 +58,6 @@ export const isUserAdmin = (
     // Verified shop flag (when loaded from trusted DB session)
     if (userOrShopOrEmail.is_admin === true) {
       return true;
-    }
-  }
-
-  // 2. Email matching against VITE_ADMIN_EMAILS (only if explicitly set in environment for dev convenience)
-  const adminEmails = getAdminEmails();
-  if (adminEmails.length > 0) {
-    let emailToTest: string | undefined;
-    if (typeof userOrShopOrEmail === 'string') {
-      emailToTest = userOrShopOrEmail;
-    } else if (typeof userOrShopOrEmail === 'object') {
-      emailToTest = userOrShopOrEmail.email;
-    }
-
-    if (emailToTest) {
-      const cleanEmail = emailToTest.toLowerCase().trim();
-      if (adminEmails.includes(cleanEmail)) return true;
     }
   }
 
@@ -420,11 +401,13 @@ export const signOutBusiness = async (): Promise<void> => {
 };
 
 /**
- * Get active session user
+ * Get active session user with cryptographic server-side validation.
+ * Verifies JWT authenticity with Supabase Auth to prevent stale or spoofed sessions.
  */
 export const getActiveUser = async () => {
   const supabase = getSupabaseClient();
   if (!supabase) return null;
-  const { data } = await supabase.auth.getSession();
-  return data.session?.user || null;
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error || !user) return null;
+  return user;
 };

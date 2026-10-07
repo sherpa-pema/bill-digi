@@ -13,5 +13,22 @@ export default defineConfig({
       '@': path.resolve(import.meta.dirname, './src'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id: string) {
+          if (id.includes('node_modules/@supabase')) {
+            return 'vendor-supabase';
+          }
+          if (id.includes('node_modules/lucide-react')) {
+            return 'vendor-icons';
+          }
+          if (id.includes('node_modules/html-to-image') || id.includes('node_modules/qrcode.react')) {
+            return 'vendor-receipt';
+          }
+        },
+      },
+    },
+  },
 });
 

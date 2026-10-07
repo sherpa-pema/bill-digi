@@ -1,22 +1,24 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { ShopProvider } from './context/ShopContext';
 import { BillingProvider } from './context/BillingContext';
 import { useShop } from './hooks/useShop';
 import { useBilling } from './hooks/useBilling';
 import { isUserAdmin } from './lib/authService';
 import { navigateToPOS, isBillShareRoute, subscribeToBillShareRoute } from './lib/navigation';
-import AdminPanel from './components/AdminPanel';
-import AuthScreen from './components/AuthScreen';
-import { BillShareScreen } from './components/billshare/BillShareScreen';
 import { LumaSpin } from '@/components/ui/luma-spin';
 import { Header } from './components/layout/Header';
 import { NetworkStatusBar } from './components/layout/NetworkStatusBar';
 import { NewBillScreen } from './components/billing/NewBillScreen';
 import { HistoryScreen } from './components/history/HistoryScreen';
 import { ReceiptModal } from './components/receipt/ReceiptModal';
-import { ManageItemsModal } from './components/inventory/ManageItemsModal';
-import { ShopSettingsModal } from './components/settings/ShopSettingsModal';
-import { UpgradeModal } from './components/settings/UpgradeModal';
+
+// Code-split heavy route components and overlays to reduce initial bundle size
+const AdminPanel = lazy(() => import('./components/AdminPanel'));
+const AuthScreen = lazy(() => import('./components/AuthScreen'));
+const BillShareScreen = lazy(() => import('./components/billshare/BillShareScreen').then(m => ({ default: m.BillShareScreen })));
+const ManageItemsModal = lazy(() => import('./components/inventory/ManageItemsModal').then(m => ({ default: m.ManageItemsModal })));
+const ShopSettingsModal = lazy(() => import('./components/settings/ShopSettingsModal').then(m => ({ default: m.ShopSettingsModal })));
+const UpgradeModal = lazy(() => import('./components/settings/UpgradeModal').then(m => ({ default: m.UpgradeModal })));
 
 function AppContent() {
   const [isBillShare, setIsBillShare] = useState(() => isBillShareRoute());
@@ -47,7 +49,15 @@ function AppContent() {
 
   // 0. Public Customer Bill Share Screen (Bypasses auth and POS workspace)
   if (isBillShare) {
-    return <BillShareScreen />;
+    return (
+      <Suspense fallback={
+        <div className="min-h-screen bg-[#f2f2f2] dark:bg-zinc-950 flex items-center justify-center font-[Inter,system-ui,sans-serif]">
+          <LumaSpin />
+        </div>
+      }>
+        <BillShareScreen />
+      </Suspense>
+    );
   }
 
   // 1. Loading Screen with LumaSpin
@@ -70,24 +80,36 @@ function AppContent() {
   // 2. Admin Panel
   if (isAdminView && (isUserAdmin(authUser) || isUserAdmin(shop))) {
     return (
-      <AdminPanel 
-        currentUser={authUser} 
-        onBackToPOS={() => {
-          setIsAdminView(false);
-          navigateToPOS();
-        }} 
-        onSignOut={signOut}
-      />
+      <Suspense fallback={
+        <div className="min-h-screen bg-[#f2f2f2] dark:bg-zinc-950 flex items-center justify-center font-[Inter,system-ui,sans-serif]">
+          <LumaSpin />
+        </div>
+      }>
+        <AdminPanel 
+          currentUser={authUser} 
+          onBackToPOS={() => {
+            setIsAdminView(false);
+            navigateToPOS();
+          }} 
+          onSignOut={signOut}
+        />
+      </Suspense>
     );
   }
 
   // 3. Unauthenticated Auth Screen
   if (showAuthScreen && !shop) {
     return (
-      <AuthScreen 
-        initialMode={authInitialMode}
-        onSuccess={handleAuthSuccess}
-      />
+      <Suspense fallback={
+        <div className="min-h-screen bg-[#f2f2f2] dark:bg-zinc-950 flex items-center justify-center font-[Inter,system-ui,sans-serif]">
+          <LumaSpin />
+        </div>
+      }>
+        <AuthScreen 
+          initialMode={authInitialMode}
+          onSuccess={handleAuthSuccess}
+        />
+      </Suspense>
     );
   }
 
@@ -106,7 +128,13 @@ function AppContent() {
           {generatedBill ? (
             <ReceiptModal bill={generatedBill} />
           ) : showItemsModal ? (
-            <ManageItemsModal />
+            <Suspense fallback={
+              <div className="flex items-center justify-center p-12">
+                <LumaSpin />
+              </div>
+            }>
+              <ManageItemsModal />
+            </Suspense>
           ) : activeTab === 'newBill' ? (
             <NewBillScreen />
           ) : (
@@ -115,17 +143,25 @@ function AppContent() {
         </div>
 
         {/* Overlays / Modals */}
-        <ShopSettingsModal />
-        <UpgradeModal />
+        <Suspense fallback={null}>
+          <ShopSettingsModal />
+          <UpgradeModal />
+        </Suspense>
 
         {/* Logged-in Auth Screen Overlay (for account switching) */}
         {showAuthScreen && shop && (
           <div className="fixed inset-0 z-50 bg-[#fcfcfc] dark:bg-zinc-900 overflow-y-auto overscroll-y-contain animate-slideUp">
-            <AuthScreen 
-              initialMode={authInitialMode}
-              onClose={() => setShowAuthScreen(false)}
-              onSuccess={handleAuthSuccess}
-            />
+            <Suspense fallback={
+              <div className="flex items-center justify-center min-h-screen">
+                <LumaSpin />
+              </div>
+            }>
+              <AuthScreen 
+                initialMode={authInitialMode}
+                onClose={() => setShowAuthScreen(false)}
+                onSuccess={handleAuthSuccess}
+              />
+            </Suspense>
           </div>
         )}
       </div>
