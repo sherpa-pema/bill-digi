@@ -1,5 +1,6 @@
 import { createContext } from 'react';
-import type { Shop } from '../types';
+import type { User } from '@supabase/supabase-js';
+import type { Shop, Item, Bill } from '../types';
 import { getSubscriptionInfo } from '../lib/dbService';
 
 export interface ShopContextType {
@@ -14,10 +15,10 @@ export interface ShopContextType {
   // Shop & Auth
   shop: Shop | null;
   setShop: React.Dispatch<React.SetStateAction<Shop | null>>;
-  authUser: any;
-  setAuthUser: React.Dispatch<React.SetStateAction<any>>;
+  authUser: User | null;
+  setAuthUser: React.Dispatch<React.SetStateAction<User | null>>;
   subscriptionInfo: ReturnType<typeof getSubscriptionInfo>;
-  loadCloudData: (forcedShop?: Shop) => Promise<{ user: any; shop: Shop | null }>;
+  loadCloudData: (forcedShop?: Shop) => Promise<{ user: User | null; shop: Shop | null }>;
 
   // Admin routing
   isAdminView: boolean;
@@ -31,10 +32,10 @@ export interface ShopContextType {
   handleAuthSuccess: (authData: {
     mode: 'login' | 'register';
     data: Record<string, string>;
-    user?: any;
+    user?: User | null;
     shop?: Shop;
-    items?: any[];
-    bills?: any[];
+    items?: Item[];
+    bills?: Bill[];
   }) => void;
 
   isSetupMode: boolean;

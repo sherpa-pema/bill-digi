@@ -167,11 +167,19 @@ export const createItem = async (shopId: string, item: { name: string; price: nu
     throw new Error('Supabase client is not configured.');
   }
 
+  const trimmedName = item.name.trim();
+  if (!trimmedName || trimmedName.length > 120) {
+    throw new Error('Item name must be between 1 and 120 characters.');
+  }
+  if (typeof item.price !== 'number' || isNaN(item.price) || item.price < 0 || item.price > 9999999.99) {
+    throw new Error('Item price must be between Rs 0.00 and Rs 9,999,999.99.');
+  }
+
   const now = new Date().toISOString();
   const newItem = {
     id: 'it_' + generateId(),
     shop_id: shopId,
-    name: item.name.trim(),
+    name: trimmedName,
     price: item.price,
     created_at: now,
     updated_at: now
@@ -200,9 +208,17 @@ export const updateItem = async (itemId: string, updates: { name: string; price:
     throw new Error('Supabase client is not configured.');
   }
 
+  const trimmedName = updates.name.trim();
+  if (!trimmedName || trimmedName.length > 120) {
+    throw new Error('Item name must be between 1 and 120 characters.');
+  }
+  if (typeof updates.price !== 'number' || isNaN(updates.price) || updates.price < 0 || updates.price > 9999999.99) {
+    throw new Error('Item price must be between Rs 0.00 and Rs 9,999,999.99.');
+  }
+
   const now = new Date().toISOString();
   const payload = {
-    name: updates.name.trim(),
+    name: trimmedName,
     price: updates.price,
     updated_at: now
   };
@@ -526,128 +542,63 @@ export const generateBill = async (
     }
   }
 
-  // 1. Primary path: Use atomic RPC stored procedure with PostgreSQL row locking
-  try {
-    const { data: rpcResult, error: rpcError } = await supabase.rpc('create_bill_atomic', {
-      p_shop_id: shop.id,
-      p_bill_id: billId,
-      p_bill_type: billData.billType,
-      p_total_amount: billData.totalAmount,
-      p_items: billData.items,
-      p_created_at: now
-    });
-
-    if (!rpcError && rpcResult && rpcResult.bill && rpcResult.shop) {
-      const confirmedBill: Bill = {
-        ...(rpcResult.bill as Bill),
-        bill_number: Number(rpcResult.bill.bill_number),
-        total_amount: Number(rpcResult.bill.total_amount),
-        subtotal: billData.subtotal,
-        discount_amount: billData.discountAmount,
-        tax_amount: billData.taxAmount,
-        items: Array.isArray(rpcResult.bill.items) ? (rpcResult.bill.items as BasketItem[]) : billData.items
-      };
-      const confirmedShop: Shop = {
-        ...(rpcResult.shop as Shop),
-        next_bill_number: Number(rpcResult.shop.next_bill_number)
-      };
-
-      return {
-        bill: confirmedBill,
-        updatedShop: confirmedShop
-      };
-    }
-
-    if (rpcError) {
-      console.warn('create_bill_atomic RPC failed or not yet deployed, using resilient retry loop:', rpcError.message);
-    }
-  } catch (rpcErr) {
-    console.warn('RPC call exception, falling back to resilient retry loop:', rpcErr);
-  }
-
-  // 2. Resilient fallback retry loop with database re-fetch & jitter on concurrency collision
+  // Atomic bill creation via PostgreSQL stored procedure (create_bill_atomic)
+  // Enforces server-side mathematical verification, price bounds, line item integrity, and row-level serialization
   const MAX_RETRIES = 3;
   let lastError: any = null;
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
-      // Re-fetch latest next_bill_number and max existing bill number to ensure sequence healing
-      const [shopResponse, maxBillResponse] = await Promise.all([
-        supabase.from('shops').select('next_bill_number').eq('id', shop.id).single(),
-        supabase.from('bills').select('bill_number').eq('shop_id', shop.id).order('bill_number', { ascending: false }).limit(1).maybeSingle()
-      ]);
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('create_bill_atomic', {
+        p_shop_id: shop.id,
+        p_bill_id: billId,
+        p_bill_type: billData.billType,
+        p_total_amount: billData.totalAmount,
+        p_items: billData.items,
+        p_created_at: now
+      });
 
-      const baseTarget = shopResponse.data?.next_bill_number ? Number(shopResponse.data.next_bill_number) : shop.next_bill_number;
-      const maxExisting = maxBillResponse.data?.bill_number ? Number(maxBillResponse.data.bill_number) : 0;
-      
-      const targetBillNumber = Math.max(baseTarget, maxExisting + 1);
-
-      const fallbackBill: Bill = {
-        id: billId,
-        shop_id: shop.id,
-        bill_number: targetBillNumber,
-        bill_type: billData.billType,
-        total_amount: billData.totalAmount,
-        subtotal: billData.subtotal,
-        discount_amount: billData.discountAmount,
-        tax_amount: billData.taxAmount,
-        items: billData.items,
-        created_at: now
-      };
-
-      const { data: insertedBill, error: insertError } = await supabase
-        .from('bills')
-        .insert({
-          id: fallbackBill.id,
-          shop_id: fallbackBill.shop_id,
-          bill_number: fallbackBill.bill_number,
-          bill_type: fallbackBill.bill_type,
-          total_amount: fallbackBill.total_amount,
-          items: fallbackBill.items,
-          created_at: fallbackBill.created_at
-        })
-        .select()
-        .single();
-
-      if (insertError) {
-        lastError = insertError;
-        // If unique constraint violation, wait a random jitter (50-150ms) and retry with fresh counter
-        if (insertError.code === '23505' || insertError.message?.includes('duplicate key') || insertError.message?.includes('uq_bills_shop_number')) {
+      if (rpcError) {
+        lastError = rpcError;
+        // If transient lock contention or deadlock, back off with random jitter and retry
+        if (rpcError.code === '40P01' || rpcError.code === '55P03' || rpcError.message?.includes('deadlock') || rpcError.message?.includes('could not obtain lock')) {
           await new Promise(res => setTimeout(res, 50 + Math.random() * 100));
           continue;
         }
-        throw insertError;
+        // Non-transient errors (e.g. mathematical sum mismatch, authorization failure, negative non-discount prices)
+        throw new Error(rpcError.message || 'Failed to create bill in database.');
       }
 
-      // Increment next_bill_number in Supabase
-      const nextNumber = targetBillNumber + 1;
-      const { data: updatedShopData, error: updateError } = await supabase
-        .from('shops')
-        .update({
-          next_bill_number: nextNumber,
-          updated_at: now
-        })
-        .eq('id', shop.id)
-        .select()
-        .single();
+      if (rpcResult && rpcResult.bill && rpcResult.shop) {
+        const confirmedBill: Bill = {
+          ...(rpcResult.bill as Bill),
+          bill_number: Number(rpcResult.bill.bill_number),
+          total_amount: Number(rpcResult.bill.total_amount),
+          subtotal: billData.subtotal,
+          discount_amount: billData.discountAmount,
+          tax_amount: billData.taxAmount,
+          items: Array.isArray(rpcResult.bill.items) ? (rpcResult.bill.items as BasketItem[]) : billData.items
+        };
+        const confirmedShop: Shop = {
+          ...(rpcResult.shop as Shop),
+          next_bill_number: Number(rpcResult.shop.next_bill_number)
+        };
 
-      if (updateError) {
-        console.warn('Bill saved, but shop counter increment warning:', updateError);
+        return {
+          bill: confirmedBill,
+          updatedShop: confirmedShop
+        };
       }
 
-      const finalShop = (updatedShopData as Shop) || {
-        ...shop,
-        next_bill_number: nextNumber,
-        updated_at: now
-      };
-
-      return {
-        bill: (insertedBill as Bill) || fallbackBill,
-        updatedShop: finalShop
-      };
+      throw new Error('Database did not return the created bill payload.');
     } catch (err: any) {
       lastError = err;
+      // If client caught a non-retryable error, rethrow immediately
+      if (err.message && !err.message.includes('deadlock') && !err.message.includes('lock')) {
+        throw err;
+      }
       if (attempt === MAX_RETRIES - 1) throw err;
+      await new Promise(res => setTimeout(res, 50 + Math.random() * 100));
     }
   }
 

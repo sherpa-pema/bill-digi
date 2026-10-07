@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import type { User } from '@supabase/supabase-js';
 import type { Shop } from '../types';
 import { checkIsOnline, fetchShop, createInitialShop, updateShop, getSubscriptionInfo } from '../lib/dbService';
 import { signOutBusiness, getActiveUser, isUserAdmin, checkIsAdminServerSide } from '../lib/authService';
@@ -12,7 +13,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
 
   const [shop, setShop] = useState<Shop | null>(null);
-  const [authUser, setAuthUser] = useState<any>(null);
+  const [authUser, setAuthUser] = useState<User | null>(null);
 
   // Admin Route View State
   const [isAdminView, setIsAdminView] = useState(() => {
@@ -75,16 +76,17 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loadCloudData = useCallback(
     async (forcedShop?: Shop) => {
       if (!checkIsOnline()) {
+        await Promise.resolve();
         setIsOnline(false);
         setIsLoadingData(false);
         setLoadError('No internet connection. DigiBill requires an active online connection to load data from Supabase.');
         return { user: null, shop: null };
       }
 
-      setLoadError(null);
       try {
         let activeShop = forcedShop || shop;
         const user = await getActiveUser();
+        setLoadError(null);
         setAuthUser(user);
 
         if (!activeShop) {
@@ -127,11 +129,12 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Monitor Online/Offline Status
   useEffect(() => {
     let isMounted = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const handleOnline = () => {
       setIsOnline(true);
       setFeedbackMessage('Back online. Reconnecting to Supabase...');
-      loadCloudData();
-      setTimeout(() => {
+      void loadCloudData();
+      timer = setTimeout(() => {
         if (isMounted) setFeedbackMessage(null);
       }, 3000);
     };
@@ -144,15 +147,69 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Initial load from Supabase cloud
-    void loadCloudData();
-
     return () => {
       isMounted = false;
+      if (timer) clearTimeout(timer);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
   }, [loadCloudData]);
+
+  // Initial load from Supabase cloud on mount
+  useEffect(() => {
+    let isMounted = true;
+    void (async () => {
+      if (!checkIsOnline()) {
+        if (!isMounted) return;
+        setIsOnline(false);
+        setIsLoadingData(false);
+        setLoadError('No internet connection. DigiBill requires an active online connection to load data from Supabase.');
+        return;
+      }
+
+      try {
+        const user = await getActiveUser();
+        if (!isMounted) return;
+        setAuthUser(user);
+
+        if (!user) {
+          setShop(null);
+          setAuthInitialMode('login');
+          setShowAuthScreen(true);
+          setIsLoadingData(false);
+          return;
+        }
+
+        let loadedShop = await fetchShop(user.id);
+        if (!loadedShop) {
+          loadedShop = await createInitialShop(user.id);
+        }
+        if (!isMounted) return;
+        setShop(loadedShop);
+
+        const serverIsAdmin = await checkIsAdminServerSide();
+        if (!isMounted) return;
+        if (serverIsAdmin || isUserAdmin(user) || isUserAdmin(loadedShop)) {
+          setIsAdminView(true);
+          if (typeof window !== 'undefined' && !isAdminRoute()) {
+            navigateToAdmin();
+          }
+        }
+      } catch (err: any) {
+        if (!isMounted) return;
+        console.error('Error loading initial shop data from Supabase:', err);
+        setLoadError(err.message || 'Failed to load data from Supabase cloud.');
+      } finally {
+        if (isMounted) {
+          setIsLoadingData(false);
+        }
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const openShopSettings = useCallback(() => {
     setIsEditingShop(true);

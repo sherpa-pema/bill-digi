@@ -350,7 +350,7 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
               </button>
 
               {/* Bottom Switch Prompt */}
-              <div className="pt-2 text-center space-y-2">
+              <div className="pt-2 text-center">
                 <p className="text-[12px] text-zinc-500 dark:text-zinc-400">
                   Don't have a business account?{' '}
                   <button
@@ -361,22 +361,6 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
                     Register Business
                   </button>
                 </p>
-                <div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (onSuccess) {
-                        onSuccess({
-                          mode: 'login',
-                          data: { identifier: 'Guest / Demo', password: '', rememberMe: 'false' }
-                        });
-                      }
-                    }}
-                    className="text-[11.5px] font-medium text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 underline underline-offset-2 decoration-zinc-200 dark:decoration-zinc-700 transition cursor-pointer"
-                  >
-                    Skip & Continue Offline
-                  </button>
-                </div>
               </div>
             </form>
           )}
@@ -559,7 +543,7 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
           {/* Footer Note */}
           <div className="mt-8 text-center space-y-1">
             <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
-              Local-first • Works offline • Synced with Supabase Auth & Cloud Database
+              Cloud-first • Realtime Sync • Secured with Supabase Auth & PostgreSQL
             </p>
             <p className="text-[10.5px] text-zinc-400/80 dark:text-zinc-500/80">
               Compliant with IRD billing guidelines

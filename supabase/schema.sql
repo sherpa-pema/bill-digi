@@ -118,6 +118,12 @@ BEGIN
     ) THEN
         ALTER TABLE items ADD CONSTRAINT chk_items_price CHECK (price >= 0 AND price <= 9999999.99);
     END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'chk_items_name_length'
+    ) THEN
+        ALTER TABLE items ADD CONSTRAINT chk_items_name_length CHECK (length(trim(name)) >= 1 AND length(name) <= 120);
+    END IF;
 EXCEPTION
     WHEN duplicate_object THEN NULL;
     WHEN others THEN NULL;
@@ -314,18 +320,10 @@ USING (
     )
 );
 
-CREATE POLICY "Users can insert bills to own shops" 
-ON bills FOR INSERT 
-TO authenticated 
-WITH CHECK (
-    EXISTS (
-        SELECT 1 FROM shops 
-        WHERE shops.id = bills.shop_id 
-        AND shops.user_id = auth.uid()
-    )
-);
-
--- (Note: Bills are strictly immutable sales records - UPDATE and DELETE are disallowed to preserve ledger integrity)
+-- (Note: Direct INSERT on bills is revoked for client REST calls. All bill creation
+-- must occur exclusively through the SECURITY DEFINER function `create_bill_atomic`
+-- to enforce server-side validation, price checks, and monotonic sequential numbering.
+-- Bills are strictly immutable sales records - UPDATE and DELETE are disallowed to preserve ledger integrity)
 
 -- ------------------------------------------------------------------------------
 -- SUBSCRIPTION PAYMENTS POLICIES (Admin management + tenant view)

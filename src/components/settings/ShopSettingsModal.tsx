@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Crown, Sparkles, LogOut, Loader2, X, Moon, Sun } from 'lucide-react';
 import { useShop } from '../../hooks/useShop';
 import { useBilling } from '../../hooks/useBilling';
@@ -7,11 +7,10 @@ import { isUserAdmin } from '../../lib/authService';
 import { navigateToAdmin } from '../../lib/navigation';
 import sanoBillLogo from '../../assets/sano-bill-logo.png';
 
-export const ShopSettingsModal: React.FC = () => {
+const ShopSettingsModalContent: React.FC = () => {
   const {
     shop,
     authUser,
-    isSetupMode,
     setIsSetupMode,
     isEditingShop,
     setIsEditingShop,
@@ -40,16 +39,6 @@ export const ShopSettingsModal: React.FC = () => {
   const [setupVatEnabled, setSetupVatEnabled] = useState(isVatEnabled);
   const [setupDiscountEnabled, setSetupDiscountEnabled] = useState(isDiscountEnabled);
   const [isSavingSetup, setIsSavingSetup] = useState(false);
-
-  useEffect(() => {
-    if (shop) {
-      setSetupShopName(shop.shop_name);
-      setSetupPanNumber(shop.pan_number);
-      setSetupStartingBill(isEditingShop ? String(shop.next_bill_number || 1) : String(shop.starting_bill_number || 1));
-    }
-    setSetupVatEnabled(isVatEnabled);
-    setSetupDiscountEnabled(isDiscountEnabled);
-  }, [shop, isVatEnabled, isDiscountEnabled, isSetupMode, isEditingShop]);
 
   const minBillNumber = isEditingShop ? (Number(shop?.next_bill_number) || 1) : 1;
   const enteredBillNumber = Number(setupStartingBill);
@@ -104,8 +93,6 @@ export const ShopSettingsModal: React.FC = () => {
       setIsSavingSetup(false);
     }
   };
-
-  if (!isSetupMode) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-[#fcfcfc] dark:bg-zinc-950 overflow-y-auto overscroll-y-contain text-zinc-900 dark:text-zinc-100">
@@ -395,4 +382,10 @@ export const ShopSettingsModal: React.FC = () => {
       </div>
     </div>
   );
+};
+
+export const ShopSettingsModal: React.FC = () => {
+  const { isSetupMode, shop } = useShop();
+  if (!isSetupMode) return null;
+  return <ShopSettingsModalContent key={shop?.id || 'new'} />;
 };

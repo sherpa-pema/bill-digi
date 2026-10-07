@@ -155,19 +155,49 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [shop, isExportingCsv, historyDateFilter]);
 
   useEffect(() => {
+    let isMounted = true;
     if (shop?.id) {
-      void refreshBillingData();
+      const shopId = shop.id;
+      void (async () => {
+        try {
+          const [cloudItems, billsResult] = await Promise.all([
+            fetchItems(shopId),
+            fetchBillsPaginated(shopId, {
+              limit: PAGE_SIZE,
+              offset: 0,
+              dateFilter: historyDateFilter
+            })
+          ]);
+          if (!isMounted) return;
+          setItems(cloudItems);
+          setBills(billsResult.bills);
+          setTotalBillsCount(billsResult.totalCount);
+          setHasMoreBills(billsResult.hasMore);
+        } catch (err) {
+          console.error('Error fetching items and bills:', err);
+        } finally {
+          if (isMounted) {
+            setIsLoadingBills(false);
+          }
+        }
+      })();
     } else {
-      setItems([]);
-      setBills([]);
-      setBasket([]);
-      setSimpleAmount('0');
-      setGeneratedBill(null);
-      setBillDetailSheet(null);
-      setTotalBillsCount(0);
-      setHasMoreBills(false);
+      void Promise.resolve().then(() => {
+        if (!isMounted) return;
+        setItems([]);
+        setBills([]);
+        setBasket([]);
+        setSimpleAmount('0');
+        setGeneratedBill(null);
+        setBillDetailSheet(null);
+        setTotalBillsCount(0);
+        setHasMoreBills(false);
+      });
     }
-  }, [shop?.id, refreshBillingData]);
+    return () => {
+      isMounted = false;
+    };
+  }, [shop?.id, historyDateFilter]);
 
   // Tax / Discount Settings toggles
   const handleToggleVatSetting = useCallback((enabled: boolean) => {

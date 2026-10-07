@@ -138,7 +138,10 @@ export function generateBillShareUrl(bill: Bill, shop: Shop | null): string {
   const origin = window.location.origin;
   const encoded = encodeBillData(bill, shop);
   
-  // Use pathname /billshare?data=... and include id for database lookup fallback
-  const billIdParam = bill.id ? `&id=${encodeURIComponent(bill.id)}` : '';
-  return `${origin}/billshare?data=${encoded}${billIdParam}`;
+  // Prioritize verified bill id as the primary canonical parameter for cloud ledger verification
+  if (bill.id) {
+    return `${origin}/billshare?id=${encodeURIComponent(bill.id)}&data=${encoded}`;
+  }
+  return `${origin}/billshare?data=${encoded}`;
 }
+

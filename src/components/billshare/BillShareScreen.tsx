@@ -12,6 +12,7 @@ import sanoBillLogo from '../../assets/sano-bill-logo.png';
 export const BillShareScreen: React.FC = () => {
   const [bill, setBill] = useState<Bill | null>(null);
   const [shop, setShop] = useState<Shop | null>(null);
+  const [isVerified, setIsVerified] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -24,33 +25,57 @@ export const BillShareScreen: React.FC = () => {
     const loadBill = async () => {
       const { data, id } = getBillShareParams();
 
-      // 1. Instant load from self-contained URL payload
+      // Case 1: ID is provided -> Authenticate and load canonical record from Supabase database
+      if (id) {
+        // If optimistic preview payload is present in URL, display while verifying
+        if (data) {
+          const optimistic = decodeBillData(data);
+          if (optimistic && isMounted) {
+            setBill(optimistic.bill);
+            setShop(optimistic.shop);
+          }
+        }
+
+        try {
+          const result = await fetchBillById(id);
+          if (!isMounted) return;
+
+          if (result && result.bill) {
+            // Overwrite with verified data directly from Supabase cloud database
+            setBill(result.bill);
+            setShop(result.shop);
+            setIsVerified(true);
+            setIsLoading(false);
+            return;
+          } else {
+            // Bill ID not found in database (tampered or non-existent record)
+            setIsLoading(false);
+            setErrorMessage('This digital receipt could not be verified in the cloud database. It may be invalid or not recorded.');
+            return;
+          }
+        } catch (err) {
+          if (!isMounted) return;
+          console.warn('Failed to verify bill with database:', err);
+          setIsLoading(false);
+          setErrorMessage('Could not connect to cloud database to verify receipt. Please check your internet connection.');
+          return;
+        }
+      }
+
+      // Case 2: Only raw 'data' is passed without an official bill ID
+      // Render the receipt, but NEVER mark it with the verified badge
       if (data) {
         const decoded = decodeBillData(data);
         if (decoded && isMounted) {
           setBill(decoded.bill);
           setShop(decoded.shop);
+          setIsVerified(false);
           setIsLoading(false);
           return;
         }
       }
 
-      // 2. Database lookup by ID if payload is missing or invalid
-      if (id) {
-        try {
-          const result = await fetchBillById(id);
-          if (result && result.bill && isMounted) {
-            setBill(result.bill);
-            setShop(result.shop);
-            setIsLoading(false);
-            return;
-          }
-        } catch (err) {
-          console.warn('Failed to load bill from database:', err);
-        }
-      }
-
-      // 3. Fallback error state
+      // Case 3: Incomplete or invalid link
       if (isMounted) {
         setIsLoading(false);
         setErrorMessage('Could not load bill receipt. The link may be incomplete or invalid.');
@@ -173,11 +198,18 @@ export const BillShareScreen: React.FC = () => {
       {/* Container matching mobile & tablet POS aesthetics */}
       <div className="w-full max-w-[420px] flex flex-col items-center">
         
-        {/* Verification Pill Header */}
-        <div className="mb-4 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-[11px] font-medium text-zinc-600 dark:text-zinc-400 shadow-xs">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span>Verified Digital Receipt • Live Copy</span>
-        </div>
+        {/* Verification Status Pill Header */}
+        {isVerified ? (
+          <div className="mb-4 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white dark:bg-zinc-900 border border-emerald-200 dark:border-emerald-800 text-[11px] font-medium text-emerald-800 dark:text-emerald-300 shadow-xs">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Verified Digital Receipt • Live Cloud Copy</span>
+          </div>
+        ) : (
+          <div className="mb-4 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-700 text-[11px] font-semibold text-amber-800 dark:text-amber-300 shadow-xs">
+            <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+            <span>⚠️ Unverified Offline Copy • Not Verified in Cloud Ledger</span>
+          </div>
+        )}
 
         {/* Bill Receipt Card - Exact same format as generated bill */}
         <ReceiptCard ref={receiptRef} bill={bill} shop={shop} />

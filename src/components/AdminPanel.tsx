@@ -15,6 +15,7 @@ import {
   FileText,
   AlertTriangle
 } from 'lucide-react';
+import type { User } from '@supabase/supabase-js';
 import type { ShopAdminView, SubscriptionPayment } from '../types';
 import { 
   fetchAllShopsForAdmin, 
@@ -29,7 +30,7 @@ import { navigateToPOS } from '../lib/navigation';
 import sanoBillLogo from '../assets/sano-bill-logo.png';
 
 interface AdminPanelProps {
-  currentUser: any;
+  currentUser: User | null;
   onBackToPOS?: () => void;
   onSignOut?: () => void;
 }
@@ -38,7 +39,7 @@ export default function AdminPanel({ currentUser, onSignOut }: AdminPanelProps) 
   // Dashboard Data State
   const [shops, setShops] = useState<ShopAdminView[]>([]);
   const [payments, setPayments] = useState<SubscriptionPayment[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'shops' | 'payments'>('shops');
   const [filterTier, setFilterTier] = useState<'all' | 'pro' | 'trial' | 'expiring' | 'expired'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -52,7 +53,7 @@ export default function AdminPanel({ currentUser, onSignOut }: AdminPanelProps) 
   const [actionNotes, setActionNotes] = useState('');
   const [isProcessingAction, setIsProcessingAction] = useState(false);
 
-  // Load Admin Data
+  // Load Admin Data (manual refresh)
   const loadAdminData = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -76,8 +77,35 @@ export default function AdminPanel({ currentUser, onSignOut }: AdminPanelProps) 
   }, []);
 
   useEffect(() => {
-    loadAdminData();
-  }, [loadAdminData]);
+    let isMounted = true;
+    (async () => {
+      try {
+        const [shopsResult, paymentsData] = await Promise.all([
+          fetchAllShopsForAdmin(),
+          fetchSubscriptionPayments()
+        ]);
+        if (!isMounted) return;
+        setShops(shopsResult.shops);
+        setPayments(paymentsData);
+        if (shopsResult.isFallback) {
+          setFallbackWarning(shopsResult.warningMessage || 'Database aggregation RPC unavailable. Displaying estimates via query fallback.');
+        } else {
+          setFallbackWarning(null);
+        }
+      } catch (err: any) {
+        if (!isMounted) return;
+        console.error('Failed to load admin data:', err);
+        setActionNotice(err.message || 'Error loading shops from Supabase.');
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    })();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Execute Subscription Action
   const handleConfirmAction = async () => {
