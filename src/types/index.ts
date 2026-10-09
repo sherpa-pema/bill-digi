@@ -16,7 +16,10 @@ export interface Shop {
   subscription_started_at?: string;
   subscription_expires_at?: string | null;
   trial_expires_at?: string | null;
-  is_admin?: boolean;
+  bill_count?: number;
+  total_revenue?: number;
+  vat_enabled?: boolean;
+  discount_enabled?: boolean;
 }
 
 export interface SubscriptionPayment {
@@ -54,11 +57,14 @@ export interface BasketItem {
   qty: number;
   unit_price: number;
   line_total: number;
+  kind?: 'item' | 'discount' | 'vat';
 }
 
 export interface Bill {
   id: string;
   shop_id?: string;
+  shop_name?: string;
+  pan_number?: string;
   bill_number: number;
   bill_type: 'simple' | 'itemized';
   total_amount: number;
@@ -80,6 +86,9 @@ export type HistoryDateFilter = 'today' | '7days' | '30days' | 'all';
 export interface FetchBillsOptions {
   limit?: number;
   offset?: number;
+  cursorBillNumber?: number;
+  includeCount?: boolean;
+  cachedTotalCount?: number;
   dateFilter?: HistoryDateFilter;
   startDate?: string;
   endDate?: string;

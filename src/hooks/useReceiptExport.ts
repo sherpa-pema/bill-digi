@@ -30,7 +30,10 @@ export function useReceiptExport() {
         adjustmentsStr += `\nTaxable: Rs ${taxableAmount.toFixed(2)}\nVAT (+13%): +Rs ${vatAmount.toFixed(2)}`;
       }
 
-      return `${shop.shop_name}\nPAN: ${shop.pan_number}\nBill No: ${bill.bill_number}\nDate: ${dateStr}\n${itemsStr}${adjustmentsStr}\nTotal: Rs ${bill.total_amount}\nThank you! Save for lottery at prize.ird.gov.np`;
+      const shopName = bill.shop_name || shop.shop_name;
+      const panNumber = bill.pan_number || shop.pan_number;
+
+      return `${shopName}\nPAN: ${panNumber}\nBill No: ${bill.bill_number}\nDate: ${dateStr}\n${itemsStr}${adjustmentsStr}\nTotal: Rs ${bill.total_amount}\nThank you! Save for lottery at prize.ird.gov.np`;
     },
     [shop]
   );
@@ -51,8 +54,9 @@ export function useReceiptExport() {
           throw new Error('Failed to generate image');
         }
 
-        const safeShopName = shop?.shop_name
-          ? shop.shop_name.replace(/[^a-zA-Z0-9_-]/g, '_')
+        const effectiveShopName = bill.shop_name || shop?.shop_name;
+        const safeShopName = effectiveShopName
+          ? effectiveShopName.replace(/[^a-zA-Z0-9_-]/g, '_')
           : 'DigiBill';
         const fileName = `Bill_${bill.bill_number}_${safeShopName}.png`;
         const file = new File([blob], fileName, { type: 'image/png' });

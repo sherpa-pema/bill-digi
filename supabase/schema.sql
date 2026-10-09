@@ -17,12 +17,15 @@ CREATE TABLE IF NOT EXISTS shops (
     phone TEXT,
     starting_bill_number BIGINT NOT NULL DEFAULT 1,
     next_bill_number BIGINT NOT NULL DEFAULT 1,
+    vat_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    discount_enabled BOOLEAN NOT NULL DEFAULT FALSE,
     subscription_tier TEXT DEFAULT 'free',
     subscription_status TEXT DEFAULT 'trial',
     subscription_started_at TIMESTAMPTZ DEFAULT NOW(),
     subscription_expires_at TIMESTAMPTZ,
     trial_expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '7 days'),
-    is_admin BOOLEAN DEFAULT FALSE,
+    bill_count BIGINT DEFAULT 0,
+    total_revenue NUMERIC(14, 2) DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -42,6 +45,12 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'shops' AND column_name = 'phone') THEN
         ALTER TABLE shops ADD COLUMN phone TEXT;
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'shops' AND column_name = 'vat_enabled') THEN
+        ALTER TABLE shops ADD COLUMN vat_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'shops' AND column_name = 'discount_enabled') THEN
+        ALTER TABLE shops ADD COLUMN discount_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+    END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'shops' AND column_name = 'subscription_tier') THEN
         ALTER TABLE shops ADD COLUMN subscription_tier TEXT DEFAULT 'free';
     END IF;
@@ -57,8 +66,11 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'shops' AND column_name = 'trial_expires_at') THEN
         ALTER TABLE shops ADD COLUMN trial_expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '7 days');
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'shops' AND column_name = 'is_admin') THEN
-        ALTER TABLE shops ADD COLUMN is_admin BOOLEAN DEFAULT FALSE;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'shops' AND column_name = 'bill_count') THEN
+        ALTER TABLE shops ADD COLUMN bill_count BIGINT DEFAULT 0;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'shops' AND column_name = 'total_revenue') THEN
+        ALTER TABLE shops ADD COLUMN total_revenue NUMERIC(14, 2) DEFAULT 0;
     END IF;
 
     -- Ensure unique constraint exists on user_id
@@ -84,12 +96,45 @@ CREATE TABLE IF NOT EXISTS items (
 CREATE TABLE IF NOT EXISTS bills (
     id TEXT PRIMARY KEY,
     shop_id TEXT NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+    shop_name TEXT,
+    pan_number VARCHAR(9),
     bill_number BIGINT NOT NULL,
     bill_type VARCHAR(20) NOT NULL DEFAULT 'simple' CHECK (bill_type IN ('simple', 'itemized')),
     total_amount NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (total_amount > 0 AND total_amount <= 99999999.99),
+    subtotal NUMERIC(12, 2),
+    discount_amount NUMERIC(12, 2) DEFAULT 0,
+    tax_amount NUMERIC(12, 2) DEFAULT 0,
     items JSONB NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(items) = 'array'),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Safe update for existing bills table
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'bills' AND column_name = 'shop_name') THEN
+        ALTER TABLE public.bills ADD COLUMN shop_name TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'bills' AND column_name = 'pan_number') THEN
+        ALTER TABLE public.bills ADD COLUMN pan_number VARCHAR(9);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'bills' AND column_name = 'subtotal') THEN
+        ALTER TABLE public.bills ADD COLUMN subtotal NUMERIC(12, 2);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'bills' AND column_name = 'discount_amount') THEN
+        ALTER TABLE public.bills ADD COLUMN discount_amount NUMERIC(12, 2) DEFAULT 0;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'bills' AND column_name = 'tax_amount') THEN
+        ALTER TABLE public.bills ADD COLUMN tax_amount NUMERIC(12, 2) DEFAULT 0;
+    END IF;
+
+    -- Backfill snapshotted shop details for existing bills from current shops table
+    UPDATE public.bills b
+    SET shop_name = s.shop_name,
+        pan_number = s.pan_number
+    FROM public.shops s
+    WHERE b.shop_id = s.id
+      AND (b.shop_name IS NULL OR b.pan_number IS NULL);
+END $$;
 
 -- Constraints: Ensure bill numbers are unique per shop and data rules
 DO $$
@@ -175,11 +220,11 @@ STABLE
 SET search_path = public
 AS $$
   SELECT COALESCE(
-    (auth.jwt() -> 'app_metadata' ->> 'is_admin')::boolean,
-    (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin'),
+    (auth.jwt() -> 'app_metadata' ->> 'is_admin')::boolean = true OR
+    (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin' OR
     EXISTS (
       SELECT 1 FROM public.admin_users 
-      WHERE user_id = auth.uid()
+      WHERE user_id = auth.uid() OR (email IS NOT NULL AND lower(email) = lower(auth.jwt() ->> 'email'))
     ),
     false
   );
@@ -225,6 +270,10 @@ DROP POLICY IF EXISTS "Admins select bills" ON bills;
 
 DROP POLICY IF EXISTS "Admins manage payments" ON subscription_payments;
 DROP POLICY IF EXISTS "Admins manage subscription_payments" ON subscription_payments;
+DROP POLICY IF EXISTS "Tenants and admins can view subscription payments" ON subscription_payments;
+DROP POLICY IF EXISTS "Admins can insert subscription payments" ON subscription_payments;
+DROP POLICY IF EXISTS "Admins can update subscription payments" ON subscription_payments;
+DROP POLICY IF EXISTS "Admins can delete subscription payments" ON subscription_payments;
 
 -- ------------------------------------------------------------------------------
 -- SHOPS TABLE POLICIES (Multi-tenant isolation by user_id = auth.uid() + Admin access)
@@ -232,23 +281,23 @@ DROP POLICY IF EXISTS "Admins manage subscription_payments" ON subscription_paym
 CREATE POLICY "Users can select own shop" 
 ON shops FOR SELECT 
 TO authenticated 
-USING (public.is_admin() OR auth.uid() = user_id);
+USING ((SELECT public.is_admin()) OR (SELECT auth.uid()) = user_id);
 
 CREATE POLICY "Users can insert own shop" 
 ON shops FOR INSERT 
 TO authenticated 
-WITH CHECK (public.is_admin() OR auth.uid() = user_id);
+WITH CHECK ((SELECT public.is_admin()) OR (SELECT auth.uid()) = user_id);
 
 CREATE POLICY "Users can update own shop" 
 ON shops FOR UPDATE 
 TO authenticated 
-USING (public.is_admin() OR auth.uid() = user_id) 
-WITH CHECK (public.is_admin() OR auth.uid() = user_id);
+USING ((SELECT public.is_admin()) OR (SELECT auth.uid()) = user_id) 
+WITH CHECK ((SELECT public.is_admin()) OR (SELECT auth.uid()) = user_id);
 
 CREATE POLICY "Users can delete own shop" 
 ON shops FOR DELETE 
 TO authenticated 
-USING (public.is_admin() OR auth.uid() = user_id);
+USING ((SELECT public.is_admin()) OR (SELECT auth.uid()) = user_id);
 
 -- ------------------------------------------------------------------------------
 -- ITEMS TABLE POLICIES (Multi-tenant isolation by shop ownership + Admin select)
@@ -257,11 +306,11 @@ CREATE POLICY "Users can select items of own shops"
 ON items FOR SELECT 
 TO authenticated 
 USING (
-    public.is_admin() OR
+    (SELECT public.is_admin()) OR
     EXISTS (
         SELECT 1 FROM shops 
         WHERE shops.id = items.shop_id 
-        AND shops.user_id = auth.uid()
+        AND shops.user_id = (SELECT auth.uid())
     )
 );
 
@@ -272,7 +321,7 @@ WITH CHECK (
     EXISTS (
         SELECT 1 FROM shops 
         WHERE shops.id = items.shop_id 
-        AND shops.user_id = auth.uid()
+        AND shops.user_id = (SELECT auth.uid())
     )
 );
 
@@ -283,14 +332,14 @@ USING (
     EXISTS (
         SELECT 1 FROM shops 
         WHERE shops.id = items.shop_id 
-        AND shops.user_id = auth.uid()
+        AND shops.user_id = (SELECT auth.uid())
     )
 )
 WITH CHECK (
     EXISTS (
         SELECT 1 FROM shops 
         WHERE shops.id = items.shop_id 
-        AND shops.user_id = auth.uid()
+        AND shops.user_id = (SELECT auth.uid())
     )
 );
 
@@ -301,7 +350,7 @@ USING (
     EXISTS (
         SELECT 1 FROM shops 
         WHERE shops.id = items.shop_id 
-        AND shops.user_id = auth.uid()
+        AND shops.user_id = (SELECT auth.uid())
     )
 );
 
@@ -312,11 +361,11 @@ CREATE POLICY "Users can select bills of own shops"
 ON bills FOR SELECT 
 TO authenticated 
 USING (
-    public.is_admin() OR
+    (SELECT public.is_admin()) OR
     EXISTS (
         SELECT 1 FROM shops 
         WHERE shops.id = bills.shop_id 
-        AND shops.user_id = auth.uid()
+        AND shops.user_id = (SELECT auth.uid())
     )
 );
 
@@ -326,21 +375,46 @@ USING (
 -- Bills are strictly immutable sales records - UPDATE and DELETE are disallowed to preserve ledger integrity)
 
 -- ------------------------------------------------------------------------------
--- SUBSCRIPTION PAYMENTS POLICIES (Admin management + tenant view)
+-- SUBSCRIPTION PAYMENTS POLICIES (Audit Ledger: Tenant read-only, Admin-only write)
 -- ------------------------------------------------------------------------------
-CREATE POLICY "Admins manage subscription_payments"
-ON subscription_payments FOR ALL
+-- 1. SELECT policy: Tenants can view payment history for their own shops; admins can view all.
+CREATE POLICY "Tenants and admins can view subscription payments"
+ON subscription_payments FOR SELECT
 TO authenticated
 USING (
-    public.is_admin() OR
+    (SELECT public.is_admin()) OR
     EXISTS (
         SELECT 1 FROM shops 
         WHERE shops.id = subscription_payments.shop_id 
-        AND shops.user_id = auth.uid()
+        AND shops.user_id = (SELECT auth.uid())
     )
+);
+
+-- 2. INSERT policy: Only administrators can create payment audit records.
+CREATE POLICY "Admins can insert subscription payments"
+ON subscription_payments FOR INSERT
+TO authenticated
+WITH CHECK (
+    (SELECT public.is_admin())
+);
+
+-- 3. UPDATE policy: Only administrators can update payment audit records.
+CREATE POLICY "Admins can update subscription payments"
+ON subscription_payments FOR UPDATE
+TO authenticated
+USING (
+    (SELECT public.is_admin())
 )
 WITH CHECK (
-    public.is_admin()
+    (SELECT public.is_admin())
+);
+
+-- 4. DELETE policy: Only administrators can delete payment audit records (preventing tenants from deleting payment history).
+CREATE POLICY "Admins can delete subscription payments"
+ON subscription_payments FOR DELETE
+TO authenticated
+USING (
+    (SELECT public.is_admin())
 );
 
 -- ------------------------------------------------------------------------------
@@ -354,14 +428,13 @@ CREATE POLICY "Admins can select admin_users"
     FOR SELECT
     TO authenticated
     USING (
-        (auth.jwt() -> 'app_metadata' ->> 'is_admin')::boolean = true OR
-        (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin' OR
-        user_id = auth.uid()
+        (SELECT public.is_admin()) OR
+        user_id = (SELECT auth.uid())
     );
 
 -- ------------------------------------------------------------------------------
 -- COLUMN GUARDRAIL TRIGGERS ON SHOPS TABLE
--- Prevents tenants from modifying is_admin, subscription fields, or shop ownership
+-- Prevents tenants from modifying subscription fields, or shop ownership
 -- ------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.protect_shop_sensitive_columns()
 RETURNS TRIGGER 
@@ -371,11 +444,6 @@ SET search_path = public
 AS $$
 BEGIN
     IF NOT public.is_admin() THEN
-        -- Prevent mutating is_admin
-        IF NEW.is_admin IS DISTINCT FROM OLD.is_admin THEN
-            RAISE EXCEPTION 'Forbidden: You do not have permission to modify is_admin status.';
-        END IF;
-
         -- Prevent changing subscription fields
         IF NEW.subscription_tier IS DISTINCT FROM OLD.subscription_tier OR
            NEW.subscription_status IS DISTINCT FROM OLD.subscription_status OR
@@ -408,7 +476,6 @@ SET search_path = public
 AS $$
 BEGIN
     IF NOT public.is_admin() THEN
-        NEW.is_admin := false;
         NEW.subscription_tier := 'free';
         NEW.subscription_status := 'trial';
         NEW.subscription_expires_at := NULL;
@@ -506,7 +573,10 @@ CREATE OR REPLACE FUNCTION public.create_bill_atomic(
     p_bill_type VARCHAR(20),
     p_total_amount NUMERIC(12, 2),
     p_items JSONB,
-    p_created_at TIMESTAMPTZ DEFAULT NOW()
+    p_created_at TIMESTAMPTZ DEFAULT NULL, -- Ignored to prevent client backdating; server enforces NOW()
+    p_subtotal NUMERIC(12, 2) DEFAULT NULL,
+    p_discount_amount NUMERIC(12, 2) DEFAULT NULL,
+    p_tax_amount NUMERIC(12, 2) DEFAULT NULL
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -519,12 +589,16 @@ DECLARE
     v_inserted_bill bills%ROWTYPE;
     v_caller_uid UUID;
     v_computed_total NUMERIC(12, 2) := 0;
+    v_computed_subtotal NUMERIC(12, 2) := 0;
+    v_computed_discount NUMERIC(12, 2) := 0;
+    v_computed_tax NUMERIC(12, 2) := 0;
     v_item RECORD;
     v_item_count INTEGER;
     v_item_name TEXT;
     v_item_qty NUMERIC;
     v_item_price NUMERIC;
     v_item_line_total NUMERIC;
+    v_item_kind TEXT;
 BEGIN
     -- Security check: Ensure authenticated caller owns this shop or has admin privileges
     v_caller_uid := auth.uid();
@@ -533,6 +607,22 @@ BEGIN
         EXISTS (SELECT 1 FROM public.shops WHERE id = p_shop_id AND user_id = v_caller_uid)
     ) THEN
         RAISE EXCEPTION 'Unauthorized: You do not have permission to generate bills for this shop.';
+    END IF;
+
+    -- 0. Idempotency Check: If bill with this ID already exists for this shop, return it directly
+    SELECT * INTO v_inserted_bill
+    FROM public.bills
+    WHERE id = p_bill_id AND shop_id = p_shop_id;
+
+    IF FOUND THEN
+        SELECT * INTO v_updated_shop
+        FROM public.shops
+        WHERE id = p_shop_id;
+
+        RETURN jsonb_build_object(
+            'bill', to_jsonb(v_inserted_bill),
+            'shop', to_jsonb(v_updated_shop)
+        );
     END IF;
 
     -- 1. Validate Bill Type
@@ -566,13 +656,15 @@ BEGIN
         name TEXT,
         qty NUMERIC,
         unit_price NUMERIC,
-        line_total NUMERIC
+        line_total NUMERIC,
+        kind TEXT
     )
     LOOP
         v_item_name := TRIM(COALESCE(v_item.name, ''));
         v_item_qty := COALESCE(v_item.qty, 0);
         v_item_price := COALESCE(v_item.unit_price, 0);
         v_item_line_total := COALESCE(v_item.line_total, 0);
+        v_item_kind := LOWER(TRIM(COALESCE(v_item.kind, '')));
 
         IF length(v_item_name) = 0 OR length(v_item_name) > 120 THEN
             RAISE EXCEPTION 'Invalid item name: Name must be between 1 and 120 characters.';
@@ -588,13 +680,22 @@ BEGIN
         END IF;
 
         -- Non-discount items cannot have a negative price
-        IF v_item_price < 0 AND v_item_name NOT ILIKE '%discount%' THEN
+        IF v_item_price < 0 AND v_item_kind != 'discount' AND v_item_name NOT ILIKE 'discount%' THEN
             RAISE EXCEPTION 'Non-discount items cannot have a negative price: "%".', v_item_name;
         END IF;
 
         -- Verify line total calculation (line_total = qty * unit_price with 0.05 rounding tolerance)
         IF ABS(v_item_line_total - (v_item_qty * v_item_price)) > 0.05 THEN
             RAISE EXCEPTION 'Line total calculation mismatch for item "%".', v_item_name;
+        END IF;
+
+        -- Compute server-side breakdowns accurately
+        IF v_item_kind = 'discount' OR v_item_price < 0 OR v_item_name ILIKE 'discount%' THEN
+            v_computed_discount := v_computed_discount + ABS(v_item_line_total);
+        ELSIF v_item_kind = 'vat' OR v_item_name ILIKE 'vat (%' OR v_item_name ILIKE 'vat' THEN
+            v_computed_tax := v_computed_tax + v_item_line_total;
+        ELSE
+            v_computed_subtotal := v_computed_subtotal + v_item_line_total;
         END IF;
 
         v_computed_total := v_computed_total + v_item_line_total;
@@ -622,30 +723,42 @@ BEGIN
     -- Retrieve current counter (or fallback to 1)
     v_bill_number := COALESCE(v_updated_shop.next_bill_number, 1);
 
-    -- Increment counter atomically
+    -- Increment counter atomically with server timestamp NOW() and update shop metrics
     UPDATE public.shops
     SET next_bill_number = v_bill_number + 1,
-        updated_at = p_created_at
+        bill_count = COALESCE(bill_count, 0) + 1,
+        total_revenue = COALESCE(total_revenue, 0) + ROUND(v_computed_total, 2),
+        updated_at = NOW()
     WHERE id = p_shop_id
     RETURNING * INTO v_updated_shop;
 
-    -- Insert the bill with the locked sequential number and sanitized computed total
+    -- Insert the bill with the locked sequential number, snapshotted shop details, and server timestamp NOW()
     INSERT INTO public.bills (
         id,
         shop_id,
+        shop_name,
+        pan_number,
         bill_number,
         bill_type,
         total_amount,
+        subtotal,
+        discount_amount,
+        tax_amount,
         items,
         created_at
     ) VALUES (
         p_bill_id,
         p_shop_id,
+        v_updated_shop.shop_name,
+        v_updated_shop.pan_number,
         v_bill_number,
         p_bill_type,
         ROUND(v_computed_total, 2),
+        ROUND(COALESCE(p_subtotal, v_computed_subtotal), 2),
+        ROUND(COALESCE(p_discount_amount, v_computed_discount), 2),
+        ROUND(COALESCE(p_tax_amount, v_computed_tax), 2),
         p_items,
-        p_created_at
+        NOW()
     )
     RETURNING * INTO v_inserted_bill;
 
@@ -657,20 +770,161 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.create_bill_atomic(TEXT, TEXT, VARCHAR, NUMERIC, JSONB, TIMESTAMPTZ) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_bill_atomic(TEXT, TEXT, VARCHAR, NUMERIC, JSONB, TIMESTAMPTZ, NUMERIC, NUMERIC, NUMERIC) TO authenticated;
 
--- 9. Realtime Publications
-DO $$
+-- 8b. Dedicated RPC to Safely Adjust Starting / Next Bill Counter
+-- Strictly prevents stale-tab overwrites, regressions, and duplicate bill numbers.
+CREATE OR REPLACE FUNCTION public.set_shop_starting_bill_number(
+    p_shop_id TEXT,
+    p_starting_bill_number BIGINT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_shop shops%ROWTYPE;
+    v_max_existing_bill BIGINT;
+    v_caller_uid UUID;
 BEGIN
-    BEGIN
-        ALTER PUBLICATION supabase_realtime ADD TABLE shops, items, bills;
-    EXCEPTION
-        WHEN duplicate_object THEN NULL;
-        WHEN undefined_object THEN NULL;
-    END;
-END $$;
+    -- 1. Security verification: caller must be shop owner or an admin
+    v_caller_uid := auth.uid();
+    IF NOT (
+        public.is_admin() OR 
+        EXISTS (SELECT 1 FROM public.shops WHERE id = p_shop_id AND user_id = v_caller_uid)
+    ) THEN
+        RAISE EXCEPTION 'Forbidden: You do not have permission to manage this shop.';
+    END IF;
 
--- 10. Admin Shops Overview & Aggregated Bill Summary Function
+    -- 2. Validate input parameter
+    IF p_starting_bill_number IS NULL OR p_starting_bill_number < 1 THEN
+        RAISE EXCEPTION 'Starting bill number must be at least 1.';
+    END IF;
+
+    -- 3. Lock shop record for update
+    SELECT * INTO v_shop
+    FROM public.shops
+    WHERE id = p_shop_id
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Shop with ID % not found.', p_shop_id;
+    END IF;
+
+    -- 4. Check against existing generated bills for this shop
+    SELECT COALESCE(MAX(bill_number), 0) INTO v_max_existing_bill
+    FROM public.bills
+    WHERE shop_id = p_shop_id;
+
+    IF v_max_existing_bill > 0 AND p_starting_bill_number <= v_max_existing_bill THEN
+        RAISE EXCEPTION 'Starting bill number (%) cannot be less than or equal to existing generated bill number (%).', p_starting_bill_number, v_max_existing_bill;
+    END IF;
+
+    -- 5. Atomically update starting_bill_number and ensure next_bill_number advances
+    UPDATE public.shops
+    SET starting_bill_number = p_starting_bill_number,
+        next_bill_number = GREATEST(COALESCE(next_bill_number, 1), p_starting_bill_number),
+        updated_at = NOW()
+    WHERE id = p_shop_id
+    RETURNING * INTO v_shop;
+
+    RETURN to_jsonb(v_shop);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.set_shop_starting_bill_number(TEXT, BIGINT) TO authenticated;
+
+-- 8c. Universal Server-Side Search for Shop Bills
+-- Searches partial bill numbers, amounts, item names in JSONB, and bill types across all pages
+CREATE OR REPLACE FUNCTION public.search_shop_bills(
+    p_shop_id TEXT,
+    p_query TEXT DEFAULT NULL,
+    p_date_filter TEXT DEFAULT '30days',
+    p_start_date TIMESTAMPTZ DEFAULT NULL,
+    p_end_date TIMESTAMPTZ DEFAULT NULL,
+    p_limit INT DEFAULT 50,
+    p_offset INT DEFAULT 0
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_clean_query TEXT;
+    v_today_start TIMESTAMPTZ;
+    v_seven_days_ago TIMESTAMPTZ;
+    v_thirty_days_ago TIMESTAMPTZ;
+    v_total_count BIGINT;
+    v_bills JSONB;
+BEGIN
+    -- 1. Security Check: caller must be owner of shop or admin
+    IF NOT (
+        (SELECT public.is_admin()) OR 
+        EXISTS (SELECT 1 FROM public.shops WHERE id = p_shop_id AND user_id = (SELECT auth.uid()))
+    ) THEN
+        RAISE EXCEPTION 'Forbidden: You do not have permission to view bills for this shop.';
+    END IF;
+
+    v_clean_query := TRIM(COALESCE(p_query, ''));
+    v_today_start := date_trunc('day', NOW());
+    v_seven_days_ago := NOW() - INTERVAL '7 days';
+    v_thirty_days_ago := NOW() - INTERVAL '30 days';
+
+    WITH filtered AS (
+        SELECT b.*
+        FROM public.bills b
+        WHERE b.shop_id = p_shop_id
+          AND (
+            p_start_date IS NOT NULL AND b.created_at >= p_start_date OR
+            p_start_date IS NULL AND (
+                p_date_filter = 'all' OR
+                (p_date_filter = 'today' AND b.created_at >= v_today_start) OR
+                (p_date_filter = '7days' AND b.created_at >= v_seven_days_ago) OR
+                (p_date_filter = '30days' AND b.created_at >= v_thirty_days_ago) OR
+                p_date_filter IS NULL
+            )
+          )
+          AND (p_end_date IS NULL OR b.created_at <= p_end_date)
+          AND (
+            v_clean_query = '' OR
+            b.bill_number::TEXT ILIKE '%' || v_clean_query || '%' OR
+            b.total_amount::TEXT ILIKE '%' || v_clean_query || '%' OR
+            b.bill_type ILIKE '%' || v_clean_query || '%' OR
+            b.items::TEXT ILIKE '%' || v_clean_query || '%'
+          )
+    ),
+    counted AS (
+        SELECT COUNT(*) AS total_count FROM filtered
+    ),
+    sliced AS (
+        SELECT * FROM filtered
+        ORDER BY bill_number DESC
+        LIMIT GREATEST(1, p_limit) + 1
+        OFFSET GREATEST(0, p_offset)
+    )
+    SELECT 
+        (SELECT total_count FROM counted),
+        COALESCE(jsonb_agg(to_jsonb(s) ORDER BY s.bill_number DESC), '[]'::jsonb)
+    INTO v_total_count, v_bills
+    FROM sliced s;
+
+    RETURN jsonb_build_object(
+        'bills', CASE 
+            WHEN jsonb_array_length(v_bills) > p_limit 
+            THEN v_bills - (jsonb_array_length(v_bills) - 1)::int 
+            ELSE v_bills 
+        END,
+        'has_more', (jsonb_array_length(v_bills) > p_limit),
+        'total_count', COALESCE(v_total_count, 0)
+    );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.search_shop_bills(TEXT, TEXT, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, INT, INT) TO authenticated;
+
+-- 9. Admin Shops Overview & Fast Metric Summary Function (Zero-join O(1) query)
 CREATE OR REPLACE FUNCTION public.get_admin_shops_summary()
 RETURNS TABLE (
     id TEXT,
@@ -689,7 +943,6 @@ RETURNS TABLE (
     subscription_started_at TIMESTAMPTZ,
     subscription_expires_at TIMESTAMPTZ,
     trial_expires_at TIMESTAMPTZ,
-    is_admin BOOLEAN,
     bill_count BIGINT,
     total_revenue NUMERIC
 )
@@ -699,7 +952,7 @@ STABLE
 SET search_path = public
 AS $$
 BEGIN
-    IF NOT public.is_admin() THEN
+    IF NOT (SELECT public.is_admin()) THEN
         RAISE EXCEPTION 'Unauthorized: Only administrators can view the cross-tenant shop summary.';
     END IF;
 
@@ -721,12 +974,9 @@ BEGIN
         s.subscription_started_at,
         s.subscription_expires_at,
         s.trial_expires_at,
-        COALESCE(s.is_admin, false),
-        COALESCE(COUNT(b.id), 0)::BIGINT AS bill_count,
-        COALESCE(SUM(b.total_amount), 0)::NUMERIC AS total_revenue
+        COALESCE(s.bill_count, GREATEST(0, s.next_bill_number - s.starting_bill_number), 0)::BIGINT AS bill_count,
+        COALESCE(s.total_revenue, 0)::NUMERIC AS total_revenue
     FROM public.shops s
-    LEFT JOIN public.bills b ON b.shop_id = s.id
-    GROUP BY s.id
     ORDER BY s.created_at DESC;
 END;
 $$;
@@ -852,5 +1102,52 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.admin_set_shop_subscription(TEXT, TEXT, TEXT, INTEGER, NUMERIC, TEXT, TEXT, TEXT, TEXT) TO authenticated;
+
+-- 12. Public Bill Sharing Stored Procedure
+CREATE OR REPLACE FUNCTION public.get_public_bill(p_bill_id TEXT)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_bill bills%ROWTYPE;
+    v_shop shops%ROWTYPE;
+BEGIN
+    -- 1. Fetch bill by ID
+    SELECT * INTO v_bill
+    FROM public.bills
+    WHERE id = p_bill_id;
+
+    IF NOT FOUND THEN
+        RETURN NULL;
+    END IF;
+
+    -- 2. Fetch associated shop
+    SELECT * INTO v_shop
+    FROM public.shops
+    WHERE id = v_bill.shop_id;
+
+    -- 3. Return sanitized public payload with snapshotted shop details
+    RETURN jsonb_build_object(
+        'bill', to_jsonb(v_bill),
+        'shop', jsonb_build_object(
+            'id', v_shop.id,
+            'shop_name', COALESCE(v_bill.shop_name, v_shop.shop_name),
+            'pan_number', COALESCE(v_bill.pan_number, v_shop.pan_number),
+            'phone', v_shop.phone,
+            'email', v_shop.email,
+            'starting_bill_number', v_shop.starting_bill_number,
+            'next_bill_number', v_shop.next_bill_number,
+            'created_at', v_shop.created_at,
+            'updated_at', v_shop.updated_at
+        )
+    );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_public_bill(TEXT) TO anon;
+GRANT EXECUTE ON FUNCTION public.get_public_bill(TEXT) TO authenticated;
+
 
 

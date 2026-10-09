@@ -3,6 +3,14 @@ import type { User } from '@supabase/supabase-js';
 import type { Shop, Item, Bill } from '../types';
 import { getSubscriptionInfo } from '../lib/dbService';
 
+export interface AuthSuccessPayload {
+  mode: 'login' | 'register';
+  user?: User | null;
+  shop?: Shop;
+  items?: Item[];
+  bills?: Bill[];
+}
+
 export interface ShopContextType {
   // Network & Loading
   isOnline: boolean;
@@ -21,6 +29,7 @@ export interface ShopContextType {
   loadCloudData: (forcedShop?: Shop) => Promise<{ user: User | null; shop: Shop | null }>;
 
   // Admin routing
+  serverIsAdmin: boolean;
   isAdminView: boolean;
   setIsAdminView: (val: boolean) => void;
 
@@ -29,14 +38,7 @@ export interface ShopContextType {
   setShowAuthScreen: (val: boolean) => void;
   authInitialMode: 'login' | 'register';
   setAuthInitialMode: (mode: 'login' | 'register') => void;
-  handleAuthSuccess: (authData: {
-    mode: 'login' | 'register';
-    data: Record<string, string>;
-    user?: User | null;
-    shop?: Shop;
-    items?: Item[];
-    bills?: Bill[];
-  }) => void;
+  handleAuthSuccess: (authData: AuthSuccessPayload) => void;
 
   isSetupMode: boolean;
   setIsSetupMode: (val: boolean) => void;

@@ -72,6 +72,8 @@ export const createInitialShop = async (userId: string, shopName = 'My Shop', pa
     pan_number: panNumber,
     starting_bill_number: 1,
     next_bill_number: 1,
+    vat_enabled: false,
+    discount_enabled: false,
     created_at: now,
     updated_at: now
   };
@@ -85,6 +87,8 @@ export const createInitialShop = async (userId: string, shopName = 'My Shop', pa
       pan_number: newShop.pan_number,
       starting_bill_number: newShop.starting_bill_number,
       next_bill_number: newShop.next_bill_number,
+      vat_enabled: false,
+      discount_enabled: false,
       created_at: newShop.created_at,
       updated_at: newShop.updated_at
     })
@@ -100,7 +104,10 @@ export const createInitialShop = async (userId: string, shopName = 'My Shop', pa
 };
 
 /**
- * Save/Update shop details directly in Supabase
+ * Save/Update general shop details directly in Supabase.
+ * IMPORTANT: Strictly omits starting_bill_number and next_bill_number to prevent stale tabs
+ * from regressing or overwriting bill counters. Bill counters must strictly be modified
+ * via setShopStartingBillNumber RPC or create_bill_atomic.
  */
 export const updateShop = async (shop: Shop): Promise<Shop> => {
   const supabase = getSupabaseClient();
@@ -109,14 +116,14 @@ export const updateShop = async (shop: Shop): Promise<Shop> => {
   }
 
   const now = new Date().toISOString();
-  const updatedData = {
+  const updatedData: Record<string, any> = {
     shop_name: shop.shop_name,
     pan_number: shop.pan_number,
     owner_name: shop.owner_name || null,
     email: shop.email || null,
     phone: shop.phone || null,
-    starting_bill_number: shop.starting_bill_number,
-    next_bill_number: shop.next_bill_number,
+    vat_enabled: Boolean(shop.vat_enabled),
+    discount_enabled: Boolean(shop.discount_enabled),
     updated_at: now
   };
 
@@ -133,6 +140,32 @@ export const updateShop = async (shop: Shop): Promise<Shop> => {
   }
 
   return (data as Shop) || { ...shop, ...updatedData };
+};
+
+/**
+ * Atomically update the starting / next bill number via dedicated database RPC.
+ * Prevents race conditions, counter regressions, and stale-tab overwrites.
+ */
+export const setShopStartingBillNumber = async (
+  shopId: string,
+  startingBillNumber: number
+): Promise<Shop> => {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    throw new Error('Supabase client is not configured.');
+  }
+
+  const { data, error } = await supabase.rpc('set_shop_starting_bill_number', {
+    p_shop_id: shopId,
+    p_starting_bill_number: startingBillNumber
+  });
+
+  if (error) {
+    console.error('Error updating starting bill number via RPC:', error);
+    throw error;
+  }
+
+  return (data as Shop);
 };
 
 /**
@@ -273,16 +306,25 @@ export const fetchBillsPaginated = async (
   const {
     limit = 50,
     offset = 0,
+    cursorBillNumber,
+    includeCount,
+    cachedTotalCount,
     dateFilter = '30days',
     startDate,
     endDate,
     searchQuery
   } = options;
 
-  let query = supabase
-    .from('bills')
-    .select('*', { count: 'exact' })
-    .eq('shop_id', shopId);
+  // Avoid count: 'exact' on incremental page loads; only count when explicitly asked or on initial page 0
+  const shouldCount = includeCount !== undefined
+    ? includeCount
+    : (offset === 0 && cursorBillNumber == null);
+
+  let query = shouldCount
+    ? supabase.from('bills').select('*', { count: 'exact' })
+    : supabase.from('bills').select('*');
+
+  query = query.eq('shop_id', shopId);
 
   // Apply date filters
   if (startDate) {
@@ -303,15 +345,50 @@ export const fetchBillsPaginated = async (
     query = query.lte('created_at', endDate);
   }
 
-  // If searchQuery is numeric, allow exact bill_number match query
+  // If search query is provided, use dedicated search_shop_bills RPC for universal matching
+  // (partial bill numbers, amounts, line item names inside JSONB, bill types across all pages)
   const trimmedSearch = searchQuery?.trim();
-  if (trimmedSearch && /^\d+$/.test(trimmedSearch)) {
-    query = query.eq('bill_number', parseInt(trimmedSearch, 10));
+  if (trimmedSearch) {
+    const { data: rpcData, error: rpcError } = await supabase.rpc('search_shop_bills', {
+      p_shop_id: shopId,
+      p_query: trimmedSearch,
+      p_date_filter: dateFilter,
+      p_start_date: startDate || null,
+      p_end_date: endDate || null,
+      p_limit: limit,
+      p_offset: offset
+    });
+
+    if (rpcError) {
+      console.error('Error executing search_shop_bills RPC:', rpcError);
+      throw rpcError;
+    }
+
+    const rpcResult = rpcData as {
+      bills: Bill[];
+      total_count: number;
+      has_more: boolean;
+    } | null;
+
+    return {
+      bills: rpcResult?.bills || [],
+      totalCount: rpcResult?.total_count || 0,
+      hasMore: Boolean(rpcResult?.has_more)
+    };
   }
 
-  query = query
-    .order('bill_number', { ascending: false })
-    .range(offset, offset + limit - 1);
+  // Efficient Keyset pagination using idx_bills_shop_number index (shop_id, bill_number DESC)
+  if (cursorBillNumber != null && !trimmedSearch) {
+    query = query
+      .lt('bill_number', cursorBillNumber)
+      .order('bill_number', { ascending: false })
+      .limit(limit + 1);
+  } else {
+    // Range query: fetch limit + 1 to detect hasMore in O(1) without table-wide count scans
+    query = query
+      .order('bill_number', { ascending: false })
+      .range(offset, offset + limit);
+  }
 
   const { data, error, count } = await query;
 
@@ -320,9 +397,12 @@ export const fetchBillsPaginated = async (
     throw error;
   }
 
-  const bills = (data as Bill[]) || [];
-  const totalCount = count ?? bills.length;
-  const hasMore = offset + bills.length < totalCount;
+  const rawBills = (data as Bill[]) || [];
+  const hasMore = rawBills.length > limit;
+  const bills = hasMore ? rawBills.slice(0, limit) : rawBills;
+  const totalCount = count != null
+    ? count
+    : (cachedTotalCount != null ? cachedTotalCount : offset + bills.length + (hasMore ? 1 : 0));
 
   return {
     bills,
@@ -445,8 +525,8 @@ export const generateBillsCsv = (bills: Bill[], shop?: Shop | null): string => {
       escapeCsvSafe(vatAmount.toFixed(2)),
       escapeCsvSafe(bill.total_amount.toFixed(2)),
       escapeCsvSafe(itemsSummary),
-      escapeCsvSafe(shop?.shop_name || ''),
-      escapeCsvSafe(shop?.pan_number || '')
+      escapeCsvSafe(bill.shop_name || shop?.shop_name || ''),
+      escapeCsvSafe(bill.pan_number || shop?.pan_number || '')
     ].join(',');
   });
 
@@ -505,6 +585,7 @@ export const downloadBillsCsv = async (
 export const generateBill = async (
   shop: Shop,
   billData: {
+    billId?: string;
     billType: 'simple' | 'itemized';
     totalAmount: number;
     subtotal?: number;
@@ -518,7 +599,7 @@ export const generateBill = async (
     throw new Error('Supabase client is not configured.');
   }
 
-  const billId = 'bill_' + generateId();
+  const billId = billData.billId || ('bill_' + generateId());
   const now = new Date().toISOString();
 
   // Validate bill inputs prior to database execution
@@ -555,7 +636,10 @@ export const generateBill = async (
         p_bill_type: billData.billType,
         p_total_amount: billData.totalAmount,
         p_items: billData.items,
-        p_created_at: now
+        p_created_at: now,
+        p_subtotal: billData.subtotal ?? null,
+        p_discount_amount: billData.discountAmount ?? null,
+        p_tax_amount: billData.taxAmount ?? null
       });
 
       if (rpcError) {
@@ -574,9 +658,11 @@ export const generateBill = async (
           ...(rpcResult.bill as Bill),
           bill_number: Number(rpcResult.bill.bill_number),
           total_amount: Number(rpcResult.bill.total_amount),
-          subtotal: billData.subtotal,
-          discount_amount: billData.discountAmount,
-          tax_amount: billData.taxAmount,
+          subtotal: rpcResult.bill.subtotal != null ? Number(rpcResult.bill.subtotal) : billData.subtotal,
+          discount_amount: rpcResult.bill.discount_amount != null ? Number(rpcResult.bill.discount_amount) : billData.discountAmount,
+          tax_amount: rpcResult.bill.tax_amount != null ? Number(rpcResult.bill.tax_amount) : billData.taxAmount,
+          shop_name: rpcResult.bill.shop_name || shop.shop_name,
+          pan_number: rpcResult.bill.pan_number || shop.pan_number,
           items: Array.isArray(rpcResult.bill.items) ? (rpcResult.bill.items as BasketItem[]) : billData.items
         };
         const confirmedShop: Shop = {
@@ -762,52 +848,55 @@ export const fetchAllShopsForAdmin = async (): Promise<AdminShopsFetchResult> =>
     };
   }
 
-  // 3. Fetch bill sums using chunked pagination (in ranges of 1,000) up to safety limit (25,000)
+  // 3. Check if shops already have stored metrics; only run fallback queries if metrics are missing
+  const needsDirectAggregation = shops.some((s: any) => s.bill_count == null || s.total_revenue == null);
   const billCountMap: Record<string, number> = {};
   const revenueMap: Record<string, number> = {};
   const CHUNK_SIZE = 1000;
   const MAX_FALLBACK_BILLS = 25000;
   let offset = 0;
-  let hasMore = true;
+  let hasMore = needsDirectAggregation;
   let isTruncated = false;
 
-  try {
-    while (hasMore && offset < MAX_FALLBACK_BILLS) {
-      const { data: billsChunk, error: billsError } = await supabase
-        .from('bills')
-        .select('shop_id, total_amount')
-        .order('created_at', { ascending: false })
-        .range(offset, offset + CHUNK_SIZE - 1);
+  if (needsDirectAggregation) {
+    try {
+      while (hasMore && offset < MAX_FALLBACK_BILLS) {
+        const { data: billsChunk, error: billsError } = await supabase
+          .from('bills')
+          .select('shop_id, total_amount')
+          .order('created_at', { ascending: false })
+          .range(offset, offset + CHUNK_SIZE - 1);
 
-      if (billsError) {
-        console.warn('Direct bills query error in admin fallback mode:', billsError.message);
-        break;
-      }
-
-      if (billsChunk && billsChunk.length > 0) {
-        billsChunk.forEach((b: { shop_id?: string; total_amount?: number }) => {
-          if (b.shop_id) {
-            billCountMap[b.shop_id] = (billCountMap[b.shop_id] || 0) + 1;
-            revenueMap[b.shop_id] = (revenueMap[b.shop_id] || 0) + (Number(b.total_amount) || 0);
-          }
-        });
-
-        if (billsChunk.length < CHUNK_SIZE) {
-          hasMore = false;
-        } else {
-          offset += CHUNK_SIZE;
+        if (billsError) {
+          console.warn('Direct bills query error in admin fallback mode:', billsError.message);
+          break;
         }
-      } else {
-        hasMore = false;
-      }
-    }
 
-    if (hasMore && offset >= MAX_FALLBACK_BILLS) {
-      isTruncated = true;
-      console.warn(`Admin fallback capped at ${MAX_FALLBACK_BILLS} bills to avoid browser memory exhaustion.`);
+        if (billsChunk && billsChunk.length > 0) {
+          billsChunk.forEach((b: { shop_id?: string; total_amount?: number }) => {
+            if (b.shop_id) {
+              billCountMap[b.shop_id] = (billCountMap[b.shop_id] || 0) + 1;
+              revenueMap[b.shop_id] = (revenueMap[b.shop_id] || 0) + (Number(b.total_amount) || 0);
+            }
+          });
+
+          if (billsChunk.length < CHUNK_SIZE) {
+            hasMore = false;
+          } else {
+            offset += CHUNK_SIZE;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+
+      if (hasMore && offset >= MAX_FALLBACK_BILLS) {
+        isTruncated = true;
+        console.warn(`Admin fallback capped at ${MAX_FALLBACK_BILLS} bills to avoid browser memory exhaustion.`);
+      }
+    } catch (bErr) {
+      console.warn('Error aggregating bills in fallback mode:', bErr);
     }
-  } catch (bErr) {
-    console.warn('Error aggregating bills in fallback mode:', bErr);
   }
 
   const aggregatedShops: ShopAdminView[] = shops.map((s: any) => {
@@ -816,13 +905,17 @@ export const fetchAllShopsForAdmin = async (): Promise<AdminShopsFetchResult> =>
     const sequentialCount = Math.max(0, (Number(s.next_bill_number) || 1) - (Number(s.starting_bill_number) || 1));
 
     let finalCount = 0;
-    if (embeddedCount != null && embeddedCount > 0) {
+    if (s.bill_count != null) {
+      finalCount = Number(s.bill_count);
+    } else if (embeddedCount != null && embeddedCount > 0) {
       finalCount = embeddedCount;
     } else if (directQueryCount != null && directQueryCount > 0) {
       finalCount = directQueryCount;
     } else {
       finalCount = sequentialCount;
     }
+
+    const finalRevenue = s.total_revenue != null ? Number(s.total_revenue) : (revenueMap[s.id] || 0);
 
     return {
       id: s.id,
@@ -841,9 +934,8 @@ export const fetchAllShopsForAdmin = async (): Promise<AdminShopsFetchResult> =>
       subscription_started_at: s.subscription_started_at,
       subscription_expires_at: s.subscription_expires_at,
       trial_expires_at: s.trial_expires_at,
-      is_admin: s.is_admin,
       bill_count: finalCount,
-      total_revenue: revenueMap[s.id] || 0
+      total_revenue: finalRevenue
     };
   });
 
@@ -1112,9 +1204,19 @@ export const fetchBillById = async (billId: string): Promise<{ bill: Bill; shop:
     });
 
     if (!rpcError && rpcData && rpcData.bill) {
+      const bill = rpcData.bill as Bill;
+      const rpcShop = rpcData.shop as Shop | null;
+      const shop: Shop | null = rpcShop
+        ? {
+            ...rpcShop,
+            shop_name: bill.shop_name || rpcShop.shop_name,
+            pan_number: bill.pan_number || rpcShop.pan_number
+          }
+        : null;
+
       return {
-        bill: rpcData.bill as Bill,
-        shop: (rpcData.shop as Shop) || null
+        bill,
+        shop
       };
     }
   } catch (rpcErr) {
@@ -1144,7 +1246,11 @@ export const fetchBillById = async (billId: string): Promise<{ bill: Bill; shop:
         .maybeSingle();
 
       if (shopData) {
-        shop = shopData as Shop;
+        shop = {
+          ...(shopData as Shop),
+          shop_name: bill.shop_name || (shopData as Shop).shop_name,
+          pan_number: bill.pan_number || (shopData as Shop).pan_number
+        };
       }
     }
 

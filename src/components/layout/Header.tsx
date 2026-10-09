@@ -2,14 +2,13 @@ import React from 'react';
 import { Settings, Hash, Sparkles, Crown, Clock, ArrowLeft } from 'lucide-react';
 import { useShop } from '../../hooks/useShop';
 import { useBilling } from '../../hooks/useBilling';
-import { isUserAdmin } from '../../lib/authService';
 import { navigateToAdmin } from '../../lib/navigation';
 
 export const Header: React.FC = () => {
-  const { shop, authUser, subscriptionInfo, setShowUpgradeModal, setIsAdminView, openShopSettings } = useShop();
+  const { shop, serverIsAdmin, subscriptionInfo, setShowUpgradeModal, setIsAdminView, openShopSettings } = useShop();
   const { activeTab, setActiveTab } = useBilling();
 
-  const isAdmin = isUserAdmin(authUser) || isUserAdmin(shop);
+  const isAdmin = serverIsAdmin;
 
   return (
     <div className="px-5 pt-5 pb-3 bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 transition-colors">

@@ -162,7 +162,7 @@ export const HistoryScreen: React.FC = () => {
       </div>
 
       {/* Pagination: Load More Button */}
-      {hasMoreBills && !historySearch && (
+      {hasMoreBills && (
         <div className="mt-5 text-center">
           <button
             type="button"
@@ -176,7 +176,7 @@ export const HistoryScreen: React.FC = () => {
                 <span>Loading more bills...</span>
               </>
             ) : (
-              <span>Load More Bills ({totalBillsCount - filteredHistory.length} remaining)</span>
+              <span>Load More Bills ({Math.max(0, totalBillsCount - filteredHistory.length)} remaining)</span>
             )}
           </button>
         </div>
