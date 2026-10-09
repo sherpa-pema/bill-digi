@@ -16,8 +16,8 @@ export const ReceiptCard = forwardRef<HTMLDivElement, ReceiptCardProps>(({ bill,
       <div className="receipt-edge-top bg-white px-5 pt-8 pb-8 shadow-[0_10px_40px_rgba(0,0,0,0.08)] text-zinc-950 receipt-font">
         {/* Header */}
         <div className="text-center mb-4">
-          <h2 className="text-[20px] font-bold leading-tight uppercase tracking-wider">{shop?.shop_name || 'DigiBill Shop'}</h2>
-          <p className="mt-1 text-[12px] uppercase">PAN: {shop?.pan_number || 'N/A'}</p>
+          <h2 className="text-[20px] font-bold leading-tight uppercase tracking-wider">{bill.shop_name || shop?.shop_name || 'DigiBill Shop'}</h2>
+          <p className="mt-1 text-[12px] uppercase">PAN: {bill.pan_number || shop?.pan_number || 'N/A'}</p>
           <p className="mt-1 text-[11px] uppercase font-bold">*** PAN BILL COPY ***</p>
         </div>
         

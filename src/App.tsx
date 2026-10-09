@@ -3,7 +3,6 @@ import { ShopProvider } from './context/ShopContext';
 import { BillingProvider } from './context/BillingContext';
 import { useShop } from './hooks/useShop';
 import { useBilling } from './hooks/useBilling';
-import { isUserAdmin } from './lib/authService';
 import { navigateToPOS, isBillShareRoute, subscribeToBillShareRoute } from './lib/navigation';
 import { LumaSpin } from '@/components/ui/luma-spin';
 import { Header } from './components/layout/Header';
@@ -31,6 +30,7 @@ function AppContent() {
     shop,
     authUser,
     isLoadingData,
+    serverIsAdmin,
     isAdminView,
     setIsAdminView,
     showAuthScreen,
@@ -78,7 +78,7 @@ function AppContent() {
   }
 
   // 2. Admin Panel
-  if (isAdminView && (isUserAdmin(authUser) || isUserAdmin(shop))) {
+  if (isAdminView && serverIsAdmin) {
     return (
       <Suspense fallback={
         <div className="min-h-screen bg-[#f2f2f2] dark:bg-zinc-950 flex items-center justify-center font-[Inter,system-ui,sans-serif]">

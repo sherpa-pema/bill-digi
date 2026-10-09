@@ -24,20 +24,28 @@ export const formatShortDateTime = (isoString: string) => {
 // Helper to extract breakdown from any Bill (from state or Supabase)
 export const getBillBreakdown = (bill: Bill) => {
   const discountItem = bill.items.find(
-    (i) => i.name.toLowerCase().includes('discount') || i.line_total < 0
+    (i) => i.kind === 'discount' || i.line_total < 0 || /^discount(\s|\(|$)/i.test(i.name.trim())
   );
-  const vatItem = bill.items.find((i) => i.name.toLowerCase().includes('vat'));
+  const vatItem = bill.items.find(
+    (i) => i.kind === 'vat' || /^vat(\s|\(|$)/i.test(i.name.trim())
+  );
   const regularItems = bill.items.filter((i) => i !== discountItem && i !== vatItem);
 
   const subtotal =
-    bill.subtotal ??
-    (regularItems.length > 0
-      ? regularItems.reduce((acc, curr) => acc + curr.line_total, 0)
-      : bill.total_amount);
+    typeof bill.subtotal === 'number'
+      ? bill.subtotal
+      : (regularItems.length > 0
+          ? regularItems.reduce((acc, curr) => acc + curr.line_total, 0)
+          : bill.total_amount);
   const discountAmount =
-    bill.discount_amount ?? (discountItem ? Math.abs(discountItem.line_total) : 0);
+    typeof bill.discount_amount === 'number'
+      ? bill.discount_amount
+      : (discountItem ? Math.abs(discountItem.line_total) : 0);
   const taxableAmount = Math.max(0, subtotal - discountAmount);
-  const vatAmount = bill.tax_amount ?? (vatItem ? vatItem.line_total : 0);
+  const vatAmount =
+    typeof bill.tax_amount === 'number'
+      ? bill.tax_amount
+      : (vatItem ? vatItem.line_total : 0);
 
   return { subtotal, discountAmount, taxableAmount, vatAmount, regularItems, discountItem, vatItem };
 };

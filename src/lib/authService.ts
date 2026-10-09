@@ -1,5 +1,9 @@
 import type { User, Session } from '@supabase/supabase-js';
-import { getSupabaseClient } from './supabase';
+import { 
+  getSupabaseClient, 
+  setRememberDevicePreference, 
+  clearRememberDevicePreference 
+} from './supabase';
 import { generateId } from './storage';
 import type { Shop, Item, Bill } from '../types';
 
@@ -14,6 +18,7 @@ export interface RegisterParams {
 export interface LoginParams {
   identifier: string; // Email or Phone
   password: string;
+  rememberMe?: boolean;
 }
 
 export interface AuthResult {
@@ -55,10 +60,6 @@ export const isUserAdmin = (
     if (userOrShopOrEmail.app_metadata?.is_admin === true || userOrShopOrEmail.app_metadata?.role === 'admin') {
       return true;
     }
-    // Verified shop flag (when loaded from trusted DB session)
-    if (userOrShopOrEmail.is_admin === true) {
-      return true;
-    }
   }
 
   return false;
@@ -95,6 +96,10 @@ export const registerBusiness = async (params: RegisterParams): Promise<AuthResu
   }
 
   const { businessName, panNumber, ownerName, identifier, password } = params;
+  if (!password || password.length < 8) {
+    return { success: false, message: 'Password must be at least 8 characters long.' };
+  }
+
   const isEmail = identifier.includes('@');
   const cleanIdentifier = identifier.trim();
 
@@ -260,7 +265,14 @@ export const loginBusiness = async (params: LoginParams): Promise<AuthResult> =>
     return { success: false, message: 'Supabase client is not configured. Check your connection or .env.' };
   }
 
-  const { identifier, password } = params;
+  const { identifier, password, rememberMe = true } = params;
+  if (!password) {
+    return { success: false, message: 'Please enter your password.' };
+  }
+
+  // Set persistence preference before making the Supabase Auth call
+  setRememberDevicePreference(rememberMe);
+
   const isEmail = identifier.includes('@');
   const cleanIdentifier = identifier.trim();
 
@@ -391,9 +403,10 @@ export const loginBusiness = async (params: LoginParams): Promise<AuthResult> =>
 };
 
 /**
- * Sign out the current user
+ * Sign out the current user and purge persistent/session credentials
  */
 export const signOutBusiness = async (): Promise<void> => {
+  clearRememberDevicePreference();
   const supabase = getSupabaseClient();
   if (supabase) {
     await supabase.auth.signOut();
@@ -410,4 +423,20 @@ export const getActiveUser = async () => {
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) return null;
   return user;
+};
+
+/**
+ * Subscribe to Supabase Auth lifecycle events (SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED, USER_UPDATED)
+ */
+export const subscribeToAuthState = (
+  callback: (event: string, session: Session | null) => void | Promise<void>
+) => {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    return { unsubscribe: () => {} };
+  }
+  const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    void callback(event, session);
+  });
+  return subscription;
 };

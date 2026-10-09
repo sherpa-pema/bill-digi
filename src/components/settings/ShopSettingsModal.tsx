@@ -2,15 +2,14 @@ import { useState, useMemo } from 'react';
 import { Crown, Sparkles, LogOut, Loader2, X, Moon, Sun } from 'lucide-react';
 import { useShop } from '../../hooks/useShop';
 import { useBilling } from '../../hooks/useBilling';
-import { checkIsOnline } from '../../lib/dbService';
-import { isUserAdmin } from '../../lib/authService';
+import { checkIsOnline, setShopStartingBillNumber } from '../../lib/dbService';
 import { navigateToAdmin } from '../../lib/navigation';
 import sanoBillLogo from '../../assets/sano-bill-logo.png';
 
 const ShopSettingsModalContent: React.FC = () => {
   const {
     shop,
-    authUser,
+    serverIsAdmin,
     setIsSetupMode,
     isEditingShop,
     setIsEditingShop,
@@ -24,8 +23,6 @@ const ShopSettingsModalContent: React.FC = () => {
   } = useShop();
 
   const {
-    isVatEnabled,
-    isDiscountEnabled,
     handleToggleVatSetting,
     handleToggleDiscountSetting,
     setActiveTab
@@ -36,8 +33,8 @@ const ShopSettingsModalContent: React.FC = () => {
   const [setupStartingBill, setSetupStartingBill] = useState(() => {
     return isEditingShop ? String(shop?.next_bill_number || 1) : String(shop?.starting_bill_number || 1);
   });
-  const [setupVatEnabled, setSetupVatEnabled] = useState(isVatEnabled);
-  const [setupDiscountEnabled, setSetupDiscountEnabled] = useState(isDiscountEnabled);
+  const [setupVatEnabled, setSetupVatEnabled] = useState(() => Boolean(shop?.vat_enabled));
+  const [setupDiscountEnabled, setSetupDiscountEnabled] = useState(() => Boolean(shop?.discount_enabled));
   const [isSavingSetup, setIsSavingSetup] = useState(false);
 
   const minBillNumber = isEditingShop ? (Number(shop?.next_bill_number) || 1) : 1;
@@ -61,27 +58,22 @@ const ShopSettingsModalContent: React.FC = () => {
 
     setIsSavingSetup(true);
     try {
-      handleToggleVatSetting(setupVatEnabled);
-      handleToggleDiscountSetting(setupDiscountEnabled);
-
-      let newStartingBill = shop.starting_bill_number;
-      let newNextBill = shop.next_bill_number;
-
-      if (isEditingShop) {
-        if (enteredBillNumber > shop.next_bill_number) {
-          newNextBill = enteredBillNumber;
-        }
-      } else {
-        newStartingBill = enteredBillNumber || 1;
-        newNextBill = enteredBillNumber || 1;
+      // 1. If starting/next bill counter is being changed, use dedicated atomic RPC
+      const currentCounter = isEditingShop ? Number(shop.next_bill_number || 1) : Number(shop.starting_bill_number || 1);
+      if (enteredBillNumber !== currentCounter) {
+        await setShopStartingBillNumber(shop.id, enteredBillNumber);
       }
 
+      // 2. Save shop details and persist VAT/discount options to database columns
       await saveShopSettings({
         shop_name: setupShopName.trim(),
         pan_number: setupPanNumber,
-        starting_bill_number: newStartingBill,
-        next_bill_number: newNextBill,
+        vat_enabled: setupVatEnabled,
+        discount_enabled: setupDiscountEnabled
       });
+
+      handleToggleVatSetting(setupVatEnabled);
+      handleToggleDiscountSetting(setupDiscountEnabled);
 
       setIsSetupMode(false);
       setIsEditingShop(false);
@@ -355,7 +347,7 @@ const ShopSettingsModalContent: React.FC = () => {
             </>
           )}
 
-          {(isUserAdmin(authUser) || isUserAdmin(shop)) && (
+          {serverIsAdmin && (
             <div className="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800 text-center">
               <button
                 type="button"

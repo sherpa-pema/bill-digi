@@ -27,13 +27,13 @@ BEGIN
     FROM public.shops
     WHERE id = v_bill.shop_id;
 
-    -- 3. Return sanitized public payload (omits internal auth IDs, subscription keys, etc.)
+    -- 3. Return sanitized public payload with snapshotted shop details
     RETURN jsonb_build_object(
         'bill', to_jsonb(v_bill),
         'shop', jsonb_build_object(
             'id', v_shop.id,
-            'shop_name', v_shop.shop_name,
-            'pan_number', v_shop.pan_number,
+            'shop_name', COALESCE(v_bill.shop_name, v_shop.shop_name),
+            'pan_number', COALESCE(v_bill.pan_number, v_shop.pan_number),
             'phone', v_shop.phone,
             'email', v_shop.email,
             'starting_bill_number', v_shop.starting_bill_number,

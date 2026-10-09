@@ -17,6 +17,7 @@ export interface CompactBillPayload {
     q: number; // qty
     p: number; // unit_price
     t: number; // line_total
+    k?: 'item' | 'discount' | 'vat'; // kind
   }>;
 }
 
@@ -64,15 +65,16 @@ export function encodeBillData(bill: Bill, shop: Shop | null): string {
     x: bill.tax_amount,
     c: bill.created_at,
     y: bill.bill_type,
-    sn: shop?.shop_name || 'DigiBill Shop',
-    pn: shop?.pan_number || 'N/A',
+    sn: bill.shop_name || shop?.shop_name || 'DigiBill Shop',
+    pn: bill.pan_number || shop?.pan_number || 'N/A',
     id: bill.id,
     it: bill.items.map(item => ({
       id: item.id,
       n: item.name,
       q: item.qty,
       p: item.unit_price,
-      t: item.line_total
+      t: item.line_total,
+      k: item.kind
     }))
   };
 
@@ -97,7 +99,8 @@ export function decodeBillData(encoded: string): { bill: Bill; shop: Shop } | nu
           name: item.n || 'Item',
           qty: Number(item.q) || 1,
           unit_price: Number(item.p) || 0,
-          line_total: Number(item.t) || 0
+          line_total: Number(item.t) || 0,
+          kind: item.k
         }))
       : [];
 
@@ -110,6 +113,8 @@ export function decodeBillData(encoded: string): { bill: Bill; shop: Shop } | nu
       discount_amount: p.d,
       tax_amount: p.x,
       items,
+      shop_name: p.sn,
+      pan_number: p.pn,
       created_at: p.c || new Date().toISOString()
     };
 

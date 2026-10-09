@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import type { Item, Bill, BasketItem, HistoryDateFilter } from '../types';
-import { getItem, setItem, STORAGE_KEYS, generateId } from '../lib/storage';
+import { generateId } from '../lib/storage';
 import { 
   checkIsOnline, 
   fetchItems, 
@@ -33,12 +33,8 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [simpleAmount, setSimpleAmount] = useState('0');
   const [isVat, setIsVat] = useState(false);
   const [isDiscount, setIsDiscount] = useState(false);
-  const [isVatEnabled, setIsVatEnabled] = useState<boolean>(() => {
-    return getItem<boolean>(STORAGE_KEYS.VAT_ENABLED) ?? false;
-  });
-  const [isDiscountEnabled, setIsDiscountEnabled] = useState<boolean>(() => {
-    return getItem<boolean>(STORAGE_KEYS.DISCOUNT_ENABLED) ?? false;
-  });
+  const isVatEnabled = Boolean(shop?.vat_enabled);
+  const isDiscountEnabled = Boolean(shop?.discount_enabled);
 
   // Search & Basket
   const [searchQuery, setSearchQuery] = useState('');
@@ -53,11 +49,19 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Generated Bill
   const [isGeneratingBill, setIsGeneratingBill] = useState(false);
   const isSubmittingBillRef = useRef(false);
+  // Idempotency key per basket: prevents duplicate bills on flaky network retries/retaps
+  const basketIdempotencyKeyRef = useRef<string | null>(null);
+
+  const resetBasketIdempotencyKey = useCallback(() => {
+    basketIdempotencyKeyRef.current = null;
+  }, []);
+
   const [generatedBill, setGeneratedBill] = useState<Bill | null>(null);
   const [showQr, setShowQr] = useState(false);
 
   // History & Pagination State
   const [historySearch, setHistorySearch] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [billDetailSheet, setBillDetailSheet] = useState<Bill | null>(null);
   const [historyDateFilter, setHistoryDateFilter] = useState<HistoryDateFilter>('30days');
   const [isLoadingBills, setIsLoadingBills] = useState(false);
@@ -66,69 +70,163 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [totalBillsCount, setTotalBillsCount] = useState(0);
   const [isExportingCsv, setIsExportingCsv] = useState(false);
 
+  // Request sequencing ref to cancel and discard stale out-of-order network responses
+  const billsRequestIdRef = useRef(0);
+
+  // Debounce search input (300ms) to avoid spamming the database on every keystroke
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(historySearch.trim());
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [historySearch]);
+
   // Manage Items State
   const [isSavingItem, setIsSavingItem] = useState(false);
   const [editItemId, setEditItemId] = useState<string | null>(null);
   const [editItemName, setEditItemName] = useState('');
   const [editItemPrice, setEditItemPrice] = useState('');
 
-  // Fetch Items & Paginated Bills whenever shop is available or changed
-  const refreshBillingData = useCallback(async (forcedFilter?: HistoryDateFilter) => {
+  // 1. Fetch Inventory Items strictly when shop changes (decoupled from bills date/search filtering)
+  useEffect(() => {
+    let isMounted = true;
+    if (shop?.id) {
+      void fetchItems(shop.id)
+        .then(cloudItems => {
+          if (isMounted) setItems(cloudItems);
+        })
+        .catch(err => {
+          console.error('Error fetching inventory items:', err);
+        });
+    } else {
+      void Promise.resolve().then(() => {
+        if (isMounted) setItems([]);
+      });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [shop?.id]);
+
+  // 2. Fetch Paginated Bills reactively when shop, date filter, or debounced search query changes
+  useEffect(() => {
+    let isMounted = true;
+    if (!shop?.id) {
+      void Promise.resolve().then(() => {
+        if (!isMounted) return;
+        setBills([]);
+        setBasket([]);
+        setSimpleAmount('0');
+        setGeneratedBill(null);
+        setBillDetailSheet(null);
+        setTotalBillsCount(0);
+        setHasMoreBills(false);
+      });
+      return;
+    }
+
+    const shopId = shop.id;
+    const currentRequestId = ++billsRequestIdRef.current;
+
+    void (async () => {
+      await Promise.resolve();
+      if (!isMounted || billsRequestIdRef.current !== currentRequestId) return;
+      setIsLoadingBills(true);
+
+      try {
+        const billsResult = await fetchBillsPaginated(shopId, {
+          limit: PAGE_SIZE,
+          offset: 0,
+          dateFilter: historyDateFilter,
+          searchQuery: debouncedSearchQuery
+        });
+
+        if (!isMounted || billsRequestIdRef.current !== currentRequestId) return;
+        setBills(billsResult.bills);
+        setTotalBillsCount(billsResult.totalCount);
+        setHasMoreBills(billsResult.hasMore);
+      } catch (err) {
+        if (!isMounted || billsRequestIdRef.current !== currentRequestId) return;
+        console.error('Error fetching bills:', err);
+      } finally {
+        if (isMounted && billsRequestIdRef.current === currentRequestId) {
+          setIsLoadingBills(false);
+        }
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [shop?.id, historyDateFilter, debouncedSearchQuery]);
+
+  // Load more bills (keyset cursor when no search, or offset when searching)
+  const loadMoreBills = useCallback(async () => {
+    if (!shop || isLoadingMore || !hasMoreBills) return;
+    setIsLoadingMore(true);
+    const currentRequestId = billsRequestIdRef.current;
+    try {
+      const lastBill = bills[bills.length - 1];
+      const result = await fetchBillsPaginated(shop.id, {
+        limit: PAGE_SIZE,
+        cursorBillNumber: debouncedSearchQuery ? undefined : lastBill?.bill_number,
+        offset: bills.length,
+        includeCount: false,
+        cachedTotalCount: totalBillsCount,
+        dateFilter: historyDateFilter,
+        searchQuery: debouncedSearchQuery
+      });
+
+      if (billsRequestIdRef.current === currentRequestId) {
+        setBills(prev => {
+          const existingIds = new Set(prev.map(b => b.id));
+          const newUnique = result.bills.filter(b => !existingIds.has(b.id));
+          return [...prev, ...newUnique];
+        });
+        setTotalBillsCount(result.totalCount);
+        setHasMoreBills(result.hasMore);
+      }
+    } catch (err) {
+      console.error('Error loading more bills:', err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [shop, isLoadingMore, hasMoreBills, bills, historyDateFilter, debouncedSearchQuery, totalBillsCount]);
+
+  // Handle changing date filter (reactive effect is single source of truth; avoids racing duplicate fetch)
+  const handleSetHistoryDateFilter = useCallback((filter: HistoryDateFilter) => {
+    setHistoryDateFilter(filter);
+  }, []);
+
+  // Manual refresh of current bills view
+  const refreshBillingData = useCallback(async () => {
     if (!shop) return;
+    const currentRequestId = ++billsRequestIdRef.current;
     setIsLoadingBills(true);
-    const filterToUse = forcedFilter || historyDateFilter;
     try {
       const [cloudItems, billsResult] = await Promise.all([
         fetchItems(shop.id),
         fetchBillsPaginated(shop.id, {
           limit: PAGE_SIZE,
           offset: 0,
-          dateFilter: filterToUse
+          dateFilter: historyDateFilter,
+          searchQuery: debouncedSearchQuery
         })
       ]);
-      setItems(cloudItems);
-      setBills(billsResult.bills);
-      setTotalBillsCount(billsResult.totalCount);
-      setHasMoreBills(billsResult.hasMore);
+      if (billsRequestIdRef.current === currentRequestId) {
+        setItems(cloudItems);
+        setBills(billsResult.bills);
+        setTotalBillsCount(billsResult.totalCount);
+        setHasMoreBills(billsResult.hasMore);
+      }
     } catch (err) {
-      console.error('Error fetching items and bills:', err);
+      console.error('Error refreshing billing data:', err);
     } finally {
-      setIsLoadingBills(false);
+      if (billsRequestIdRef.current === currentRequestId) {
+        setIsLoadingBills(false);
+      }
     }
-  }, [shop, historyDateFilter]);
-
-  // Load more bills (pagination)
-  const loadMoreBills = useCallback(async () => {
-    if (!shop || isLoadingMore || !hasMoreBills) return;
-    setIsLoadingMore(true);
-    try {
-      const result = await fetchBillsPaginated(shop.id, {
-        limit: PAGE_SIZE,
-        offset: bills.length,
-        dateFilter: historyDateFilter,
-        searchQuery: historySearch
-      });
-      setBills(prev => {
-        const existingIds = new Set(prev.map(b => b.id));
-        const newUnique = result.bills.filter(b => !existingIds.has(b.id));
-        return [...prev, ...newUnique];
-      });
-      setTotalBillsCount(result.totalCount);
-      setHasMoreBills(result.hasMore);
-    } catch (err) {
-      console.error('Error loading more bills:', err);
-    } finally {
-      setIsLoadingMore(false);
-    }
-  }, [shop, isLoadingMore, hasMoreBills, bills.length, historyDateFilter, historySearch]);
-
-  // Handle changing date filter
-  const handleSetHistoryDateFilter = useCallback((filter: HistoryDateFilter) => {
-    setHistoryDateFilter(filter);
-    if (shop?.id) {
-      void refreshBillingData(filter);
-    }
-  }, [shop?.id, refreshBillingData]);
+  }, [shop, historyDateFilter, debouncedSearchQuery]);
 
   // Handle on-demand CSV Export (streams without polluting state)
   const handleExportCsv = useCallback(async (scope: 'current_filter' | 'all_time' = 'current_filter') => {
@@ -154,69 +252,41 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [shop, isExportingCsv, historyDateFilter]);
 
-  useEffect(() => {
-    let isMounted = true;
-    if (shop?.id) {
-      const shopId = shop.id;
-      void (async () => {
-        try {
-          const [cloudItems, billsResult] = await Promise.all([
-            fetchItems(shopId),
-            fetchBillsPaginated(shopId, {
-              limit: PAGE_SIZE,
-              offset: 0,
-              dateFilter: historyDateFilter
-            })
-          ]);
-          if (!isMounted) return;
-          setItems(cloudItems);
-          setBills(billsResult.bills);
-          setTotalBillsCount(billsResult.totalCount);
-          setHasMoreBills(billsResult.hasMore);
-        } catch (err) {
-          console.error('Error fetching items and bills:', err);
-        } finally {
-          if (isMounted) {
-            setIsLoadingBills(false);
-          }
-        }
-      })();
-    } else {
-      void Promise.resolve().then(() => {
-        if (!isMounted) return;
-        setItems([]);
-        setBills([]);
-        setBasket([]);
-        setSimpleAmount('0');
-        setGeneratedBill(null);
-        setBillDetailSheet(null);
-        setTotalBillsCount(0);
-        setHasMoreBills(false);
-      });
-    }
-    return () => {
-      isMounted = false;
-    };
-  }, [shop?.id, historyDateFilter]);
+  // Safe setters that invalidate idempotency key when draft input changes
+  const handleSetIsItemizedMode = useCallback((val: boolean) => {
+    resetBasketIdempotencyKey();
+    setIsItemizedMode(val);
+  }, [resetBasketIdempotencyKey]);
+
+  const handleSetSimpleAmount = useCallback((val: string) => {
+    resetBasketIdempotencyKey();
+    setSimpleAmount(val);
+  }, [resetBasketIdempotencyKey]);
 
   // Tax / Discount Settings toggles
   const handleToggleVatSetting = useCallback((enabled: boolean) => {
-    setIsVatEnabled(enabled);
-    setItem(STORAGE_KEYS.VAT_ENABLED, enabled);
+    resetBasketIdempotencyKey();
     if (!enabled) setIsVat(false);
-  }, []);
+  }, [resetBasketIdempotencyKey]);
 
   const handleToggleDiscountSetting = useCallback((enabled: boolean) => {
-    setIsDiscountEnabled(enabled);
-    setItem(STORAGE_KEYS.DISCOUNT_ENABLED, enabled);
+    resetBasketIdempotencyKey();
     if (!enabled) setIsDiscount(false);
-  }, []);
+  }, [resetBasketIdempotencyKey]);
 
-  const toggleVat = useCallback(() => setIsVat(prev => !prev), []);
-  const toggleDiscount = useCallback(() => setIsDiscount(prev => !prev), []);
+  const toggleVat = useCallback(() => {
+    resetBasketIdempotencyKey();
+    setIsVat(prev => !prev);
+  }, [resetBasketIdempotencyKey]);
+
+  const toggleDiscount = useCallback(() => {
+    resetBasketIdempotencyKey();
+    setIsDiscount(prev => !prev);
+  }, [resetBasketIdempotencyKey]);
 
   // Keypad logic
   const handleKeypadPress = useCallback((key: string) => {
+    resetBasketIdempotencyKey();
     setSimpleAmount(prevAmount => {
       let newAmount = prevAmount;
       if (key === 'C') {
@@ -269,7 +339,7 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
       return newAmount;
     });
-  }, []);
+  }, [resetBasketIdempotencyKey]);
 
   // Simple mode calculations
   const simpleAmountNum = useMemo(() => {
@@ -301,6 +371,7 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [items, searchQuery]);
 
   const addToBasket = useCallback((item: Item) => {
+    resetBasketIdempotencyKey();
     setBasket(prev => {
       const existing = prev.find(b => b.item_id === item.id);
       if (existing) {
@@ -314,20 +385,23 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         qty: 1,
         unit_price: item.price,
         line_total: item.price,
-        item_id: item.id
+        item_id: item.id,
+        kind: 'item'
       }];
     });
-  }, []);
+  }, [resetBasketIdempotencyKey]);
 
   const updateBasketQty = useCallback((id: string, delta: number) => {
+    resetBasketIdempotencyKey();
     setBasket(prev => prev.map(b => {
       if (b.id !== id) return b;
       const newQty = Math.min(Math.max(1, b.qty + delta), 99999);
       return { ...b, qty: newQty, line_total: Number((newQty * b.unit_price).toFixed(2)) };
     }));
-  }, []);
+  }, [resetBasketIdempotencyKey]);
 
   const updateBasketPrice = useCallback((id: string, price: number) => {
+    resetBasketIdempotencyKey();
     const sanitized = Math.min(Math.max(0, isNaN(price) ? 0 : price), 9999999.99);
     const rounded = Number(sanitized.toFixed(2));
     setBasket(prev => prev.map(b => b.id === id ? { 
@@ -335,15 +409,17 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       unit_price: rounded, 
       line_total: Number((b.qty * rounded).toFixed(2)) 
     } : b));
-  }, []);
+  }, [resetBasketIdempotencyKey]);
 
   const removeFromBasket = useCallback((id: string) => {
+    resetBasketIdempotencyKey();
     setBasket(prev => prev.filter(b => b.id !== id));
-  }, []);
+  }, [resetBasketIdempotencyKey]);
 
   const clearBasket = useCallback(() => {
+    resetBasketIdempotencyKey();
     setBasket([]);
-  }, []);
+  }, [resetBasketIdempotencyKey]);
 
   const basketTotal = useMemo(() => basket.reduce((acc, curr) => acc + curr.line_total, 0), [basket]);
 
@@ -381,6 +457,7 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const handleConfirmCustomItem = useCallback((e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    resetBasketIdempotencyKey();
     let name = customItemName.trim().slice(0, 120) || 'Custom Item';
     // Defense-in-depth: strip leading formula characters
     name = name.replace(/^[=+\-@\t\r%|]+/, '').trim() || 'Custom Item';
@@ -393,13 +470,14 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       name,
       qty: 1,
       unit_price: roundedPrice,
-      line_total: roundedPrice
+      line_total: roundedPrice,
+      kind: 'item'
     }]);
     setSearchQuery('');
     setShowCustomItemModal(false);
     setCustomItemName('');
     setCustomItemPrice('');
-  }, [customItemName, customItemPrice]);
+  }, [customItemName, customItemPrice, resetBasketIdempotencyKey]);
 
   // Generate Bill directly in Supabase
   const handleGenerateBill = useCallback(async () => {
@@ -415,6 +493,12 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       alert('Internet connection required. DigiBill does not work offline — bills must be written directly to Supabase.');
       return;
     }
+
+    // Maintain one idempotency key per basket attempt: reuse across retries/retaps
+    if (!basketIdempotencyKeyRef.current) {
+      basketIdempotencyKeyRef.current = 'bill_' + generateId();
+    }
+    const currentBillId = basketIdempotencyKeyRef.current;
 
     isSubmittingBillRef.current = true;
     setIsGeneratingBill(true);
@@ -442,14 +526,15 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         vatAmt = itemizedVatAmount;
         total = finalItemizedTotal;
         
-        billItems = [...basket];
+        billItems = basket.map(b => ({ ...b, kind: (b.kind || 'item') as BasketItem['kind'] }));
         if (discAmt > 0) {
           billItems.push({
             id: generateId(),
             name: 'Discount (10%)',
             qty: 1,
             unit_price: -discAmt,
-            line_total: -discAmt
+            line_total: -discAmt,
+            kind: 'discount'
           });
         }
         if (vatAmt > 0) {
@@ -458,7 +543,8 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
             name: 'VAT (13%)',
             qty: 1,
             unit_price: vatAmt,
-            line_total: vatAmt
+            line_total: vatAmt,
+            kind: 'vat'
           });
         }
         bType = 'itemized';
@@ -483,7 +569,8 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
               name: 'Grocery item',
               qty: 1,
               unit_price: subtotalAmount,
-              line_total: subtotalAmount
+              line_total: subtotalAmount,
+              kind: 'item'
             }
           ];
           if (discAmt > 0) {
@@ -492,7 +579,8 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
               name: 'Discount (10%)',
               qty: 1,
               unit_price: -discAmt,
-              line_total: -discAmt
+              line_total: -discAmt,
+              kind: 'discount'
             });
           }
           if (vatAmt > 0) {
@@ -501,7 +589,8 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
               name: 'VAT (13%)',
               qty: 1,
               unit_price: vatAmt,
-              line_total: vatAmt
+              line_total: vatAmt,
+              kind: 'vat'
             });
           }
         } else {
@@ -510,12 +599,14 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
             name: 'Grocery item',
             qty: 1,
             unit_price: total,
-            line_total: total
+            line_total: total,
+            kind: 'item'
           }];
         }
       }
 
       const result = await generateBill(shop, {
+        billId: currentBillId,
         billType: bType,
         totalAmount: total,
         subtotal: subtotalAmount,
@@ -524,9 +615,9 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         items: billItems
       });
 
-      // Update state with confirmed Supabase data
-      setBills(prev => [result.bill, ...prev]);
-      setTotalBillsCount(prev => prev + 1);
+      // Update state with confirmed Supabase data (deduplicating in case already in local list)
+      setBills(prev => (prev.some(b => b.id === result.bill.id) ? prev : [result.bill, ...prev]));
+      setTotalBillsCount(prev => (bills.some(b => b.id === result.bill.id) ? prev : prev + 1));
       setShop(result.updatedShop);
       setGeneratedBill(result.bill);
       setShowQr(false);
@@ -535,9 +626,12 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setIsDiscount(false);
       setBasket([]);
       setIsItemizedMode(false);
+      resetBasketIdempotencyKey();
     } catch (err: any) {
       console.error('Failed to generate bill in Supabase:', err);
       alert('Failed to save bill to Supabase: ' + (err.message || 'Please check your connection.'));
+      // Note: We deliberately do NOT call resetBasketIdempotencyKey() here so that
+      // an immediate retap reuses currentBillId, returning the committed bill if connection dropped in flight
     } finally {
       isSubmittingBillRef.current = false;
       setIsGeneratingBill(false);
@@ -557,22 +651,26 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     simpleDiscountAmount,
     simpleVatAmount,
     finalSimpleTotal,
-    setShop
+    bills,
+    setShop,
+    resetBasketIdempotencyKey
   ]);
 
-  // History filtering
+  // History list: server delivers matching bills across the entire database.
+  // Optimistic client matching during the 300ms debounce window.
   const filteredHistory = useMemo(() => {
     const q = historySearch.toLowerCase().trim();
-    const sorted = [...bills].sort((a, b) => b.bill_number - a.bill_number);
-    if (!q) return sorted;
+    if (!q || q === debouncedSearchQuery.toLowerCase()) {
+      return bills;
+    }
     
-    return sorted.filter(b => 
+    return bills.filter(b => 
       String(b.bill_number).includes(q) || 
       String(b.total_amount).includes(q) || 
       formatDateTime(b.created_at).toLowerCase().includes(q) ||
       b.items.some(i => i.name.toLowerCase().includes(q))
     );
-  }, [bills, historySearch]);
+  }, [bills, historySearch, debouncedSearchQuery]);
 
   // Item CRUD
   const handleSaveItem = useCallback(async () => {
@@ -638,9 +736,9 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     activeTab,
     setActiveTab,
     isItemizedMode,
-    setIsItemizedMode,
+    setIsItemizedMode: handleSetIsItemizedMode,
     simpleAmount,
-    setSimpleAmount,
+    setSimpleAmount: handleSetSimpleAmount,
     handleKeypadPress,
     isVat,
     setIsVat,

@@ -16,20 +16,13 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { registerBusiness, loginBusiness } from '../lib/authService';
-import type { Shop, Item, Bill } from '../types';
+import type { AuthSuccessPayload } from '../context/shopContextDef';
 import sanoBillLogo from '../assets/sano-bill-logo.png';
 
 interface AuthScreenProps {
   initialMode?: 'login' | 'register';
   onClose?: () => void;
-  onSuccess?: (authData: { 
-    mode: 'login' | 'register'; 
-    data: Record<string, string>; 
-    user?: any;
-    shop?: Shop; 
-    items?: Item[]; 
-    bills?: Bill[];
-  }) => void;
+  onSuccess?: (authData: AuthSuccessPayload) => void;
 }
 
 export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }: AuthScreenProps) {
@@ -61,7 +54,7 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
     isPanValid && 
     ownerName.trim().length > 0 && 
     registerIdentifier.trim().length > 0 && 
-    registerPassword.length >= 6;
+    registerPassword.length >= 8;
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,7 +66,8 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
 
     const result = await loginBusiness({
       identifier: loginIdentifier.trim(),
-      password: loginPassword
+      password: loginPassword,
+      rememberMe
     });
 
     setIsSubmitting(false);
@@ -84,15 +78,11 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
     }
 
     setNotice('Logged in successfully!');
+    setLoginPassword('');
     setTimeout(() => {
       if (onSuccess) {
         onSuccess({
           mode: 'login',
-          data: {
-            identifier: loginIdentifier.trim(),
-            password: loginPassword,
-            rememberMe: String(rememberMe)
-          },
           user: result.user,
           shop: result.shop,
           items: result.items,
@@ -126,17 +116,11 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
     }
 
     setNotice('Business registered and linked to Supabase Auth successfully!');
+    setRegisterPassword('');
     setTimeout(() => {
       if (onSuccess) {
         onSuccess({
           mode: 'register',
-          data: {
-            businessName: businessName.trim(),
-            panNumber: panNumber.trim(),
-            ownerName: ownerName.trim(),
-            identifier: registerIdentifier.trim(),
-            password: registerPassword
-          },
           user: result.user,
           shop: result.shop,
           items: result.items,
@@ -474,9 +458,16 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
 
                 {/* 5. Password */}
                 <div>
-                  <label className="text-[11px] font-semibold tracking-[0.12em] uppercase text-zinc-500 dark:text-zinc-400 block mb-1.5">
-                    Password (min 6 characters) *
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[11px] font-semibold tracking-[0.12em] uppercase text-zinc-500 dark:text-zinc-400 block">
+                      Password (min 8 characters) *
+                    </label>
+                    <span className={`text-[11px] font-medium transition ${
+                      registerPassword.length >= 8 ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : 'text-zinc-400 dark:text-zinc-500'
+                    }`}>
+                      {registerPassword.length >= 8 ? '✓ valid' : `${registerPassword.length}/8 min`}
+                    </span>
+                  </div>
                   <div className="relative">
                     <input
                       type={showRegisterPassword ? 'text' : 'password'}
@@ -486,7 +477,7 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
                       autoComplete="new-password"
                       disabled={isSubmitting}
                       required
-                      minLength={6}
+                      minLength={8}
                       className="w-full h-12 rounded-[14px] bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 pl-11 pr-11 text-[14px] text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 outline-none focus:bg-white dark:focus:bg-zinc-800 focus:border-zinc-300 dark:focus:border-zinc-600 focus:ring-2 focus:ring-zinc-900/5 transition disabled:opacity-60"
                     />
                     <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 dark:text-zinc-500 pointer-events-none">

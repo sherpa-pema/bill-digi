@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import type { User } from '@supabase/supabase-js';
 import type { Shop } from '../types';
 import { checkIsOnline, fetchShop, createInitialShop, updateShop, getSubscriptionInfo } from '../lib/dbService';
-import { signOutBusiness, getActiveUser, isUserAdmin, checkIsAdminServerSide } from '../lib/authService';
-import { ShopContext, type ShopContextType } from './shopContextDef';
+import { signOutBusiness, getActiveUser, checkIsAdminServerSide, subscribeToAuthState } from '../lib/authService';
+import { ShopContext, type ShopContextType, type AuthSuccessPayload } from './shopContextDef';
 import { normalizeAdminRoute, isAdminRoute, navigateToAdmin, navigateToPOS, subscribeToRouteChanges } from '../lib/navigation';
 
 export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -14,6 +14,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [shop, setShop] = useState<Shop | null>(null);
   const [authUser, setAuthUser] = useState<User | null>(null);
+  const [serverIsAdmin, setServerIsAdmin] = useState<boolean>(false);
 
   // Admin Route View State
   const [isAdminView, setIsAdminView] = useState(() => {
@@ -106,8 +107,9 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setShop(activeShop);
         }
 
-        const serverIsAdmin = user ? await checkIsAdminServerSide() : false;
-        if (serverIsAdmin || isUserAdmin(user) || isUserAdmin(activeShop)) {
+        const verifiedAdmin = user ? await checkIsAdminServerSide() : false;
+        setServerIsAdmin(verifiedAdmin);
+        if (verifiedAdmin) {
           setIsAdminView(true);
           if (typeof window !== 'undefined' && !isAdminRoute()) {
             navigateToAdmin();
@@ -155,59 +157,83 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [loadCloudData]);
 
-  // Initial load from Supabase cloud on mount
+  // Track active user ID to avoid redundant re-fetches
+  const activeUserIdRef = useRef<string | null>(null);
+
+  // Subscribe to Supabase Auth lifecycle events (reactive session management)
   useEffect(() => {
     let isMounted = true;
-    void (async () => {
-      if (!checkIsOnline()) {
-        if (!isMounted) return;
-        setIsOnline(false);
+
+    const subscription = subscribeToAuthState(async (event, session) => {
+      if (!isMounted) return;
+
+      const user = session?.user ?? null;
+
+      if (event === 'SIGNED_OUT' || !user) {
+        activeUserIdRef.current = null;
+        setAuthUser(null);
+        setShop(null);
+        setServerIsAdmin(false);
+        setIsAdminView(false);
+        setAuthInitialMode('login');
+        setShowAuthScreen(true);
         setIsLoadingData(false);
-        setLoadError('No internet connection. DigiBill requires an active online connection to load data from Supabase.');
+        if (typeof window !== 'undefined' && isAdminRoute()) {
+          navigateToPOS();
+        }
         return;
       }
 
-      try {
-        const user = await getActiveUser();
-        if (!isMounted) return;
-        setAuthUser(user);
+      setAuthUser(user);
 
-        if (!user) {
-          setShop(null);
-          setAuthInitialMode('login');
-          setShowAuthScreen(true);
+      // If user session changed or not yet loaded, load shop and admin status
+      if (activeUserIdRef.current !== user.id) {
+        activeUserIdRef.current = user.id;
+
+        if (!checkIsOnline()) {
+          setIsOnline(false);
           setIsLoadingData(false);
+          setLoadError('No internet connection. DigiBill requires an active online connection to load data from Supabase.');
           return;
         }
 
-        let loadedShop = await fetchShop(user.id);
-        if (!loadedShop) {
-          loadedShop = await createInitialShop(user.id);
-        }
-        if (!isMounted) return;
-        setShop(loadedShop);
+        try {
+          setIsLoadingData(true);
+          let loadedShop = await fetchShop(user.id);
+          if (!loadedShop) {
+            loadedShop = await createInitialShop(user.id);
+          }
+          if (!isMounted) return;
+          setShop(loadedShop);
 
-        const serverIsAdmin = await checkIsAdminServerSide();
-        if (!isMounted) return;
-        if (serverIsAdmin || isUserAdmin(user) || isUserAdmin(loadedShop)) {
-          setIsAdminView(true);
-          if (typeof window !== 'undefined' && !isAdminRoute()) {
-            navigateToAdmin();
+          const verifiedAdmin = await checkIsAdminServerSide();
+          if (!isMounted) return;
+          setServerIsAdmin(verifiedAdmin);
+          if (verifiedAdmin) {
+            setIsAdminView(true);
+            if (typeof window !== 'undefined' && !isAdminRoute()) {
+              navigateToAdmin();
+            }
+          }
+          setShowAuthScreen(false);
+        } catch (err: any) {
+          if (!isMounted) return;
+          console.error('Error loading shop data from Supabase on auth state change:', err);
+          setLoadError(err.message || 'Failed to load data from Supabase cloud.');
+        } finally {
+          if (isMounted) {
+            setIsLoadingData(false);
           }
         }
-      } catch (err: any) {
-        if (!isMounted) return;
-        console.error('Error loading initial shop data from Supabase:', err);
-        setLoadError(err.message || 'Failed to load data from Supabase cloud.');
-      } finally {
-        if (isMounted) {
-          setIsLoadingData(false);
-        }
+      } else {
+        setIsLoadingData(false);
+        setShowAuthScreen(false);
       }
-    })();
+    });
 
     return () => {
       isMounted = false;
+      subscription.unsubscribe();
     };
   }, []);
 
@@ -225,27 +251,22 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [loadCloudData]);
 
   const handleAuthSuccess = useCallback(
-    async (authData: {
-      mode: 'login' | 'register';
-      data: Record<string, string>;
-      user?: any;
-      shop?: Shop;
-      items?: any[];
-      bills?: any[];
-    }) => {
+    async (authData: AuthSuccessPayload) => {
       if (authData.user) {
         setAuthUser(authData.user);
+        activeUserIdRef.current = authData.user.id;
       }
       if (authData.shop) {
         setShop(authData.shop);
       }
 
-      let isAdmin = isUserAdmin(authData.user) || isUserAdmin(authData.shop);
-      if (!isAdmin && authData.user) {
-        isAdmin = await checkIsAdminServerSide();
+      let verifiedAdmin = false;
+      if (authData.user) {
+        verifiedAdmin = await checkIsAdminServerSide();
       }
+      setServerIsAdmin(verifiedAdmin);
 
-      if (isAdmin) {
+      if (verifiedAdmin) {
         setIsAdminView(true);
         if (typeof window !== 'undefined' && !isAdminRoute()) {
           navigateToAdmin();
@@ -279,9 +300,11 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 
   const signOut = useCallback(async () => {
+    activeUserIdRef.current = null;
     await signOutBusiness();
     setAuthUser(null);
     setShop(null);
+    setServerIsAdmin(false);
     setIsAdminView(false);
     if (typeof window !== 'undefined') {
       navigateToPOS();
@@ -305,6 +328,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAuthUser,
     subscriptionInfo,
     loadCloudData,
+    serverIsAdmin,
     isAdminView,
     setIsAdminView,
     showAuthScreen,
