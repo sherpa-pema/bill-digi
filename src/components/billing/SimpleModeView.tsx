@@ -47,7 +47,7 @@ export const SimpleModeView: React.FC = () => {
             <button 
               type="button" 
               onClick={() => setIsItemizedMode(true)} 
-              className="min-h-[36px] px-2 text-[13px] font-medium text-zinc-900 dark:text-zinc-100 underline underline-offset-4 decoration-zinc-300 dark:decoration-zinc-600 hover:decoration-zinc-900 dark:hover:decoration-zinc-100 flex items-center cursor-pointer"
+              className="min-h-[44px] px-2.5 text-[13px] font-medium text-zinc-900 dark:text-zinc-100 underline underline-offset-4 decoration-zinc-300 dark:decoration-zinc-600 hover:decoration-zinc-900 dark:hover:decoration-zinc-100 flex items-center cursor-pointer"
             >
               + Add items
             </button>
@@ -74,7 +74,7 @@ export const SimpleModeView: React.FC = () => {
           <button 
             type="button" 
             onClick={() => setShowItemsModal(true)} 
-            className="min-h-[36px] px-2 py-1 font-medium text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white flex items-center cursor-pointer"
+            className="min-h-[44px] px-2.5 py-1 font-medium text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white flex items-center cursor-pointer"
           >
             Manage Items • {items.length}
           </button>

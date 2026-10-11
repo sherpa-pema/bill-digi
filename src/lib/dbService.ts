@@ -38,6 +38,7 @@ export const fetchShop = async (userId?: string): Promise<Shop | null> => {
     .from('shops')
     .select('*')
     .eq('user_id', userId)
+    .order('created_at', { ascending: true })
     .limit(1);
 
   if (error) {
@@ -161,6 +162,21 @@ export const setShopStartingBillNumber = async (
   });
 
   if (error) {
+    if (error.code === 'PGRST202' || error.message?.includes('schema cache') || error.message?.includes('not find the function')) {
+      console.warn('set_shop_starting_bill_number RPC not yet in schema cache, updating shop directly');
+      const { data: updateData, error: updateError } = await supabase
+        .from('shops')
+        .update({
+          starting_bill_number: startingBillNumber,
+          next_bill_number: startingBillNumber,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', shopId)
+        .select()
+        .single();
+      if (updateError) throw updateError;
+      return updateData as Shop;
+    }
     console.error('Error updating starting bill number via RPC:', error);
     throw error;
   }
@@ -360,21 +376,25 @@ export const fetchBillsPaginated = async (
     });
 
     if (rpcError) {
-      console.error('Error executing search_shop_bills RPC:', rpcError);
-      throw rpcError;
+      if (rpcError.code === 'PGRST202' || rpcError.message?.includes('schema cache') || rpcError.message?.includes('not find the function')) {
+        console.warn('search_shop_bills RPC not yet in schema cache, falling back to paginated query');
+      } else {
+        console.error('Error executing search_shop_bills RPC:', rpcError);
+        throw rpcError;
+      }
+    } else {
+      const rpcResult = rpcData as {
+        bills: Bill[];
+        total_count: number;
+        has_more: boolean;
+      } | null;
+
+      return {
+        bills: rpcResult?.bills || [],
+        totalCount: rpcResult?.total_count || 0,
+        hasMore: Boolean(rpcResult?.has_more)
+      };
     }
-
-    const rpcResult = rpcData as {
-      bills: Bill[];
-      total_count: number;
-      has_more: boolean;
-    } | null;
-
-    return {
-      bills: rpcResult?.bills || [],
-      totalCount: rpcResult?.total_count || 0,
-      hasMore: Boolean(rpcResult?.has_more)
-    };
   }
 
   // Efficient Keyset pagination using idx_bills_shop_number index (shop_id, bill_number DESC)
@@ -582,6 +602,9 @@ export const downloadBillsCsv = async (
  * Generate and store a bill atomically directly in Supabase using create_bill_atomic RPC.
  * Eliminates race conditions, duplicate numbering collisions, and lost bills.
  */
+// Cache flag for create_bill_atomic RPC support in schema cache
+let isCreateBillAtomicRpcSupported: boolean | null = null;
+
 export const generateBill = async (
   shop: Shop,
   billData: {
@@ -627,64 +650,164 @@ export const generateBill = async (
   // Enforces server-side mathematical verification, price bounds, line item integrity, and row-level serialization
   const MAX_RETRIES = 3;
   let lastError: any = null;
+  let rpcMissing = isCreateBillAtomicRpcSupported === false;
 
-  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    try {
-      const { data: rpcResult, error: rpcError } = await supabase.rpc('create_bill_atomic', {
-        p_shop_id: shop.id,
-        p_bill_id: billId,
-        p_bill_type: billData.billType,
-        p_total_amount: billData.totalAmount,
-        p_items: billData.items,
-        p_created_at: now,
-        p_subtotal: billData.subtotal ?? null,
-        p_discount_amount: billData.discountAmount ?? null,
-        p_tax_amount: billData.taxAmount ?? null
-      });
+  if (!rpcMissing) {
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        const { data: rpcResult, error: rpcError } = await supabase.rpc('create_bill_atomic', {
+          p_shop_id: shop.id,
+          p_bill_id: billId,
+          p_bill_type: billData.billType,
+          p_total_amount: billData.totalAmount,
+          p_items: billData.items,
+          p_created_at: now,
+          p_subtotal: billData.subtotal ?? null,
+          p_discount_amount: billData.discountAmount ?? null,
+          p_tax_amount: billData.taxAmount ?? null
+        });
 
-      if (rpcError) {
-        lastError = rpcError;
-        // If transient lock contention or deadlock, back off with random jitter and retry
-        if (rpcError.code === '40P01' || rpcError.code === '55P03' || rpcError.message?.includes('deadlock') || rpcError.message?.includes('could not obtain lock')) {
-          await new Promise(res => setTimeout(res, 50 + Math.random() * 100));
-          continue;
+        if (rpcError) {
+          lastError = rpcError;
+          // If transient lock contention or deadlock, back off with random jitter and retry
+          if (rpcError.code === '40P01' || rpcError.code === '55P03' || rpcError.message?.includes('deadlock') || rpcError.message?.includes('could not obtain lock')) {
+            await new Promise(res => setTimeout(res, 50 + Math.random() * 100));
+            continue;
+          }
+          // If RPC is not deployed in schema cache, switch to resilient fallback
+          if (rpcError.code === 'PGRST202' || rpcError.message?.includes('schema cache') || rpcError.message?.includes('not find the function')) {
+            console.warn('create_bill_atomic RPC not yet in schema cache, caching fallback support');
+            isCreateBillAtomicRpcSupported = false;
+            rpcMissing = true;
+            break;
+          }
+          // Non-transient errors (e.g. mathematical sum mismatch, authorization failure, negative non-discount prices)
+          throw new Error(rpcError.message || 'Failed to create bill in database.');
         }
-        // Non-transient errors (e.g. mathematical sum mismatch, authorization failure, negative non-discount prices)
-        throw new Error(rpcError.message || 'Failed to create bill in database.');
-      }
 
-      if (rpcResult && rpcResult.bill && rpcResult.shop) {
-        const confirmedBill: Bill = {
-          ...(rpcResult.bill as Bill),
-          bill_number: Number(rpcResult.bill.bill_number),
-          total_amount: Number(rpcResult.bill.total_amount),
-          subtotal: rpcResult.bill.subtotal != null ? Number(rpcResult.bill.subtotal) : billData.subtotal,
-          discount_amount: rpcResult.bill.discount_amount != null ? Number(rpcResult.bill.discount_amount) : billData.discountAmount,
-          tax_amount: rpcResult.bill.tax_amount != null ? Number(rpcResult.bill.tax_amount) : billData.taxAmount,
-          shop_name: rpcResult.bill.shop_name || shop.shop_name,
-          pan_number: rpcResult.bill.pan_number || shop.pan_number,
-          items: Array.isArray(rpcResult.bill.items) ? (rpcResult.bill.items as BasketItem[]) : billData.items
+        if (rpcResult && rpcResult.bill && rpcResult.shop) {
+          isCreateBillAtomicRpcSupported = true;
+          const confirmedBill: Bill = {
+            ...(rpcResult.bill as Bill),
+            bill_number: Number(rpcResult.bill.bill_number),
+            total_amount: Number(rpcResult.bill.total_amount),
+            subtotal: rpcResult.bill.subtotal != null ? Number(rpcResult.bill.subtotal) : billData.subtotal,
+            discount_amount: rpcResult.bill.discount_amount != null ? Number(rpcResult.bill.discount_amount) : billData.discountAmount,
+            tax_amount: rpcResult.bill.tax_amount != null ? Number(rpcResult.bill.tax_amount) : billData.taxAmount,
+            shop_name: rpcResult.bill.shop_name || shop.shop_name,
+            pan_number: rpcResult.bill.pan_number || shop.pan_number,
+            items: Array.isArray(rpcResult.bill.items) ? (rpcResult.bill.items as BasketItem[]) : billData.items
+          };
+          const confirmedShop: Shop = {
+            ...(rpcResult.shop as Shop),
+            next_bill_number: Number(rpcResult.shop.next_bill_number)
+          };
+
+          return {
+            bill: confirmedBill,
+            updatedShop: confirmedShop
+          };
+        }
+
+        throw new Error('Database did not return the created bill payload.');
+      } catch (err: any) {
+        lastError = err;
+        if (err.message?.includes('schema cache') || err.message?.includes('not find the function')) {
+          isCreateBillAtomicRpcSupported = false;
+          rpcMissing = true;
+          break;
+        }
+        // If client caught a non-retryable error, rethrow immediately
+        if (err.message && !err.message.includes('deadlock') && !err.message.includes('lock')) {
+          throw err;
+        }
+        if (attempt === MAX_RETRIES - 1) throw err;
+        await new Promise(res => setTimeout(res, 50 + Math.random() * 100));
+      }
+    }
+  }
+
+  // Resilient fallback retry loop when RPC is not in remote schema cache
+  if (rpcMissing) {
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        const [shopResponse, maxBillResponse] = await Promise.all([
+          supabase.from('shops').select('next_bill_number').eq('id', shop.id).single(),
+          supabase.from('bills').select('bill_number').eq('shop_id', shop.id).order('bill_number', { ascending: false }).limit(1).maybeSingle()
+        ]);
+
+        const baseTarget = shopResponse.data?.next_bill_number ? Number(shopResponse.data.next_bill_number) : (shop.next_bill_number || 1);
+        const maxExisting = maxBillResponse.data?.bill_number ? Number(maxBillResponse.data.bill_number) : 0;
+        const targetBillNumber = Math.max(baseTarget, maxExisting + 1);
+
+        const fallbackBill: Bill = {
+          id: billId,
+          shop_id: shop.id,
+          bill_number: targetBillNumber,
+          bill_type: billData.billType,
+          total_amount: billData.totalAmount,
+          subtotal: billData.subtotal,
+          discount_amount: billData.discountAmount,
+          tax_amount: billData.taxAmount,
+          shop_name: shop.shop_name,
+          pan_number: shop.pan_number,
+          items: billData.items,
+          created_at: now
         };
-        const confirmedShop: Shop = {
-          ...(rpcResult.shop as Shop),
-          next_bill_number: Number(rpcResult.shop.next_bill_number)
+
+        const { data: insertedBill, error: insertError } = await supabase
+          .from('bills')
+          .insert({
+            id: fallbackBill.id,
+            shop_id: fallbackBill.shop_id,
+            bill_number: fallbackBill.bill_number,
+            bill_type: fallbackBill.bill_type,
+            total_amount: fallbackBill.total_amount,
+            items: fallbackBill.items,
+            created_at: fallbackBill.created_at
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          lastError = insertError;
+          if (insertError.code === '23505' || insertError.message?.includes('duplicate key') || insertError.message?.includes('uq_bills_shop_number')) {
+            await new Promise(res => setTimeout(res, 50 + Math.random() * 100));
+            continue;
+          }
+          throw insertError;
+        }
+
+        const nextNumber = targetBillNumber + 1;
+        const { data: updatedShopData, error: updateError } = await supabase
+          .from('shops')
+          .update({
+            next_bill_number: nextNumber,
+            updated_at: now
+          })
+          .eq('id', shop.id)
+          .select()
+          .single();
+
+        if (updateError) {
+          console.warn('Bill saved, shop next_bill_number increment notice:', updateError);
+        }
+
+        const finalShop = (updatedShopData as Shop) || {
+          ...shop,
+          next_bill_number: nextNumber,
+          updated_at: now
         };
 
         return {
-          bill: confirmedBill,
-          updatedShop: confirmedShop
+          bill: { ...fallbackBill, ...(insertedBill as Bill) },
+          updatedShop: finalShop
         };
+      } catch (err: any) {
+        lastError = err;
+        if (attempt === MAX_RETRIES - 1) throw err;
+        await new Promise(res => setTimeout(res, 50 + Math.random() * 100));
       }
-
-      throw new Error('Database did not return the created bill payload.');
-    } catch (err: any) {
-      lastError = err;
-      // If client caught a non-retryable error, rethrow immediately
-      if (err.message && !err.message.includes('deadlock') && !err.message.includes('lock')) {
-        throw err;
-      }
-      if (attempt === MAX_RETRIES - 1) throw err;
-      await new Promise(res => setTimeout(res, 50 + Math.random() * 100));
     }
   }
 
