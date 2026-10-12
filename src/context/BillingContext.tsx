@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import type { Item, Bill, BasketItem, HistoryDateFilter } from '../types';
-import { generateId } from '../lib/storage';
+import { generateId, getItem, STORAGE_KEYS } from '../lib/storage';
 import { 
   checkIsOnline, 
   fetchItems, 
   createItem, 
   updateItem, 
   deleteItem, 
-  fetchBillsPaginated,
-  fetchAllBillsForExport,
-  downloadBillsCsv,
+  fetchBillsPaginated, 
+  fetchAllBillsForExport, 
+  downloadBillsCsv, 
   generateBill 
 } from '../lib/dbService';
 import { useShop } from '../hooks/useShop';
@@ -33,8 +33,8 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [simpleAmount, setSimpleAmount] = useState('0');
   const [isVat, setIsVat] = useState(false);
   const [isDiscount, setIsDiscount] = useState(false);
-  const isVatEnabled = Boolean(shop?.vat_enabled);
-  const isDiscountEnabled = Boolean(shop?.discount_enabled);
+  const isVatEnabled = Boolean(shop?.vat_enabled !== undefined ? shop.vat_enabled : getItem(STORAGE_KEYS.VAT_ENABLED));
+  const isDiscountEnabled = Boolean(shop?.discount_enabled !== undefined ? shop.discount_enabled : getItem(STORAGE_KEYS.DISCOUNT_ENABLED));
 
   // Search & Basket
   const [searchQuery, setSearchQuery] = useState('');

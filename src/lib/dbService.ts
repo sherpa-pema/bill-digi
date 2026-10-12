@@ -11,7 +11,7 @@ import type {
   PaginatedBillsResult,
   AdminShopsFetchResult
 } from '../types';
-import { generateId } from './storage';
+import { generateId, setItem, getItem, STORAGE_KEYS } from './storage';
 import { formatDateTime, getBillBreakdown, escapeCsvSafe } from './formatters';
 
 /**
@@ -46,7 +46,16 @@ export const fetchShop = async (userId?: string): Promise<Shop | null> => {
     throw error;
   }
   if (data && data.length > 0) {
-    return data[0] as Shop;
+    const fetchedShop = data[0] as Shop;
+    return {
+      ...fetchedShop,
+      vat_enabled: fetchedShop.vat_enabled !== undefined 
+        ? Boolean(fetchedShop.vat_enabled) 
+        : Boolean(getItem(STORAGE_KEYS.VAT_ENABLED)),
+      discount_enabled: fetchedShop.discount_enabled !== undefined 
+        ? Boolean(fetchedShop.discount_enabled) 
+        : Boolean(getItem(STORAGE_KEYS.DISCOUNT_ENABLED)),
+    };
   }
 
   return null;
@@ -79,26 +88,52 @@ export const createInitialShop = async (userId: string, shopName = 'My Shop', pa
     updated_at: now
   };
 
-  const { data, error } = await supabase
+  const insertPayload: Record<string, any> = {
+    id: newShop.id,
+    user_id: newShop.user_id,
+    shop_name: newShop.shop_name,
+    pan_number: newShop.pan_number,
+    starting_bill_number: newShop.starting_bill_number,
+    next_bill_number: newShop.next_bill_number,
+    vat_enabled: false,
+    discount_enabled: false,
+    created_at: newShop.created_at,
+    updated_at: newShop.updated_at
+  };
+
+  let { data, error } = await supabase
     .from('shops')
-    .insert({
-      id: newShop.id,
-      user_id: newShop.user_id,
-      shop_name: newShop.shop_name,
-      pan_number: newShop.pan_number,
-      starting_bill_number: newShop.starting_bill_number,
-      next_bill_number: newShop.next_bill_number,
-      vat_enabled: false,
-      discount_enabled: false,
-      created_at: newShop.created_at,
-      updated_at: newShop.updated_at
-    })
+    .insert(insertPayload)
     .select()
     .single();
 
   if (error) {
-    console.error('Error creating initial shop:', error);
-    throw error;
+    const isMissingToggleColumns = 
+      error.code === 'PGRST204' ||
+      error.message?.includes('discount_enabled') ||
+      error.message?.includes('vat_enabled') ||
+      error.message?.includes('schema cache');
+
+    if (isMissingToggleColumns) {
+      console.warn('vat_enabled / discount_enabled columns not found in schema cache. Inserting initial shop without toggle columns.');
+      delete insertPayload.vat_enabled;
+      delete insertPayload.discount_enabled;
+
+      const retryResult = await supabase
+        .from('shops')
+        .insert(insertPayload)
+        .select()
+        .single();
+
+      if (retryResult.error) {
+        console.error('Error creating initial shop:', retryResult.error);
+        throw retryResult.error;
+      }
+      data = retryResult.data;
+    } else {
+      console.error('Error creating initial shop:', error);
+      throw error;
+    }
   }
 
   return (data as Shop) || newShop;
@@ -128,7 +163,7 @@ export const updateShop = async (shop: Shop): Promise<Shop> => {
     updated_at: now
   };
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('shops')
     .update(updatedData)
     .eq('id', shop.id)
@@ -136,11 +171,45 @@ export const updateShop = async (shop: Shop): Promise<Shop> => {
     .single();
 
   if (error) {
-    console.error('Error updating shop in Supabase:', error);
-    throw error;
+    const isMissingToggleColumns = 
+      error.code === 'PGRST204' ||
+      error.message?.includes('discount_enabled') ||
+      error.message?.includes('vat_enabled') ||
+      error.message?.includes('schema cache');
+
+    if (isMissingToggleColumns) {
+      console.warn('vat_enabled / discount_enabled columns not found in schema cache. Falling back to core shop fields and local storage.');
+      // Persist to local storage as fallback so user preference is preserved
+      setItem(STORAGE_KEYS.VAT_ENABLED, Boolean(shop.vat_enabled));
+      setItem(STORAGE_KEYS.DISCOUNT_ENABLED, Boolean(shop.discount_enabled));
+
+      delete updatedData.vat_enabled;
+      delete updatedData.discount_enabled;
+
+      const retryResult = await supabase
+        .from('shops')
+        .update(updatedData)
+        .eq('id', shop.id)
+        .select()
+        .single();
+
+      if (retryResult.error) {
+        console.error('Error updating shop core details in Supabase:', retryResult.error);
+        throw retryResult.error;
+      }
+
+      data = retryResult.data;
+    } else {
+      console.error('Error updating shop in Supabase:', error);
+      throw error;
+    }
   }
 
-  return (data as Shop) || { ...shop, ...updatedData };
+  return {
+    ...((data as Shop) || shop),
+    vat_enabled: Boolean(shop.vat_enabled),
+    discount_enabled: Boolean(shop.discount_enabled),
+  };
 };
 
 /**
@@ -181,7 +250,12 @@ export const setShopStartingBillNumber = async (
     throw error;
   }
 
-  return (data as Shop);
+  const parsedData = typeof data === 'string' ? JSON.parse(data) : data;
+  return (parsedData as Shop) || {
+    id: shopId,
+    starting_bill_number: startingBillNumber,
+    next_bill_number: startingBillNumber,
+  };
 };
 
 /**

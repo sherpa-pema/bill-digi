@@ -9,6 +9,7 @@ import sanoBillLogo from '../../assets/sano-bill-logo.png';
 const ShopSettingsModalContent: React.FC = () => {
   const {
     shop,
+    setShop,
     serverIsAdmin,
     setIsSetupMode,
     isEditingShop,
@@ -60,17 +61,43 @@ const ShopSettingsModalContent: React.FC = () => {
     try {
       // 1. If starting/next bill counter is being changed, use dedicated atomic RPC
       const currentCounter = isEditingShop ? Number(shop.next_bill_number || 1) : Number(shop.starting_bill_number || 1);
-      if (enteredBillNumber !== currentCounter) {
-        await setShopStartingBillNumber(shop.id, enteredBillNumber);
+      const billCounterChanged = enteredBillNumber !== currentCounter;
+      let activeShop: typeof shop = shop;
+
+      if (billCounterChanged) {
+        const updatedFromCounter = await setShopStartingBillNumber(shop.id, enteredBillNumber);
+        activeShop = {
+          ...activeShop,
+          ...(updatedFromCounter || {}),
+          next_bill_number: enteredBillNumber,
+          starting_bill_number: isEditingShop ? activeShop.starting_bill_number : enteredBillNumber
+        };
+        // Immediately sync in-memory ShopContext state so the Billing Screen Header displays the new bill number
+        setShop(activeShop);
       }
 
-      // 2. Save shop details and persist VAT/discount options to database columns
-      await saveShopSettings({
-        shop_name: setupShopName.trim(),
-        pan_number: setupPanNumber,
-        vat_enabled: setupVatEnabled,
-        discount_enabled: setupDiscountEnabled
-      });
+      // 2. Save shop details and persist VAT/discount options if any details changed
+      const profileChanged = 
+        setupShopName.trim() !== (shop.shop_name || '').trim() ||
+        setupPanNumber !== (shop.pan_number || '') ||
+        setupVatEnabled !== Boolean(shop.vat_enabled) ||
+        setupDiscountEnabled !== Boolean(shop.discount_enabled);
+
+      if (profileChanged || !isEditingShop) {
+        const savedShop = await saveShopSettings({
+          shop_name: setupShopName.trim(),
+          pan_number: setupPanNumber,
+          vat_enabled: setupVatEnabled,
+          discount_enabled: setupDiscountEnabled
+        });
+        activeShop = {
+          ...activeShop,
+          ...savedShop,
+          next_bill_number: activeShop.next_bill_number,
+          starting_bill_number: activeShop.starting_bill_number
+        };
+        setShop(activeShop);
+      }
 
       handleToggleVatSetting(setupVatEnabled);
       handleToggleDiscountSetting(setupDiscountEnabled);
@@ -379,5 +406,5 @@ const ShopSettingsModalContent: React.FC = () => {
 export const ShopSettingsModal: React.FC = () => {
   const { isSetupMode, shop } = useShop();
   if (!isSetupMode) return null;
-  return <ShopSettingsModalContent key={shop?.id || 'new'} />;
+  return <ShopSettingsModalContent key={shop ? `${shop.id}_${shop.next_bill_number}` : 'new'} />;
 };
