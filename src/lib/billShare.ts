@@ -136,17 +136,16 @@ export function decodeBillData(encoded: string): { bill: Bill; shop: Shop } | nu
 }
 
 /**
- * Builds the full customer-facing share URL
+ * Builds the customer-facing share URL using ID-only canonical references.
+ * ID-only links keep QR codes compact, scannable, and verify solely against the cloud ledger.
  */
-export function generateBillShareUrl(bill: Bill, shop: Shop | null): string {
+export function generateBillShareUrl(bill: Bill, _shop?: Shop | null): string {
   if (typeof window === 'undefined') return '';
   const origin = window.location.origin;
-  const encoded = encodeBillData(bill, shop);
-  
-  // Prioritize verified bill id as the primary canonical parameter for cloud ledger verification
+
   if (bill.id) {
-    return `${origin}/billshare?id=${encodeURIComponent(bill.id)}&data=${encoded}`;
+    return `${origin}/billshare?id=${encodeURIComponent(bill.id)}`;
   }
-  return `${origin}/billshare?data=${encoded}`;
+  return '';
 }
 

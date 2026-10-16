@@ -1283,6 +1283,11 @@ DECLARE
     v_bill bills%ROWTYPE;
     v_shop shops%ROWTYPE;
 BEGIN
+    -- Guard: reject invalid, blank, or non-UUID inputs early to mitigate scanning and fuzzing
+    IF p_bill_id IS NULL OR length(p_bill_id) > 64 OR p_bill_id !~ '^[0-9a-fA-F-]+$' THEN
+        RETURN NULL;
+    END IF;
+
     -- 1. Fetch bill by ID
     SELECT * INTO v_bill
     FROM public.bills
@@ -1297,19 +1302,13 @@ BEGIN
     FROM public.shops
     WHERE id = v_bill.shop_id;
 
-    -- 3. Return sanitized public payload with snapshotted shop details
+    -- 3. Return sanitized public payload containing strictly receipt-relevant fields
     RETURN jsonb_build_object(
         'bill', to_jsonb(v_bill),
         'shop', jsonb_build_object(
             'id', v_shop.id,
             'shop_name', COALESCE(v_bill.shop_name, v_shop.shop_name),
-            'pan_number', COALESCE(v_bill.pan_number, v_shop.pan_number),
-            'phone', v_shop.phone,
-            'email', v_shop.email,
-            'starting_bill_number', v_shop.starting_bill_number,
-            'next_bill_number', v_shop.next_bill_number,
-            'created_at', v_shop.created_at,
-            'updated_at', v_shop.updated_at
+            'pan_number', COALESCE(v_bill.pan_number, v_shop.pan_number)
         )
     );
 END;

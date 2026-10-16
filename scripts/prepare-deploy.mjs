@@ -70,7 +70,7 @@ const instructions = `# SanoBill (www.sanobill.com) - Hostinger Deployment Guide
 
 ## Domain & SSL Verification
 - In Hostinger hPanel, go to **Security** -> **SSL** and make sure the Let's Encrypt SSL certificate is Active for both \`sanobill.com\` and \`www.sanobill.com\`.
-- All routes (e.g. \`https://www.sanobill.com/billshare?data=...\`) will be routed cleanly without 404 errors thanks to the included \`.htaccess\` file.
+- All routes (e.g. \`https://www.sanobill.com/billshare?id=...\`) will be routed cleanly without 404 errors thanks to the included \`.htaccess\` file.
 `;
 
 fs.writeFileSync(path.join(deployDir, 'HOSTINGER_DEPLOY_INSTRUCTIONS.md'), instructions, 'utf-8');

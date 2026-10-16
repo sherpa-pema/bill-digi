@@ -3,7 +3,6 @@ import { Download, Loader2, AlertCircle, Share2, Check } from 'lucide-react';
 import { toBlob } from 'html-to-image';
 import type { Bill, Shop } from '../../types';
 import { getBillShareParams } from '../../lib/navigation';
-import { decodeBillData } from '../../lib/billShare';
 import { fetchBillById } from '../../lib/dbService';
 import { ReceiptCard } from '../receipt/ReceiptCard';
 import { LumaSpin } from '../ui/luma-spin';
@@ -12,73 +11,68 @@ import sanoBillLogo from '../../assets/sano-bill-logo.png';
 export const BillShareScreen: React.FC = () => {
   const [bill, setBill] = useState<Bill | null>(null);
   const [shop, setShop] = useState<Shop | null>(null);
-  const [isVerified, setIsVerified] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const receiptRef = useRef<HTMLDivElement>(null);
 
+  // Set robots meta tag to prevent search engine indexing of receipts
+  useEffect(() => {
+    let metaTag = document.querySelector('meta[name="robots"]') as HTMLMetaElement | null;
+    const isNew = !metaTag;
+    if (!metaTag) {
+      metaTag = document.createElement('meta');
+      metaTag.name = 'robots';
+      document.head.appendChild(metaTag);
+    }
+    const previousContent = metaTag.content;
+    metaTag.content = 'noindex, nofollow, noarchive';
+
+    return () => {
+      if (isNew && metaTag?.parentNode) {
+        metaTag.parentNode.removeChild(metaTag);
+      } else if (metaTag) {
+        metaTag.content = previousContent || '';
+      }
+    };
+  }, []);
+
   useEffect(() => {
     let isMounted = true;
 
     const loadBill = async () => {
-      const { data, id } = getBillShareParams();
+      const { id } = getBillShareParams();
 
-      // Case 1: ID is provided -> Authenticate and load canonical record from Supabase database
-      if (id) {
-        // If optimistic preview payload is present in URL, display while verifying
-        if (data) {
-          const optimistic = decodeBillData(data);
-          if (optimistic && isMounted) {
-            setBill(optimistic.bill);
-            setShop(optimistic.shop);
-          }
-        }
-
-        try {
-          const result = await fetchBillById(id);
-          if (!isMounted) return;
-
-          if (result && result.bill) {
-            // Overwrite with verified data directly from Supabase cloud database
-            setBill(result.bill);
-            setShop(result.shop);
-            setIsVerified(true);
-            setIsLoading(false);
-            return;
-          } else {
-            // Bill ID not found in database (tampered or non-existent record)
-            setIsLoading(false);
-            setErrorMessage('This digital receipt could not be verified in the cloud database. It may be invalid or not recorded.');
-            return;
-          }
-        } catch (err) {
-          if (!isMounted) return;
-          console.warn('Failed to verify bill with database:', err);
+      // Only canonical IDs verified against the database are permitted.
+      // Arbitrary URL payload rendering is disabled to prevent forged receipts.
+      if (!id || !id.trim()) {
+        if (isMounted) {
           setIsLoading(false);
-          setErrorMessage('Could not connect to cloud database to verify receipt. Please check your internet connection.');
-          return;
+          setErrorMessage('Invalid receipt link. A valid receipt ID is required to view this bill.');
         }
+        return;
       }
 
-      // Case 2: Only raw 'data' is passed without an official bill ID
-      // Render the receipt, but NEVER mark it with the verified badge
-      if (data) {
-        const decoded = decodeBillData(data);
-        if (decoded && isMounted) {
-          setBill(decoded.bill);
-          setShop(decoded.shop);
-          setIsVerified(false);
+      try {
+        const result = await fetchBillById(id.trim());
+        if (!isMounted) return;
+
+        if (result && result.bill) {
+          setBill(result.bill);
+          setShop(result.shop);
           setIsLoading(false);
           return;
+        } else {
+          setIsLoading(false);
+          setErrorMessage('This digital receipt could not be verified in the cloud database. It may be invalid or not recorded.');
+          return;
         }
-      }
-
-      // Case 3: Incomplete or invalid link
-      if (isMounted) {
+      } catch (err) {
+        if (!isMounted) return;
+        console.warn('Failed to verify bill with database:', err);
         setIsLoading(false);
-        setErrorMessage('Could not load bill receipt. The link may be incomplete or invalid.');
+        setErrorMessage('Could not connect to cloud database to verify receipt. Please check your internet connection.');
       }
     };
 
@@ -199,17 +193,10 @@ export const BillShareScreen: React.FC = () => {
       <div className="w-full max-w-[420px] flex flex-col items-center">
         
         {/* Verification Status Pill Header */}
-        {isVerified ? (
-          <div className="mb-4 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white dark:bg-zinc-900 border border-emerald-200 dark:border-emerald-800 text-[11px] font-medium text-emerald-800 dark:text-emerald-300 shadow-xs">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>Verified Digital Receipt • Live Cloud Copy</span>
-          </div>
-        ) : (
-          <div className="mb-4 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-700 text-[11px] font-semibold text-amber-800 dark:text-amber-300 shadow-xs">
-            <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-            <span>⚠️ Unverified Offline Copy • Not Verified in Cloud Ledger</span>
-          </div>
-        )}
+        <div className="mb-4 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white dark:bg-zinc-900 border border-emerald-200 dark:border-emerald-800 text-[11px] font-medium text-emerald-800 dark:text-emerald-300 shadow-xs">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>Verified Digital Receipt • Live Cloud Copy</span>
+        </div>
 
         {/* Bill Receipt Card - Exact same format as generated bill */}
         <ReceiptCard ref={receiptRef} bill={bill} shop={shop} />

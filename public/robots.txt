@@ -1,8 +1,6 @@
 # https://www.robotstxt.org/robotstxt.html
 User-agent: *
-Allow: /
-Allow: /billshare
-Disallow: /admin
+Disallow: /billshare
 
 # Host
 Host: https://www.sanobill.com

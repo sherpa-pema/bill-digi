@@ -1434,6 +1434,11 @@ export const fetchSubscriptionPayments = async (): Promise<SubscriptionPayment[]
   return (data as SubscriptionPayment[]) || [];
 };
 
+// Rate-limiting guard against rapid client scraper / flood abuse
+const billFetchTimestamps: number[] = [];
+const FETCH_RATE_WINDOW_MS = 10_000;
+const MAX_FETCHES_PER_WINDOW = 15;
+
 /**
  * PUBLIC / SHARED: Fetch a single bill and shop details by bill ID
  */
@@ -1441,20 +1446,35 @@ export const fetchBillById = async (billId: string): Promise<{ bill: Bill; shop:
   const supabase = getSupabaseClient();
   if (!supabase || !billId) return null;
 
+  // Rate-limiting guard
+  const now = Date.now();
+  while (billFetchTimestamps.length > 0 && billFetchTimestamps[0] < now - FETCH_RATE_WINDOW_MS) {
+    billFetchTimestamps.shift();
+  }
+  if (billFetchTimestamps.length >= MAX_FETCHES_PER_WINDOW) {
+    console.warn('Rate limit exceeded for bill verification requests.');
+    return null;
+  }
+  billFetchTimestamps.push(now);
+
   try {
     // 1. Try public RPC if deployed
     const { data: rpcData, error: rpcError } = await supabase.rpc('get_public_bill', {
-      p_bill_id: billId
+      p_bill_id: billId.trim()
     });
 
     if (!rpcError && rpcData && rpcData.bill) {
       const bill = rpcData.bill as Bill;
-      const rpcShop = rpcData.shop as Shop | null;
+      const rpcShop = rpcData.shop as Partial<Shop> | null;
       const shop: Shop | null = rpcShop
         ? {
-            ...rpcShop,
-            shop_name: bill.shop_name || rpcShop.shop_name,
-            pan_number: bill.pan_number || rpcShop.pan_number
+            id: rpcShop.id || bill.shop_id || 'shared_shop',
+            shop_name: bill.shop_name || rpcShop.shop_name || 'DigiBill Shop',
+            pan_number: bill.pan_number || rpcShop.pan_number || 'N/A',
+            starting_bill_number: 1,
+            next_bill_number: bill.bill_number + 1,
+            created_at: bill.created_at,
+            updated_at: bill.created_at
           }
         : null;
 
@@ -1468,11 +1488,11 @@ export const fetchBillById = async (billId: string): Promise<{ bill: Bill; shop:
   }
 
   try {
-    // 2. Fallback to direct query
+    // 2. Fallback to direct query (restricted strictly to receipt-relevant columns)
     const { data: billData, error: billError } = await supabase
       .from('bills')
       .select('*')
-      .eq('id', billId)
+      .eq('id', billId.trim())
       .maybeSingle();
 
     if (billError || !billData) {
@@ -1485,15 +1505,19 @@ export const fetchBillById = async (billId: string): Promise<{ bill: Bill; shop:
     if (bill.shop_id) {
       const { data: shopData } = await supabase
         .from('shops')
-        .select('*')
+        .select('id, shop_name, pan_number')
         .eq('id', bill.shop_id)
         .maybeSingle();
 
       if (shopData) {
         shop = {
-          ...(shopData as Shop),
-          shop_name: bill.shop_name || (shopData as Shop).shop_name,
-          pan_number: bill.pan_number || (shopData as Shop).pan_number
+          id: shopData.id,
+          shop_name: bill.shop_name || shopData.shop_name || 'DigiBill Shop',
+          pan_number: bill.pan_number || shopData.pan_number || 'N/A',
+          starting_bill_number: 1,
+          next_bill_number: bill.bill_number + 1,
+          created_at: bill.created_at,
+          updated_at: bill.created_at
         };
       }
     }

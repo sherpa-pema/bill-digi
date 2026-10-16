@@ -15,7 +15,12 @@
   RewriteCond %{HTTP_HOST} ^sanobill\.com$ [NC]
   RewriteRule ^(.*)$ https://www.sanobill.com/$1 [L,R=301]
 
-  # 3. Single Page Application (SPA) routing fallback
+  # 3. Block automated scrapers and bots from harvesting receipts
+  RewriteCond %{REQUEST_URI} ^/billshare [NC]
+  RewriteCond %{HTTP_USER_AGENT} (bot|crawl|spider|slurp|curl|wget|scrapy) [NC]
+  RewriteRule .* - [F,L]
+
+  # 4. Single Page Application (SPA) routing fallback
   # Allow direct requests to existing files and directories (assets, images, scripts)
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
@@ -37,6 +42,12 @@
     Header set Pragma "no-cache"
     Header set Expires "0"
   </FilesMatch>
+
+  # Prevent search engine indexing and caching of receipts
+  <If "%{REQUEST_URI} =~ m#^/billshare#">
+    Header set X-Robots-Tag "noindex, nofollow, noarchive"
+    Header set Cache-Control "no-store, no-cache, must-revalidate"
+  </If>
 
   # Modern Security Headers
   Header set X-Content-Type-Options "nosniff"
