@@ -75,11 +75,12 @@ export const createInitialShop = async (userId: string, shopName = 'My Shop', pa
   }
 
   const now = new Date().toISOString();
+  const cleanPan = /^\d{9}$/.test((panNumber || '').trim()) ? (panNumber || '').trim() : '123456789';
   const newShop: Shop = {
     id: 'shop_' + generateId(),
     user_id: userId,
     shop_name: shopName,
-    pan_number: panNumber,
+    pan_number: cleanPan,
     starting_bill_number: 1,
     next_bill_number: 1,
     vat_enabled: false,
@@ -141,9 +142,12 @@ export const createInitialShop = async (userId: string, shopName = 'My Shop', pa
 
 /**
  * Save/Update general shop details directly in Supabase.
- * IMPORTANT: Strictly omits starting_bill_number and next_bill_number to prevent stale tabs
- * from regressing or overwriting bill counters. Bill counters must strictly be modified
- * via setShopStartingBillNumber RPC or create_bill_atomic.
+ * IMPORTANT: Strictly omits starting_bill_number, next_bill_number, and pan_number
+ * to prevent unauthorized column tampering.
+ * - starting_bill_number is modified via setShopStartingBillNumber RPC.
+ * - next_bill_number, bill_count, total_revenue are advanced via create_bill_atomic RPC.
+ * - pan_number is modified via setShopPanNumber RPC.
+ * - updated_at is touched automatically by database trigger protect_shop_sensitive_columns.
  */
 export const updateShop = async (shop: Shop): Promise<Shop> => {
   const supabase = getSupabaseClient();
@@ -151,16 +155,13 @@ export const updateShop = async (shop: Shop): Promise<Shop> => {
     throw new Error('Supabase client is not configured.');
   }
 
-  const now = new Date().toISOString();
   const updatedData: Record<string, any> = {
     shop_name: shop.shop_name,
-    pan_number: shop.pan_number,
     owner_name: shop.owner_name || null,
     email: shop.email || null,
     phone: shop.phone || null,
     vat_enabled: Boolean(shop.vat_enabled),
     discount_enabled: Boolean(shop.discount_enabled),
-    updated_at: now
   };
 
   let { data, error } = await supabase
@@ -206,10 +207,52 @@ export const updateShop = async (shop: Shop): Promise<Shop> => {
   }
 
   return {
-    ...((data as Shop) || shop),
+    ...shop,
+    ...((data as Shop) || {}),
     vat_enabled: Boolean(shop.vat_enabled),
     discount_enabled: Boolean(shop.discount_enabled),
   };
+};
+
+/**
+ * Atomically and securely update the shop's PAN number via dedicated validated database RPC.
+ * Server strictly verifies caller authorization (owner/admin) and validates that PAN is exactly 9 numeric digits.
+ */
+export const setShopPanNumber = async (
+  shopId: string,
+  panNumber: string
+): Promise<Shop> => {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    throw new Error('Supabase client is not configured.');
+  }
+
+  const cleanPan = (panNumber || '').trim();
+  if (!/^\d{9}$/.test(cleanPan)) {
+    throw new Error('Invalid PAN number: PAN must be exactly 9 numeric digits.');
+  }
+
+  let { data, error } = await supabase.rpc('set_shop_pan_number', {
+    p_shop_id: shopId,
+    p_pan_number: cleanPan,
+  });
+
+  if (error && (error.code === 'PGRST202' || error.message?.includes('schema cache') || error.message?.includes('not find the function'))) {
+    const aliasResult = await supabase.rpc('update_shop_pan_number', {
+      p_shop_id: shopId,
+      p_pan_number: cleanPan,
+    });
+    data = aliasResult.data;
+    error = aliasResult.error;
+  }
+
+  if (error) {
+    console.error('Error updating PAN number via RPC:', error);
+    throw error;
+  }
+
+  const parsedData = typeof data === 'string' ? JSON.parse(data) : data;
+  return parsedData as Shop;
 };
 
 /**
@@ -743,6 +786,10 @@ export const generateBill = async (
 
         if (rpcError) {
           lastError = rpcError;
+          // If subscription or trial has expired on the server, halt immediately with typed error
+          if (rpcError.message?.includes('SubscriptionExpired') || rpcError.code === 'P0003') {
+            throw new Error('SubscriptionExpired: Your 7-day trial or Pro subscription has expired. Please upgrade to continue billing.');
+          }
           // If transient lock contention or deadlock, back off with random jitter and retry
           if (rpcError.code === '40P01' || rpcError.code === '55P03' || rpcError.message?.includes('deadlock') || rpcError.message?.includes('could not obtain lock')) {
             await new Promise(res => setTimeout(res, 50 + Math.random() * 100));

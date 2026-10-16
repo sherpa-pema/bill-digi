@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import type { User } from '@supabase/supabase-js';
 import type { Shop } from '../types';
-import { checkIsOnline, fetchShop, createInitialShop, updateShop, getSubscriptionInfo } from '../lib/dbService';
+import { checkIsOnline, fetchShop, createInitialShop, updateShop, setShopPanNumber, getSubscriptionInfo } from '../lib/dbService';
 import { signOutBusiness, getActiveUser, checkIsAdminServerSide, subscribeToAuthState } from '../lib/authService';
 import { ShopContext, type ShopContextType, type AuthSuccessPayload } from './shopContextDef';
 import { normalizeAdminRoute, isAdminRoute, navigateToAdmin, navigateToPOS, subscribeToRouteChanges } from '../lib/navigation';
@@ -287,14 +287,29 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const saveShopSettings = useCallback(
     async (shopData: Partial<Shop>): Promise<Shop> => {
       if (!shop) throw new Error('No active shop');
+      let currentShop = shop;
+
+      if (shopData.pan_number && shopData.pan_number !== currentShop.pan_number) {
+        const panUpdated = await setShopPanNumber(currentShop.id, shopData.pan_number);
+        currentShop = {
+          ...currentShop,
+          ...(panUpdated || {}),
+          pan_number: shopData.pan_number
+        };
+      }
+
       const updatedShopData: Shop = {
-        ...shop,
+        ...currentShop,
         ...shopData,
-        updated_at: new Date().toISOString(),
       };
       const savedShop = await updateShop(updatedShopData);
-      setShop(savedShop);
-      return savedShop;
+      const finalShop: Shop = {
+        ...currentShop,
+        ...savedShop,
+        pan_number: currentShop.pan_number
+      };
+      setShop(finalShop);
+      return finalShop;
     },
     [shop]
   );

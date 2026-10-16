@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Crown, Sparkles, LogOut, Loader2, X, Moon, Sun } from 'lucide-react';
 import { useShop } from '../../hooks/useShop';
 import { useBilling } from '../../hooks/useBilling';
-import { checkIsOnline, setShopStartingBillNumber } from '../../lib/dbService';
+import { checkIsOnline, setShopStartingBillNumber, setShopPanNumber } from '../../lib/dbService';
 import { navigateToAdmin } from '../../lib/navigation';
 import sanoBillLogo from '../../assets/sano-bill-logo.png';
 
@@ -76,17 +76,27 @@ const ShopSettingsModalContent: React.FC = () => {
         setShop(activeShop);
       }
 
-      // 2. Save shop details and persist VAT/discount options if any details changed
+      // 2. If PAN number is being changed, use dedicated validated RPC
+      const panChanged = setupPanNumber !== (shop.pan_number || '');
+      if (panChanged) {
+        const updatedFromPan = await setShopPanNumber(shop.id, setupPanNumber);
+        activeShop = {
+          ...activeShop,
+          ...(updatedFromPan || {}),
+          pan_number: setupPanNumber
+        };
+        setShop(activeShop);
+      }
+
+      // 3. Save shop details and persist VAT/discount options if any details changed
       const profileChanged = 
         setupShopName.trim() !== (shop.shop_name || '').trim() ||
-        setupPanNumber !== (shop.pan_number || '') ||
         setupVatEnabled !== Boolean(shop.vat_enabled) ||
         setupDiscountEnabled !== Boolean(shop.discount_enabled);
 
       if (profileChanged || !isEditingShop) {
         const savedShop = await saveShopSettings({
           shop_name: setupShopName.trim(),
-          pan_number: setupPanNumber,
           vat_enabled: setupVatEnabled,
           discount_enabled: setupDiscountEnabled
         });
@@ -94,7 +104,8 @@ const ShopSettingsModalContent: React.FC = () => {
           ...activeShop,
           ...savedShop,
           next_bill_number: activeShop.next_bill_number,
-          starting_bill_number: activeShop.starting_bill_number
+          starting_bill_number: activeShop.starting_bill_number,
+          pan_number: activeShop.pan_number
         };
         setShop(activeShop);
       }

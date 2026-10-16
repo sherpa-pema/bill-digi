@@ -5,6 +5,7 @@ import {
   clearRememberDevicePreference 
 } from './supabase';
 import { generateId } from './storage';
+import { setShopPanNumber } from './dbService';
 import type { Shop, Item, Bill } from '../types';
 
 export interface RegisterParams {
@@ -185,16 +186,15 @@ export const registerBusiness = async (params: RegisterParams): Promise<AuthResu
 
       if (existingShop) {
         // Sync registration form details to the existing row created by the DB trigger
+        // Only allowed profile columns are updated directly. Sensitive columns (pan_number)
+        // are updated via the dedicated setShopPanNumber RPC.
         const { data: updatedShop, error: updateError } = await supabase
           .from('shops')
           .update({
             shop_name: newShop.shop_name,
-            pan_number: newShop.pan_number,
             owner_name: newShop.owner_name || null,
             email: newShop.email || null,
             phone: newShop.phone || null,
-            trial_expires_at: existingShop.trial_expires_at || trialExpiry,
-            updated_at: now
           })
           .eq('id', existingShop.id)
           .select()
@@ -205,6 +205,22 @@ export const registerBusiness = async (params: RegisterParams): Promise<AuthResu
           insertedShop = existingShop as Shop;
         } else if (updatedShop) {
           insertedShop = updatedShop as Shop;
+        }
+
+        // If the trigger defaulted pan_number or if user supplied a specific PAN that differs:
+        if (newShop.pan_number && newShop.pan_number !== (insertedShop?.pan_number || existingShop.pan_number)) {
+          try {
+            const panUpdated = await setShopPanNumber(existingShop.id, newShop.pan_number);
+            if (panUpdated) {
+              insertedShop = {
+                ...(insertedShop || (existingShop as Shop)),
+                ...panUpdated,
+                pan_number: newShop.pan_number,
+              };
+            }
+          } catch (panErr) {
+            console.warn('Failed to set shop PAN via RPC during registration:', panErr);
+          }
         }
       } else {
         // No trigger-provisioned shop found; perform a single insert
@@ -320,11 +336,13 @@ export const loginBusiness = async (params: LoginParams): Promise<AuthResult> =>
         const newShopId = 'shop_' + generateId();
         const now = new Date().toISOString();
         const trialExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+        const rawMetaPan = (meta.pan_number || '').trim();
+        const validMetaPan = /^\d{9}$/.test(rawMetaPan) ? rawMetaPan : '123456789';
         const defaultShop: Shop = {
           id: newShopId,
           user_id: authData.user.id,
           shop_name: meta.business_name || meta.display_name || 'My Shop',
-          pan_number: meta.pan_number || '123456789',
+          pan_number: validMetaPan,
           owner_name: meta.owner_name || meta.full_name || '',
           email: authData.user.email || (isEmail ? cleanIdentifier : undefined),
           phone: authData.user.phone || (!isEmail ? cleanIdentifier : undefined),

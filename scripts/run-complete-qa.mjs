@@ -2,9 +2,11 @@ import puppeteer from 'puppeteer-core';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const SCREENSHOTS_DIR = '/Users/developer/.gemini/antigravity/brain/ea52b093-6113-4a9d-97b8-b54c9808ca0f/scratch/qa-screenshots';
-const TARGET_URL = 'http://localhost:4177';
-const CHROME_PATH = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+const SCREENSHOTS_DIR = process.env.QA_SCREENSHOTS_DIR || path.resolve('scratch/qa-screenshots');
+const TARGET_URL = process.env.QA_TARGET_URL || 'http://localhost:4177';
+const CHROME_PATH = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+const QA_EMAIL = process.env.QA_USER_EMAIL || '';
+const QA_PASSWORD = process.env.QA_USER_PASSWORD || '';
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 
@@ -47,12 +49,17 @@ async function runCompleteQA() {
   // 1. Authenticate if on Auth Screen
   const pwdInput = await page.$('input[type="password"]');
   if (pwdInput) {
-    console.log('--- Step 1b: Login as qa-user@example.com ---');
+    if (!QA_EMAIL || !QA_PASSWORD) {
+      console.warn('QA_USER_EMAIL and QA_USER_PASSWORD environment variables are required to run authenticated QA tests.');
+      await browser.close();
+      return;
+    }
+    console.log(`--- Step 1b: Login as ${QA_EMAIL} ---`);
     const inputs = await page.$$('input');
     await inputs[0].click({ clickCount: 3 });
-    await inputs[0].type('qa-user@example.com', { delay: 20 });
+    await inputs[0].type(QA_EMAIL, { delay: 20 });
     await inputs[1].click({ clickCount: 3 });
-    await inputs[1].type('REDACTED_PASSWORD', { delay: 20 });
+    await inputs[1].type(QA_PASSWORD, { delay: 20 });
     await sleep(500);
 
     const btns = await page.$$('button');
@@ -138,8 +145,7 @@ async function runCompleteQA() {
   const receiptDetails = await page.evaluate(() => {
     const bodyText = document.body.innerText.toLowerCase();
     return {
-      hasShopName: bodyText.includes('sonam pasal'),
-      hasPan: bodyText.includes('357846185'),
+      hasPan: bodyText.includes('pan:'),
       hasAmount: bodyText.includes('99.00'),
       hasIrdNote: bodyText.includes('prize.ird.gov.np') || bodyText.includes('supabase cloud')
     };

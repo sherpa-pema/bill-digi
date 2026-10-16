@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS shops (
     id TEXT PRIMARY KEY,
     user_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
     shop_name TEXT NOT NULL,
-    pan_number VARCHAR(9) NOT NULL,
+    pan_number VARCHAR(9) NOT NULL CHECK (pan_number ~ '^\d{9}$'),
     owner_name TEXT,
     email TEXT,
     phone TEXT,
@@ -77,6 +77,12 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_shops_user_id') THEN
         ALTER TABLE shops ADD CONSTRAINT uq_shops_user_id UNIQUE (user_id);
     END IF;
+
+    -- Ensure 9-digit PAN format CHECK constraint exists
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_shops_pan_format' AND conrelid = 'public.shops'::regclass) THEN
+        UPDATE public.shops SET pan_number = '123456789' WHERE pan_number IS NULL OR pan_number !~ '^\d{9}$';
+        ALTER TABLE shops ADD CONSTRAINT chk_shops_pan_format CHECK (pan_number ~ '^\d{9}$');
+    END IF;
 EXCEPTION
     WHEN duplicate_object THEN NULL;
     WHEN others THEN NULL;
@@ -95,7 +101,7 @@ CREATE TABLE IF NOT EXISTS items (
 -- 4. Bills / Invoices Table
 CREATE TABLE IF NOT EXISTS bills (
     id TEXT PRIMARY KEY,
-    shop_id TEXT NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+    shop_id TEXT NOT NULL REFERENCES shops(id) ON DELETE RESTRICT,
     shop_name TEXT,
     pan_number VARCHAR(9),
     bill_number BIGINT NOT NULL,
@@ -177,7 +183,7 @@ END $$;
 -- 5. Subscription Payments Table
 CREATE TABLE IF NOT EXISTS subscription_payments (
     id TEXT PRIMARY KEY,
-    shop_id TEXT REFERENCES shops(id) ON DELETE CASCADE,
+    shop_id TEXT REFERENCES shops(id) ON DELETE RESTRICT,
     shop_name TEXT NOT NULL,
     pan_number TEXT NOT NULL,
     amount NUMERIC NOT NULL DEFAULT 500,
@@ -188,6 +194,58 @@ CREATE TABLE IF NOT EXISTS subscription_payments (
     notes TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Ensure foreign key constraints on bills and subscription_payments enforce ON DELETE RESTRICT
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (
+        SELECT tc.constraint_name 
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu 
+          ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
+        WHERE tc.constraint_type = 'FOREIGN KEY' 
+          AND tc.table_name = 'bills' 
+          AND kcu.column_name = 'shop_id'
+    ) LOOP
+        EXECUTE 'ALTER TABLE public.bills DROP CONSTRAINT ' || quote_ident(r.constraint_name);
+    END LOOP;
+
+    FOR r IN (
+        SELECT tc.constraint_name 
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu 
+          ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
+        WHERE tc.constraint_type = 'FOREIGN KEY' 
+          AND tc.table_name = 'subscription_payments' 
+          AND kcu.column_name = 'shop_id'
+    ) LOOP
+        EXECUTE 'ALTER TABLE public.subscription_payments DROP CONSTRAINT ' || quote_ident(r.constraint_name);
+    END LOOP;
+EXCEPTION
+    WHEN others THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'bills_shop_id_fkey'
+    ) THEN
+        ALTER TABLE public.bills
+            ADD CONSTRAINT bills_shop_id_fkey FOREIGN KEY (shop_id) REFERENCES public.shops(id) ON DELETE RESTRICT;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'subscription_payments_shop_id_fkey'
+    ) THEN
+        ALTER TABLE public.subscription_payments
+            ADD CONSTRAINT subscription_payments_shop_id_fkey FOREIGN KEY (shop_id) REFERENCES public.shops(id) ON DELETE RESTRICT;
+    END IF;
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+    WHEN others THEN NULL;
+END $$;
 
 -- 6. Dedicated Admin Users Table (Protected RBAC)
 CREATE TABLE IF NOT EXISTS public.admin_users (
@@ -294,10 +352,21 @@ TO authenticated
 USING ((SELECT public.is_admin()) OR (SELECT auth.uid()) = user_id) 
 WITH CHECK ((SELECT public.is_admin()) OR (SELECT auth.uid()) = user_id);
 
-CREATE POLICY "Users can delete own shop" 
+-- Non-admin tenants cannot delete shops (prevents bill/tax record destruction and trial manipulation).
+-- Only verified administrators can delete shops (subject to ON DELETE RESTRICT on bills/subscription_payments).
+DROP POLICY IF EXISTS "Users can delete own shop" ON shops;
+DROP POLICY IF EXISTS "Admins can delete shops" ON shops;
+CREATE POLICY "Admins can delete shops" 
 ON shops FOR DELETE 
 TO authenticated 
-USING ((SELECT public.is_admin()) OR (SELECT auth.uid()) = user_id);
+USING ((SELECT public.is_admin()));
+
+-- Restrict direct UPDATE privileges on public.shops:
+-- Prevents tenants from modifying next_bill_number, starting_bill_number, bill_count,
+-- total_revenue, pan_number, user_id, or subscription columns directly via REST/SQL.
+REVOKE UPDATE ON public.shops FROM authenticated;
+REVOKE UPDATE ON public.shops FROM anon;
+GRANT UPDATE (shop_name, owner_name, email, phone, vat_enabled, discount_enabled) ON public.shops TO authenticated;
 
 -- ------------------------------------------------------------------------------
 -- ITEMS TABLE POLICIES (Multi-tenant isolation by shop ownership + Admin select)
@@ -443,6 +512,8 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
+    NEW.updated_at := NOW();
+
     IF NOT public.is_admin() THEN
         -- Prevent changing subscription fields
         IF NEW.subscription_tier IS DISTINCT FROM OLD.subscription_tier OR
@@ -479,7 +550,8 @@ BEGIN
         NEW.subscription_tier := 'free';
         NEW.subscription_status := 'trial';
         NEW.subscription_expires_at := NULL;
-        NEW.trial_expires_at := COALESCE(NEW.trial_expires_at, NOW() + INTERVAL '7 days');
+        -- Force trial expiry strictly to 7 days from now for non-admins, ignoring any client-supplied value
+        NEW.trial_expires_at := NOW() + INTERVAL '7 days';
     END IF;
     RETURN NEW;
 END;
@@ -511,6 +583,9 @@ DECLARE
 BEGIN
     v_shop_name := COALESCE(NULLIF(TRIM(NEW.raw_user_meta_data->>'business_name'), ''), 'My Shop');
     v_pan_number := COALESCE(NULLIF(TRIM(NEW.raw_user_meta_data->>'pan_number'), ''), '123456789');
+    IF v_pan_number !~ '^\d{9}$' THEN
+        v_pan_number := '123456789';
+    END IF;
     v_owner_name := NULLIF(TRIM(NEW.raw_user_meta_data->>'owner_name'), '');
     v_phone := COALESCE(NULLIF(TRIM(NEW.phone), ''), NULLIF(TRIM(NEW.raw_user_meta_data->>'phone'), ''));
     v_email := COALESCE(NULLIF(TRIM(NEW.email), ''), NULLIF(TRIM(NEW.raw_user_meta_data->>'email'), ''));
@@ -567,6 +642,9 @@ CREATE TRIGGER on_auth_user_created
     EXECUTE FUNCTION public.handle_new_user_shop();
 
 -- 8. Atomic Bill Generation Function (Eliminates Race Conditions & Verifies Math Server-Side)
+-- Cleanly drop legacy 6-argument overload to prevent backdating exploit
+DROP FUNCTION IF EXISTS public.create_bill_atomic(TEXT, TEXT, VARCHAR, NUMERIC, JSONB, TIMESTAMPTZ);
+
 CREATE OR REPLACE FUNCTION public.create_bill_atomic(
     p_shop_id TEXT,
     p_bill_id TEXT,
@@ -585,6 +663,7 @@ SET search_path = public
 AS $$
 DECLARE
     v_bill_number BIGINT;
+    v_max_existing BIGINT;
     v_updated_shop shops%ROWTYPE;
     v_inserted_bill bills%ROWTYPE;
     v_caller_uid UUID;
@@ -720,8 +799,29 @@ BEGIN
         RAISE EXCEPTION 'Shop with ID % not found', p_shop_id;
     END IF;
 
-    -- Retrieve current counter (or fallback to 1)
-    v_bill_number := COALESCE(v_updated_shop.next_bill_number, 1);
+    -- 6b. Subscription & Trial Verification (Server-Authoritative Enforcement)
+    IF NOT (SELECT public.is_admin()) THEN
+        IF NOT (
+            -- Active Pro (lifetime or future expiry)
+            (v_updated_shop.subscription_tier = 'pro' AND 
+             (v_updated_shop.subscription_expires_at IS NULL OR v_updated_shop.subscription_expires_at > NOW()))
+            OR
+            -- Active 7-Day Trial (trial_expires_at > NOW() or fallback to created_at + 7 days)
+            (COALESCE(v_updated_shop.trial_expires_at, v_updated_shop.created_at + INTERVAL '7 days') > NOW())
+        ) THEN
+            RAISE EXCEPTION 'SubscriptionExpired: Your 7-day trial or Pro subscription has expired. Please upgrade to continue billing.'
+                USING ERRCODE = 'P0003';
+        END IF;
+    END IF;
+
+    -- 7. Self-Healing Monotonic Sequence Protection:
+    -- Determine the highest existing bill number for this shop to prevent collisions
+    SELECT COALESCE(MAX(bill_number) + 1, 1) INTO v_max_existing
+    FROM public.bills
+    WHERE shop_id = p_shop_id;
+
+    -- Determine safe next bill number: at least shops.next_bill_number AND strictly greater than all existing bills
+    v_bill_number := GREATEST(COALESCE(v_updated_shop.next_bill_number, 1), v_max_existing);
 
     -- Increment counter atomically with server timestamp NOW() and update shop metrics
     UPDATE public.shops
@@ -835,7 +935,76 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.set_shop_starting_bill_number(TEXT, BIGINT) TO authenticated;
 
--- 8c. Universal Server-Side Search for Shop Bills
+-- 8c. Dedicated Validated RPC to update Shop PAN Number
+-- Strictly validates format (^\d{9}$) and checks caller authorization
+CREATE OR REPLACE FUNCTION public.set_shop_pan_number(
+    p_shop_id TEXT,
+    p_pan_number TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_clean_pan TEXT;
+    v_updated_shop public.shops%ROWTYPE;
+    v_caller_uid UUID;
+BEGIN
+    -- 1. Authorization check: caller must be authenticated and own this shop (or be an admin)
+    v_caller_uid := auth.uid();
+    IF v_caller_uid IS NULL THEN
+        RAISE EXCEPTION 'Unauthorized: You must be logged in to update shop settings.';
+    END IF;
+
+    IF NOT (
+        public.is_admin() OR 
+        EXISTS (SELECT 1 FROM public.shops WHERE id = p_shop_id AND user_id = v_caller_uid)
+    ) THEN
+        RAISE EXCEPTION 'Forbidden: You do not have permission to manage this shop.';
+    END IF;
+
+    -- 2. Validate input parameter: PAN must be exactly 9 numeric digits
+    v_clean_pan := TRIM(COALESCE(p_pan_number, ''));
+    IF v_clean_pan !~ '^\d{9}$' THEN
+        RAISE EXCEPTION 'Invalid PAN number: PAN must be exactly 9 numeric digits.';
+    END IF;
+
+    -- 3. Lock and update shop record
+    UPDATE public.shops
+    SET pan_number = v_clean_pan,
+        updated_at = NOW()
+    WHERE id = p_shop_id
+    RETURNING * INTO v_updated_shop;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Shop with ID % not found.', p_shop_id;
+    END IF;
+
+    RETURN to_jsonb(v_updated_shop);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.set_shop_pan_number(TEXT, TEXT) TO authenticated;
+
+-- Function alias: update_shop_pan_number
+CREATE OR REPLACE FUNCTION public.update_shop_pan_number(
+    p_shop_id TEXT,
+    p_pan_number TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+    RETURN public.set_shop_pan_number(p_shop_id, p_pan_number);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.update_shop_pan_number(TEXT, TEXT) TO authenticated;
+
+-- 8d. Universal Server-Side Search for Shop Bills
 -- Searches partial bill numbers, amounts, item names in JSONB, and bill types across all pages
 CREATE OR REPLACE FUNCTION public.search_shop_bills(
     p_shop_id TEXT,

@@ -629,6 +629,10 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       resetBasketIdempotencyKey();
     } catch (err: any) {
       console.error('Failed to generate bill in Supabase:', err);
+      if (err.message?.includes('SubscriptionExpired')) {
+        setShowUpgradeModal(true);
+        return;
+      }
       alert('Failed to save bill to Supabase: ' + (err.message || 'Please check your connection.'));
       // Note: We deliberately do NOT call resetBasketIdempotencyKey() here so that
       // an immediate retap reuses currentBillId, returning the committed bill if connection dropped in flight

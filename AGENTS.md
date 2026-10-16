@@ -1,7 +1,7 @@
 # Main Agent — Orchestrator Instructions
 
 ## 1. Codebase Context & Knowledge Graph
-- **Always read [GRAPH_REPORT.md](file:///Users/developer/Documents/digi-bill-new/graphify-out/GRAPH_REPORT.md)** (`graphify-out/GRAPH_REPORT.md`) before proceeding with any work or changes on the codebase to understand architecture, god nodes, dependencies, and community structure.
+- **Always read [GRAPH_REPORT.md](graphify-out/GRAPH_REPORT.md)** (`graphify-out/GRAPH_REPORT.md`) before proceeding with any work or changes on the codebase to understand architecture, god nodes, dependencies, and community structure.
 
 ## 2. UI Design Consistency
 - Any new UI designs, components, or screens requested by the user **must remain consistent with the existing application design system**, including styling tokens, fonts, color palettes, micro-interactions, and component patterns.
