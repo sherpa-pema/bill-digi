@@ -14,12 +14,13 @@ import {
 } from '../lib/dbService';
 import { useShop } from '../hooks/useShop';
 import { formatDateTime } from '../lib/formatters';
+import { toPaisa, toRupees, calculateLineTotalPaisa, computeBillBreakdown } from '../lib/money';
 import { BillingContext, type BillingContextType } from './billingContextDef';
 
 const PAGE_SIZE = 50;
 
 export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { shop, setShop, subscriptionInfo, setShowUpgradeModal } = useShop();
+  const { shop, setShop, subscriptionInfo, setShowUpgradeModal, openShopSettings } = useShop();
 
   // Navigation
   const [activeTab, setActiveTab] = useState<'newBill' | 'history'>('newBill');
@@ -341,27 +342,35 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   }, [resetBasketIdempotencyKey]);
 
-  // Simple mode calculations
+  // Stored shop rates and calculation configuration
+  const shopVatRate = typeof shop?.vat_rate === 'number' ? shop.vat_rate : 13;
+  const shopDiscountRate = typeof shop?.discount_rate === 'number' ? shop.discount_rate : 10;
+  const shopVatInclusive = Boolean(shop?.vat_inclusive);
+  const simpleLineName = (shop?.simple_item_name || '').trim() || 'General Item';
+
+  // Simple mode calculations via integer paisa
   const simpleAmountNum = useMemo(() => {
     const val = parseFloat(simpleAmount);
     return isNaN(val) ? 0 : val;
   }, [simpleAmount]);
 
-  const simpleDiscountAmount = useMemo(() => {
-    return (isDiscountEnabled && isDiscount) ? Number((simpleAmountNum * 0.10).toFixed(2)) : 0;
-  }, [isDiscountEnabled, isDiscount, simpleAmountNum]);
+  const simpleBreakdown = useMemo(() => {
+    return computeBillBreakdown({
+      subtotalRupees: simpleAmountNum,
+      discountEnabled: isDiscountEnabled,
+      isDiscountApplied: isDiscount,
+      discountRate: shopDiscountRate,
+      vatEnabled: isVatEnabled,
+      isVatApplied: isVat,
+      vatRate: shopVatRate,
+      vatInclusive: shopVatInclusive,
+    });
+  }, [simpleAmountNum, isDiscountEnabled, isDiscount, shopDiscountRate, isVatEnabled, isVat, shopVatRate, shopVatInclusive]);
 
-  const simpleTaxableAmount = useMemo(() => {
-    return Math.max(0, simpleAmountNum - simpleDiscountAmount);
-  }, [simpleAmountNum, simpleDiscountAmount]);
-
-  const simpleVatAmount = useMemo(() => {
-    return (isVatEnabled && isVat) ? Number((simpleTaxableAmount * 0.13).toFixed(2)) : 0;
-  }, [isVatEnabled, isVat, simpleTaxableAmount]);
-
-  const finalSimpleTotal = useMemo(() => {
-    return Number((simpleTaxableAmount + simpleVatAmount).toFixed(2));
-  }, [simpleTaxableAmount, simpleVatAmount]);
+  const simpleDiscountAmount = simpleBreakdown.discountAmount;
+  const simpleTaxableAmount = simpleBreakdown.taxableAmount;
+  const simpleVatAmount = simpleBreakdown.vatAmount;
+  const finalSimpleTotal = simpleBreakdown.totalAmount;
 
   // Itemized Mode & Basket
   const filteredItems = useMemo(() => {
@@ -375,16 +384,19 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setBasket(prev => {
       const existing = prev.find(b => b.item_id === item.id);
       if (existing) {
+        const newQty = existing.qty + 1;
+        const newLineTotal = toRupees(calculateLineTotalPaisa(newQty, existing.unit_price));
         return prev.map(b => b.item_id === item.id 
-          ? { ...b, qty: b.qty + 1, line_total: (b.qty + 1) * b.unit_price } 
+          ? { ...b, qty: newQty, line_total: newLineTotal } 
           : b);
       }
+      const unitPrice = toRupees(toPaisa(item.price));
       return [...prev, {
         id: generateId(),
         name: item.name,
         qty: 1,
-        unit_price: item.price,
-        line_total: item.price,
+        unit_price: unitPrice,
+        line_total: unitPrice,
         item_id: item.id,
         kind: 'item'
       }];
@@ -396,18 +408,19 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setBasket(prev => prev.map(b => {
       if (b.id !== id) return b;
       const newQty = Math.min(Math.max(1, b.qty + delta), 99999);
-      return { ...b, qty: newQty, line_total: Number((newQty * b.unit_price).toFixed(2)) };
+      const newLineTotal = toRupees(calculateLineTotalPaisa(newQty, b.unit_price));
+      return { ...b, qty: newQty, line_total: newLineTotal };
     }));
   }, [resetBasketIdempotencyKey]);
 
   const updateBasketPrice = useCallback((id: string, price: number) => {
     resetBasketIdempotencyKey();
     const sanitized = Math.min(Math.max(0, isNaN(price) ? 0 : price), 9999999.99);
-    const rounded = Number(sanitized.toFixed(2));
+    const rounded = toRupees(toPaisa(sanitized));
     setBasket(prev => prev.map(b => b.id === id ? { 
       ...b, 
       unit_price: rounded, 
-      line_total: Number((b.qty * rounded).toFixed(2)) 
+      line_total: toRupees(calculateLineTotalPaisa(b.qty, rounded)) 
     } : b));
   }, [resetBasketIdempotencyKey]);
 
@@ -421,23 +434,28 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setBasket([]);
   }, [resetBasketIdempotencyKey]);
 
-  const basketTotal = useMemo(() => basket.reduce((acc, curr) => acc + curr.line_total, 0), [basket]);
+  const basketTotal = useMemo(() => {
+    const totalPaisa = basket.reduce((acc, curr) => acc + toPaisa(curr.line_total), 0);
+    return toRupees(totalPaisa);
+  }, [basket]);
 
-  const itemizedDiscountAmount = useMemo(() => {
-    return (isDiscountEnabled && isDiscount) ? Number((basketTotal * 0.10).toFixed(2)) : 0;
-  }, [isDiscountEnabled, isDiscount, basketTotal]);
+  const itemizedBreakdown = useMemo(() => {
+    return computeBillBreakdown({
+      subtotalRupees: basketTotal,
+      discountEnabled: isDiscountEnabled,
+      isDiscountApplied: isDiscount,
+      discountRate: shopDiscountRate,
+      vatEnabled: isVatEnabled,
+      isVatApplied: isVat,
+      vatRate: shopVatRate,
+      vatInclusive: shopVatInclusive,
+    });
+  }, [basketTotal, isDiscountEnabled, isDiscount, shopDiscountRate, isVatEnabled, isVat, shopVatRate, shopVatInclusive]);
 
-  const itemizedTaxableAmount = useMemo(() => {
-    return Math.max(0, basketTotal - itemizedDiscountAmount);
-  }, [basketTotal, itemizedDiscountAmount]);
-
-  const itemizedVatAmount = useMemo(() => {
-    return (isVatEnabled && isVat) ? Number((itemizedTaxableAmount * 0.13).toFixed(2)) : 0;
-  }, [isVatEnabled, isVat, itemizedTaxableAmount]);
-
-  const finalItemizedTotal = useMemo(() => {
-    return Number((itemizedTaxableAmount + itemizedVatAmount).toFixed(2));
-  }, [itemizedTaxableAmount, itemizedVatAmount]);
+  const itemizedDiscountAmount = itemizedBreakdown.discountAmount;
+  const itemizedTaxableAmount = itemizedBreakdown.taxableAmount;
+  const itemizedVatAmount = itemizedBreakdown.vatAmount;
+  const finalItemizedTotal = itemizedBreakdown.totalAmount;
 
   // Custom Item Modal
   useEffect(() => {
@@ -463,7 +481,7 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     name = name.replace(/^[=+\-@\t\r%|]+/, '').trim() || 'Custom Item';
     const price = parseFloat(customItemPrice);
     if (isNaN(price) || price <= 0 || price > 9999999.99) return;
-    const roundedPrice = Number(price.toFixed(2));
+    const roundedPrice = toRupees(toPaisa(price));
 
     setBasket(prev => [...prev, {
       id: generateId(),
@@ -486,6 +504,14 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     // Subscription & 7-Day Trial Guard
     if (subscriptionInfo.isExpired) {
       setShowUpgradeModal(true);
+      return;
+    }
+
+    // Valid PAN Guard: Reject billing until a valid 9-digit PAN is configured (not fake 123456789)
+    const cleanPan = (shop.pan_number || '').trim();
+    if (!/^\d{9}$/.test(cleanPan) || cleanPan === '123456789') {
+      alert('Billing is disabled until a valid 9-digit PAN number is configured in shop settings.');
+      openShopSettings();
       return;
     }
 
@@ -526,11 +552,11 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         vatAmt = itemizedVatAmount;
         total = finalItemizedTotal;
         
-        billItems = basket.map(b => ({ ...b, kind: (b.kind || 'item') as BasketItem['kind'] }));
+        billItems = basket.map(b => ({ ...b, kind: 'item' as const }));
         if (discAmt > 0) {
           billItems.push({
             id: generateId(),
-            name: 'Discount (10%)',
+            name: `Discount (${shopDiscountRate}%)`,
             qty: 1,
             unit_price: -discAmt,
             line_total: -discAmt,
@@ -540,7 +566,7 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         if (vatAmt > 0) {
           billItems.push({
             id: generateId(),
-            name: 'VAT (13%)',
+            name: shopVatInclusive ? `VAT (${shopVatRate}% included)` : `VAT (${shopVatRate}%)`,
             qty: 1,
             unit_price: vatAmt,
             line_total: vatAmt,
@@ -566,7 +592,7 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
           billItems = [
             {
               id: generateId(),
-              name: 'Grocery item',
+              name: simpleLineName,
               qty: 1,
               unit_price: subtotalAmount,
               line_total: subtotalAmount,
@@ -576,7 +602,7 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
           if (discAmt > 0) {
             billItems.push({
               id: generateId(),
-              name: 'Discount (10%)',
+              name: `Discount (${shopDiscountRate}%)`,
               qty: 1,
               unit_price: -discAmt,
               line_total: -discAmt,
@@ -586,7 +612,7 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
           if (vatAmt > 0) {
             billItems.push({
               id: generateId(),
-              name: 'VAT (13%)',
+              name: shopVatInclusive ? `VAT (${shopVatRate}% included)` : `VAT (${shopVatRate}%)`,
               qty: 1,
               unit_price: vatAmt,
               line_total: vatAmt,
@@ -596,7 +622,7 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         } else {
           billItems = [{
             id: generateId(),
-            name: 'Grocery item',
+            name: simpleLineName,
             qty: 1,
             unit_price: total,
             line_total: total,
@@ -633,6 +659,11 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setShowUpgradeModal(true);
         return;
       }
+      if (err.message?.includes('InvalidPanNumber')) {
+        alert(err.message.replace(/^InvalidPanNumber:\s*/, ''));
+        openShopSettings();
+        return;
+      }
       alert('Failed to save bill to Supabase: ' + (err.message || 'Please check your connection.'));
       // Note: We deliberately do NOT call resetBasketIdempotencyKey() here so that
       // an immediate retap reuses currentBillId, returning the committed bill if connection dropped in flight
@@ -642,6 +673,10 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [
     shop,
+    shopVatRate,
+    shopDiscountRate,
+    shopVatInclusive,
+    simpleLineName,
     isGeneratingBill,
     subscriptionInfo.isExpired,
     setShowUpgradeModal,
@@ -657,7 +692,8 @@ export const BillingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     finalSimpleTotal,
     bills,
     setShop,
-    resetBasketIdempotencyKey
+    resetBasketIdempotencyKey,
+    openShopSettings
   ]);
 
   // History list: server delivers matching bills across the entire database.

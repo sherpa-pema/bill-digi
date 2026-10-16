@@ -39,7 +39,7 @@ export const ReceiptCard = forwardRef<HTMLDivElement, ReceiptCardProps>(({ bill,
         
         {/* Item Rows */}
         <div className="space-y-2 text-[12px]">
-          {bill.items.map((v) => (
+          {regularItems.map((v) => (
             <div key={v.id} className="flex justify-between items-start">
               <span className="pr-2 leading-[1.4] break-words flex-1">
                 {v.name}
@@ -66,7 +66,7 @@ export const ReceiptCard = forwardRef<HTMLDivElement, ReceiptCardProps>(({ bill,
           </div>
           {discountAmount > 0 && (
             <div className="flex justify-between text-zinc-700">
-              <span>DISCOUNT (-10%):</span>
+              <span>DISCOUNT (-{shop?.discount_rate ?? 10}%):</span>
               <span>-Rs {discountAmount.toFixed(2)}</span>
             </div>
           )}
@@ -77,8 +77,8 @@ export const ReceiptCard = forwardRef<HTMLDivElement, ReceiptCardProps>(({ bill,
                 <span>Rs {taxableAmount.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-zinc-700">
-                <span>VAT (+13%):</span>
-                <span>+Rs {vatAmount.toFixed(2)}</span>
+                <span>VAT ({shop?.vat_inclusive ? 'INCL. ' : '+'}{shop?.vat_rate ?? 13}%):</span>
+                <span>{shop?.vat_inclusive ? '' : '+'}Rs {vatAmount.toFixed(2)}</span>
               </div>
             </>
           )}

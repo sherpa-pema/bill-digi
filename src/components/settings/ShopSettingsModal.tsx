@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Crown, Sparkles, LogOut, Loader2, X, Moon, Sun } from 'lucide-react';
 import { useShop } from '../../hooks/useShop';
 import { useBilling } from '../../hooks/useBilling';
-import { checkIsOnline, setShopStartingBillNumber, setShopPanNumber } from '../../lib/dbService';
+import { checkIsOnline, setShopStartingBillNumber } from '../../lib/dbService';
 import { navigateToAdmin } from '../../lib/navigation';
 import sanoBillLogo from '../../assets/sano-bill-logo.png';
 
@@ -31,24 +31,38 @@ const ShopSettingsModalContent: React.FC = () => {
 
   const [setupShopName, setSetupShopName] = useState(shop?.shop_name || '');
   const [setupPanNumber, setSetupPanNumber] = useState(shop?.pan_number || '');
+  const [setupSimpleItemName, setSetupSimpleItemName] = useState(() => (shop?.simple_item_name || '').trim() || 'General Item');
   const [setupStartingBill, setSetupStartingBill] = useState(() => {
     return isEditingShop ? String(shop?.next_bill_number || 1) : String(shop?.starting_bill_number || 1);
   });
   const [setupVatEnabled, setSetupVatEnabled] = useState(() => Boolean(shop?.vat_enabled));
   const [setupDiscountEnabled, setSetupDiscountEnabled] = useState(() => Boolean(shop?.discount_enabled));
+  const [setupVatRate, setSetupVatRate] = useState(() => String(shop?.vat_rate ?? 13));
+  const [setupDiscountRate, setSetupDiscountRate] = useState(() => String(shop?.discount_rate ?? 10));
+  const [setupVatInclusive, setSetupVatInclusive] = useState(() => Boolean(shop?.vat_inclusive));
   const [isSavingSetup, setIsSavingSetup] = useState(false);
 
   const minBillNumber = isEditingShop ? (Number(shop?.next_bill_number) || 1) : 1;
   const enteredBillNumber = Number(setupStartingBill);
   const isBillNumberValid = !isNaN(enteredBillNumber) && enteredBillNumber >= minBillNumber;
 
+  const parsedVatRate = parseFloat(setupVatRate);
+  const isVatRateValid = !isNaN(parsedVatRate) && parsedVatRate >= 0 && parsedVatRate <= 100;
+
+  const parsedDiscountRate = parseFloat(setupDiscountRate);
+  const isDiscountRateValid = !isNaN(parsedDiscountRate) && parsedDiscountRate >= 0 && parsedDiscountRate <= 100;
+
   const isValidSetup = useMemo(() => {
     return (
       setupShopName.trim().length > 0 &&
       /^\d{9}$/.test(setupPanNumber) &&
-      isBillNumberValid
+      setupPanNumber !== '123456789' &&
+      setupSimpleItemName.trim().length > 0 &&
+      isBillNumberValid &&
+      isVatRateValid &&
+      isDiscountRateValid
     );
-  }, [setupShopName, setupPanNumber, isBillNumberValid]);
+  }, [setupShopName, setupPanNumber, setupSimpleItemName, isBillNumberValid, isVatRateValid, isDiscountRateValid]);
 
   const handleSaveSetup = async () => {
     if (!isValidSetup || !shop) return;
@@ -76,36 +90,40 @@ const ShopSettingsModalContent: React.FC = () => {
         setShop(activeShop);
       }
 
-      // 2. If PAN number is being changed, use dedicated validated RPC
+      // 2. Save profile settings (shop_name, pan_number, vat, discount, rates, simple line name)
       const panChanged = setupPanNumber !== (shop.pan_number || '');
-      if (panChanged) {
-        const updatedFromPan = await setShopPanNumber(shop.id, setupPanNumber);
-        activeShop = {
-          ...activeShop,
-          ...(updatedFromPan || {}),
-          pan_number: setupPanNumber
-        };
-        setShop(activeShop);
-      }
-
-      // 3. Save shop details and persist VAT/discount options if any details changed
+      const nameChanged = setupShopName.trim() !== (shop.shop_name || '').trim();
+      const simpleNameChanged = setupSimpleItemName.trim() !== (shop.simple_item_name || 'General Item');
+      const vatRateChanged = parsedVatRate !== (shop.vat_rate ?? 13);
+      const discountRateChanged = parsedDiscountRate !== (shop.discount_rate ?? 10);
+      const vatInclusiveChanged = setupVatInclusive !== Boolean(shop.vat_inclusive);
       const profileChanged = 
-        setupShopName.trim() !== (shop.shop_name || '').trim() ||
+        nameChanged ||
+        panChanged ||
+        simpleNameChanged ||
+        vatRateChanged ||
+        discountRateChanged ||
+        vatInclusiveChanged ||
         setupVatEnabled !== Boolean(shop.vat_enabled) ||
         setupDiscountEnabled !== Boolean(shop.discount_enabled);
 
       if (profileChanged || !isEditingShop) {
         const savedShop = await saveShopSettings({
           shop_name: setupShopName.trim(),
+          pan_number: setupPanNumber,
           vat_enabled: setupVatEnabled,
-          discount_enabled: setupDiscountEnabled
+          discount_enabled: setupDiscountEnabled,
+          vat_rate: parsedVatRate,
+          discount_rate: parsedDiscountRate,
+          vat_inclusive: setupVatInclusive,
+          simple_item_name: setupSimpleItemName.trim() || 'General Item',
         });
         activeShop = {
           ...activeShop,
           ...savedShop,
           next_bill_number: activeShop.next_bill_number,
           starting_bill_number: activeShop.starting_bill_number,
-          pan_number: activeShop.pan_number
+          pan_number: savedShop.pan_number || activeShop.pan_number
         };
         setShop(activeShop);
       }
@@ -173,12 +191,16 @@ const ShopSettingsModalContent: React.FC = () => {
                 <input 
                   value={setupPanNumber} 
                   onChange={e => setSetupPanNumber(e.target.value.replace(/\D/g, '').slice(0, 9))} 
-                  placeholder="123456789" 
+                  placeholder="e.g. 601234567" 
                   inputMode="numeric" 
                   className="mt-2 w-full h-12 rounded-[14px] bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 px-4 text-[15px] tracking-widest font-medium text-zinc-900 dark:text-zinc-100 outline-none focus:bg-white dark:focus:bg-zinc-800 focus:border-zinc-300 dark:focus:border-zinc-500 transition" 
                 />
                 <p className="mt-1.5 text-[11px] text-zinc-400 dark:text-zinc-500">
-                  {setupPanNumber.length}/9 digits {setupPanNumber.length === 9 ? '✓ valid' : ''}
+                  {setupPanNumber === '123456789' ? (
+                    <span className="text-red-500 font-semibold">Placeholder PAN 123456789 is rejected. Please enter your registered 9-digit PAN.</span>
+                  ) : (
+                    <>{setupPanNumber.length}/9 digits {setupPanNumber.length === 9 ? '✓ valid' : ''}</>
+                  )}
                 </p>
               </div>
               <div>
@@ -202,6 +224,20 @@ const ShopSettingsModalContent: React.FC = () => {
                         ? `Current active bill counter. You can increase this to sync with physical bills (minimum #${minBillNumber}).` 
                         : `Cannot decrease below #${minBillNumber}. Only forward increments are allowed to prevent duplicates.`)
                     : `Initial starting bill number for your shop (minimum 1).`}
+                </p>
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold tracking-[0.12em] uppercase text-zinc-500 dark:text-zinc-400">
+                  Simple Mode Line Name *
+                </label>
+                <input 
+                  value={setupSimpleItemName} 
+                  onChange={e => setSetupSimpleItemName(e.target.value.slice(0, 80))} 
+                  placeholder="e.g. General Item, Grocery item, Bakery, Stationery" 
+                  className="mt-2 w-full h-12 rounded-[14px] bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 px-4 text-[14px] text-zinc-900 dark:text-zinc-100 outline-none focus:bg-white dark:focus:bg-zinc-800 focus:border-zinc-300 dark:focus:border-zinc-500 transition" 
+                />
+                <p className="mt-1.5 text-[11px] text-zinc-400 dark:text-zinc-500">
+                  Product name printed on receipts when generating bills from the numeric keypad.
                 </p>
               </div>
             </div>
@@ -258,54 +294,122 @@ const ShopSettingsModalContent: React.FC = () => {
               <span className="text-[10.5px] font-medium px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">POS Options</span>
             </div>
             <p className="text-[12px] text-zinc-500 dark:text-zinc-400 mb-4 leading-relaxed">
-              Toggle quick calculation buttons on the billing keypad and itemized checkout screen.
+              Configure VAT pricing model, rates, and quick calculation buttons on the billing keypad.
             </p>
 
-            <div className="space-y-3.5 divide-y divide-zinc-100 dark:divide-zinc-800">
-              {/* VAT (+13%) Toggle */}
-              <div 
-                onClick={() => setSetupVatEnabled(!setupVatEnabled)}
-                className="flex items-center justify-between pt-1 cursor-pointer select-none group"
-              >
-                <div className="pr-4">
-                  <p className="text-[13.5px] font-semibold text-zinc-800 dark:text-zinc-200 group-hover:text-black dark:group-hover:text-white transition">Enable VAT (+13%)</p>
-                  <p className="text-[11.5px] text-zinc-500 dark:text-zinc-400 mt-0.5">Show +13% VAT button on billing screen</p>
+            <div className="space-y-4">
+              {/* VAT Pricing Model: Inclusive vs Exclusive */}
+              <div className="p-3.5 rounded-[16px] bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-100 dark:border-zinc-700/80">
+                <div className="flex items-center justify-between">
+                  <div className="pr-3">
+                    <p className="text-[13.5px] font-semibold text-zinc-800 dark:text-zinc-200">VAT Pricing Model</p>
+                    <p className="text-[11.5px] text-zinc-500 dark:text-zinc-400 mt-0.5 leading-relaxed">
+                      {setupVatInclusive 
+                        ? 'VAT-Inclusive / MRP (Retail standard in Nepal — prices include VAT)' 
+                        : 'VAT-Exclusive (Added on top — wholesale & B2B standard)'}
+                    </p>
+                  </div>
+                  <button 
+                    type="button" 
+                    role="switch"
+                    aria-checked={setupVatInclusive}
+                    onClick={() => setSetupVatInclusive(!setupVatInclusive)}
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-end focus:outline-none"
+                    aria-label="Toggle VAT Inclusive Pricing"
+                  >
+                    <span className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${setupVatInclusive ? 'bg-zinc-900 dark:bg-emerald-500' : 'bg-zinc-200 dark:bg-zinc-700'}`}>
+                      <span aria-hidden="true" className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${setupVatInclusive ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </span>
+                  </button>
                 </div>
-                <button 
-                  type="button" 
-                  role="switch"
-                  aria-checked={setupVatEnabled}
-                  onClick={(e) => { e.stopPropagation(); setSetupVatEnabled(!setupVatEnabled); }}
-                  className="min-w-[44px] min-h-[44px] flex items-center justify-end focus:outline-none"
-                  aria-label="Toggle VAT (+13%)"
-                >
-                  <span className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${setupVatEnabled ? 'bg-zinc-900 dark:bg-emerald-500' : 'bg-zinc-200 dark:bg-zinc-700'}`}>
-                    <span aria-hidden="true" className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${setupVatEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
-                  </span>
-                </button>
               </div>
 
-              {/* Discount (-10%) Toggle */}
-              <div 
-                onClick={() => setSetupDiscountEnabled(!setupDiscountEnabled)}
-                className="flex items-center justify-between pt-3.5 cursor-pointer select-none group"
-              >
-                <div className="pr-4">
-                  <p className="text-[13.5px] font-semibold text-zinc-800 dark:text-zinc-200 group-hover:text-black dark:group-hover:text-white transition">Enable Discount (-10%)</p>
-                  <p className="text-[11.5px] text-zinc-500 dark:text-zinc-400 mt-0.5">Show -10% Disc button on billing screen</p>
+              {/* Rate Inputs */}
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="text-[11px] font-semibold tracking-[0.12em] uppercase text-zinc-500 dark:text-zinc-400">VAT Rate (%)</label>
+                  <input 
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    value={setupVatRate}
+                    onChange={e => setSetupVatRate(e.target.value)}
+                    placeholder="13"
+                    className="mt-1.5 w-full h-11 rounded-[12px] bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 px-3 text-[14px] text-zinc-900 dark:text-zinc-100 outline-none focus:bg-white dark:focus:bg-zinc-800 focus:border-zinc-300 dark:focus:border-zinc-500 transition"
+                  />
+                  {!isVatRateValid && (
+                    <p className="mt-1 text-[10.5px] text-red-500 font-medium">Must be between 0 and 100%</p>
+                  )}
                 </div>
-                <button 
-                  type="button" 
-                  role="switch"
-                  aria-checked={setupDiscountEnabled}
-                  onClick={(e) => { e.stopPropagation(); setSetupDiscountEnabled(!setupDiscountEnabled); }}
-                  className="min-w-[44px] min-h-[44px] flex items-center justify-end focus:outline-none"
-                  aria-label="Toggle Discount (-10%)"
+                <div>
+                  <label className="text-[11px] font-semibold tracking-[0.12em] uppercase text-zinc-500 dark:text-zinc-400">Discount Rate (%)</label>
+                  <input 
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    value={setupDiscountRate}
+                    onChange={e => setSetupDiscountRate(e.target.value)}
+                    placeholder="10"
+                    className="mt-1.5 w-full h-11 rounded-[12px] bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 px-3 text-[14px] text-zinc-900 dark:text-zinc-100 outline-none focus:bg-white dark:focus:bg-zinc-800 focus:border-zinc-300 dark:focus:border-zinc-500 transition"
+                  />
+                  {!isDiscountRateValid && (
+                    <p className="mt-1 text-[10.5px] text-red-500 font-medium">Must be between 0 and 100%</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-3.5 divide-y divide-zinc-100 dark:divide-zinc-800 pt-2">
+                {/* VAT (+13%) Toggle */}
+                <div 
+                  onClick={() => setSetupVatEnabled(!setupVatEnabled)}
+                  className="flex items-center justify-between pt-1 cursor-pointer select-none group"
                 >
-                  <span className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${setupDiscountEnabled ? 'bg-zinc-900 dark:bg-emerald-500' : 'bg-zinc-200 dark:bg-zinc-700'}`}>
-                    <span aria-hidden="true" className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${setupDiscountEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
-                  </span>
-                </button>
+                  <div className="pr-4">
+                    <p className="text-[13.5px] font-semibold text-zinc-800 dark:text-zinc-200 group-hover:text-black dark:group-hover:text-white transition">
+                      Enable VAT Button ({setupVatRate || 13}%)
+                    </p>
+                    <p className="text-[11.5px] text-zinc-500 dark:text-zinc-400 mt-0.5">Show VAT quick toggle on billing screens</p>
+                  </div>
+                  <button 
+                    type="button" 
+                    role="switch"
+                    aria-checked={setupVatEnabled}
+                    onClick={(e) => { e.stopPropagation(); setSetupVatEnabled(!setupVatEnabled); }}
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-end focus:outline-none"
+                    aria-label="Toggle VAT button"
+                  >
+                    <span className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${setupVatEnabled ? 'bg-zinc-900 dark:bg-emerald-500' : 'bg-zinc-200 dark:bg-zinc-700'}`}>
+                      <span aria-hidden="true" className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${setupVatEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </span>
+                  </button>
+                </div>
+
+                {/* Discount (-10%) Toggle */}
+                <div 
+                  onClick={() => setSetupDiscountEnabled(!setupDiscountEnabled)}
+                  className="flex items-center justify-between pt-3.5 cursor-pointer select-none group"
+                >
+                  <div className="pr-4">
+                    <p className="text-[13.5px] font-semibold text-zinc-800 dark:text-zinc-200 group-hover:text-black dark:group-hover:text-white transition">
+                      Enable Discount Button ({setupDiscountRate || 10}%)
+                    </p>
+                    <p className="text-[11.5px] text-zinc-500 dark:text-zinc-400 mt-0.5">Show Discount quick toggle on billing screens</p>
+                  </div>
+                  <button 
+                    type="button" 
+                    role="switch"
+                    aria-checked={setupDiscountEnabled}
+                    onClick={(e) => { e.stopPropagation(); setSetupDiscountEnabled(!setupDiscountEnabled); }}
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-end focus:outline-none"
+                    aria-label="Toggle Discount button"
+                  >
+                    <span className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${setupDiscountEnabled ? 'bg-zinc-900 dark:bg-emerald-500' : 'bg-zinc-200 dark:bg-zinc-700'}`}>
+                      <span aria-hidden="true" className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${setupDiscountEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>

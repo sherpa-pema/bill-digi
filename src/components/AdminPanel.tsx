@@ -213,8 +213,8 @@ export default function AdminPanel({ currentUser, onSignOut }: AdminPanelProps) 
       // Text query
       if (!q) return true;
       return (
-        s.shop_name.toLowerCase().includes(q) ||
-        s.pan_number.includes(q) ||
+        (s.shop_name || '').toLowerCase().includes(q) ||
+        (s.pan_number || '').includes(q) ||
         (s.owner_name && s.owner_name.toLowerCase().includes(q)) ||
         (s.phone && s.phone.includes(q)) ||
         (s.email && s.email.toLowerCase().includes(q))

@@ -4,7 +4,7 @@ import { useShop } from '../../hooks/useShop';
 import { useBilling } from '../../hooks/useBilling';
 
 export const BasketView: React.FC = () => {
-  const { isOnline } = useShop();
+  const { isOnline, shop } = useShop();
   const {
     basket,
     updateBasketQty,
@@ -24,6 +24,10 @@ export const BasketView: React.FC = () => {
     isGeneratingBill,
     handleGenerateBill
   } = useBilling();
+
+  const vatRate = typeof shop?.vat_rate === 'number' ? shop.vat_rate : 13;
+  const discountRate = typeof shop?.discount_rate === 'number' ? shop.discount_rate : 10;
+  const vatInclusive = Boolean(shop?.vat_inclusive);
 
   return (
     <div className="rounded-[24px] bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-[0_8px_30px_rgba(0,0,0,0.04)] dark:shadow-none overflow-hidden flex flex-col transition-colors">
@@ -131,7 +135,7 @@ export const BasketView: React.FC = () => {
                     : "bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700"
                 }`}
               >
-                +13% VAT
+                {vatInclusive ? `VAT (${vatRate}% incl.)` : `+${vatRate}% VAT`}
               </button>
             )}
             {isDiscountEnabled && (
@@ -144,7 +148,7 @@ export const BasketView: React.FC = () => {
                     : "bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700"
                 }`}
               >
-                -10% Disc
+                -{discountRate}% Disc
               </button>
             )}
           </div>
@@ -159,14 +163,14 @@ export const BasketView: React.FC = () => {
             </div>
             {isDiscountEnabled && isDiscount && (
               <div className="flex justify-between text-emerald-700 dark:text-emerald-400 font-medium">
-                <span>Discount (-10%)</span>
+                <span>Discount (-{discountRate}%)</span>
                 <span>- Rs {itemizedDiscountAmount.toFixed(2)}</span>
               </div>
             )}
             {isVatEnabled && isVat && (
               <div className="flex justify-between text-emerald-700 dark:text-emerald-400 font-medium">
-                <span>VAT (+13%{isDiscountEnabled && isDiscount ? ` on Rs ${itemizedTaxableAmount.toFixed(2)}` : ''})</span>
-                <span>+ Rs {itemizedVatAmount.toFixed(2)}</span>
+                <span>VAT ({vatInclusive ? 'Incl. ' : '+'}{vatRate}%{isDiscountEnabled && isDiscount ? ` on Rs ${itemizedTaxableAmount.toFixed(2)}` : ''})</span>
+                <span>{vatInclusive ? '' : '+'} Rs {itemizedVatAmount.toFixed(2)}</span>
               </div>
             )}
           </div>

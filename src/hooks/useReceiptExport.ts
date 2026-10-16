@@ -24,10 +24,10 @@ export function useReceiptExport() {
 
       let adjustmentsStr = '';
       if (discountAmount > 0) {
-        adjustmentsStr += `\nDiscount (-10%): -Rs ${discountAmount.toFixed(2)}`;
+        adjustmentsStr += `\nDiscount (-${shop.discount_rate ?? 10}%): -Rs ${discountAmount.toFixed(2)}`;
       }
       if (vatAmount > 0) {
-        adjustmentsStr += `\nTaxable: Rs ${taxableAmount.toFixed(2)}\nVAT (+13%): +Rs ${vatAmount.toFixed(2)}`;
+        adjustmentsStr += `\nTaxable: Rs ${taxableAmount.toFixed(2)}\nVAT (${shop.vat_inclusive ? 'Incl. ' : '+'}${shop.vat_rate ?? 13}%): ${shop.vat_inclusive ? '' : '+'}Rs ${vatAmount.toFixed(2)}`;
       }
 
       const shopName = bill.shop_name || shop.shop_name;

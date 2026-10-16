@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import type { User } from '@supabase/supabase-js';
 import type { Shop } from '../types';
-import { checkIsOnline, fetchShop, createInitialShop, updateShop, setShopPanNumber, getSubscriptionInfo } from '../lib/dbService';
+import { checkIsOnline, fetchShop, completeShopProfile, updateShop, setShopPanNumber, getSubscriptionInfo } from '../lib/dbService';
 import { signOutBusiness, getActiveUser, checkIsAdminServerSide, subscribeToAuthState } from '../lib/authService';
 import { ShopContext, type ShopContextType, type AuthSuccessPayload } from './shopContextDef';
 import { normalizeAdminRoute, isAdminRoute, navigateToAdmin, navigateToPOS, subscribeToRouteChanges } from '../lib/navigation';
@@ -100,9 +100,6 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
 
           let loadedShop = await fetchShop(user.id);
-          if (!loadedShop) {
-            loadedShop = await createInitialShop(user.id);
-          }
           activeShop = loadedShop;
           setShop(activeShop);
         }
@@ -200,9 +197,6 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           setIsLoadingData(true);
           let loadedShop = await fetchShop(user.id);
-          if (!loadedShop) {
-            loadedShop = await createInitialShop(user.id);
-          }
           if (!isMounted) return;
           setShop(loadedShop);
 
@@ -289,7 +283,20 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!shop) throw new Error('No active shop');
       let currentShop = shop;
 
-      if (shopData.pan_number && shopData.pan_number !== currentShop.pan_number) {
+      if (shopData.shop_name && shopData.pan_number) {
+        const completed = await completeShopProfile({
+          shopId: currentShop.id,
+          shopName: shopData.shop_name,
+          panNumber: shopData.pan_number,
+          ownerName: shopData.owner_name,
+          email: shopData.email,
+          phone: shopData.phone,
+        });
+        currentShop = {
+          ...currentShop,
+          ...completed,
+        };
+      } else if (shopData.pan_number && shopData.pan_number !== currentShop.pan_number) {
         const panUpdated = await setShopPanNumber(currentShop.id, shopData.pan_number);
         currentShop = {
           ...currentShop,

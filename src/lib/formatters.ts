@@ -1,4 +1,5 @@
 import type { Bill } from '../types';
+import { toPaisa, toRupees } from './money';
 
 export const formatDateTime = (isoString: string) => {
   const d = new Date(isoString);
@@ -21,33 +22,47 @@ export const formatShortDateTime = (isoString: string) => {
   );
 };
 
-// Helper to extract breakdown from any Bill (from state or Supabase)
+// Helper to extract breakdown from any Bill (from state or Supabase) using integer paisa
 export const getBillBreakdown = (bill: Bill) => {
+  // Derive strictly from explicit kind; only fall back to legacy name heuristic if kind is undefined
   const discountItem = bill.items.find(
-    (i) => i.kind === 'discount' || i.line_total < 0 || /^discount(\s|\(|$)/i.test(i.name.trim())
+    (i) => i.kind === 'discount' || (i.kind === undefined && (i.line_total < 0 || /^discount(\s|\(|$)/i.test(i.name.trim())))
   );
   const vatItem = bill.items.find(
-    (i) => i.kind === 'vat' || /^vat(\s|\(|$)/i.test(i.name.trim())
+    (i) => i.kind === 'vat' || (i.kind === undefined && /^vat(\s|\(|$)/i.test(i.name.trim()))
   );
-  const regularItems = bill.items.filter((i) => i !== discountItem && i !== vatItem);
+  const regularItems = bill.items.filter(
+    (i) => i !== discountItem && i !== vatItem && (i.kind === 'item' || i.kind === undefined)
+  );
 
-  const subtotal =
+  const subtotalPaisa =
     typeof bill.subtotal === 'number'
-      ? bill.subtotal
+      ? toPaisa(bill.subtotal)
       : (regularItems.length > 0
-          ? regularItems.reduce((acc, curr) => acc + curr.line_total, 0)
-          : bill.total_amount);
-  const discountAmount =
-    typeof bill.discount_amount === 'number'
-      ? bill.discount_amount
-      : (discountItem ? Math.abs(discountItem.line_total) : 0);
-  const taxableAmount = Math.max(0, subtotal - discountAmount);
-  const vatAmount =
-    typeof bill.tax_amount === 'number'
-      ? bill.tax_amount
-      : (vatItem ? vatItem.line_total : 0);
+          ? regularItems.reduce((acc, curr) => acc + toPaisa(curr.line_total), 0)
+          : toPaisa(bill.total_amount));
 
-  return { subtotal, discountAmount, taxableAmount, vatAmount, regularItems, discountItem, vatItem };
+  const discountPaisa =
+    typeof bill.discount_amount === 'number'
+      ? toPaisa(bill.discount_amount)
+      : (discountItem ? Math.abs(toPaisa(discountItem.line_total)) : 0);
+
+  const taxableBasePaisa = Math.max(0, subtotalPaisa - discountPaisa);
+
+  const vatPaisa =
+    typeof bill.tax_amount === 'number'
+      ? toPaisa(bill.tax_amount)
+      : (vatItem ? toPaisa(vatItem.line_total) : 0);
+
+  return {
+    subtotal: toRupees(subtotalPaisa),
+    discountAmount: toRupees(discountPaisa),
+    taxableAmount: toRupees(taxableBasePaisa),
+    vatAmount: toRupees(vatPaisa),
+    regularItems,
+    discountItem,
+    vatItem,
+  };
 };
 
 /**

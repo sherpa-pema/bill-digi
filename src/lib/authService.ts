@@ -4,8 +4,7 @@ import {
   setRememberDevicePreference, 
   clearRememberDevicePreference 
 } from './supabase';
-import { generateId } from './storage';
-import { setShopPanNumber } from './dbService';
+import { completeShopProfile } from './dbService';
 import type { Shop, Item, Bill } from '../types';
 
 export interface RegisterParams {
@@ -101,6 +100,18 @@ export const registerBusiness = async (params: RegisterParams): Promise<AuthResu
     return { success: false, message: 'Password must be at least 8 characters long.' };
   }
 
+  const cleanName = (businessName || '').trim();
+  const cleanPan = (panNumber || '').trim();
+  const cleanOwner = (ownerName || '').trim();
+
+  if (!cleanName) {
+    return { success: false, message: 'Business name is required.' };
+  }
+
+  if (!/^\d{9}$/.test(cleanPan) || cleanPan === '123456789') {
+    return { success: false, message: 'Please enter a valid 9-digit PAN number (cannot be placeholder 123456789).' };
+  }
+
   const isEmail = identifier.includes('@');
   const cleanIdentifier = identifier.trim();
 
@@ -113,11 +124,11 @@ export const registerBusiness = async (params: RegisterParams): Promise<AuthResu
         password: password,
         options: {
           data: {
-            display_name: ownerName.trim(),
-            full_name: ownerName.trim(),
-            owner_name: ownerName.trim(),
-            business_name: businessName.trim(),
-            pan_number: panNumber.trim(),
+            display_name: cleanOwner,
+            full_name: cleanOwner,
+            owner_name: cleanOwner,
+            business_name: cleanName,
+            pan_number: cleanPan,
             email: cleanIdentifier,
           }
         }
@@ -131,11 +142,11 @@ export const registerBusiness = async (params: RegisterParams): Promise<AuthResu
         password: password,
         options: {
           data: {
-            display_name: ownerName.trim(),
-            full_name: ownerName.trim(),
-            owner_name: ownerName.trim(),
-            business_name: businessName.trim(),
-            pan_number: panNumber.trim(),
+            display_name: cleanOwner,
+            full_name: cleanOwner,
+            owner_name: cleanOwner,
+            business_name: cleanName,
+            pan_number: cleanPan,
             phone: formattedPhone,
           }
         }
@@ -151,106 +162,29 @@ export const registerBusiness = async (params: RegisterParams): Promise<AuthResu
       return { success: false, message: 'Registration failed. No user was returned from Supabase.' };
     }
 
-    const now = new Date().toISOString();
-    const trialExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-    const shopId = 'shop_' + generateId();
-
-    const newShop: Shop = {
-      id: shopId,
-      user_id: authData.user.id,
-      shop_name: businessName.trim(),
-      pan_number: panNumber.trim(),
-      owner_name: ownerName.trim(),
-      email: isEmail ? cleanIdentifier : undefined,
-      phone: !isEmail ? cleanIdentifier : undefined,
-      starting_bill_number: 1,
-      next_bill_number: 1,
-      subscription_tier: 'free',
-      subscription_status: 'trial',
-      subscription_started_at: now,
-      subscription_expires_at: null,
-      trial_expires_at: trialExpiry,
-      created_at: now,
-      updated_at: now
-    };
-
     let insertedShop: Shop | null = null;
 
-    // Check if an existing shop was already created (e.g. by DB trigger) or if we need to insert
+    // Single Creator Rule: The DB trigger on auth.users is the sole creator of the shop record.
+    // The client completes the profile in one atomic RPC call.
     if (authData.session) {
-      const { data: existingShop } = await supabase
-        .from('shops')
-        .select('*')
-        .eq('user_id', authData.user.id)
-        .maybeSingle();
-
-      if (existingShop) {
-        // Sync registration form details to the existing row created by the DB trigger
-        // Only allowed profile columns are updated directly. Sensitive columns (pan_number)
-        // are updated via the dedicated setShopPanNumber RPC.
-        const { data: updatedShop, error: updateError } = await supabase
+      try {
+        insertedShop = await completeShopProfile({
+          shopName: cleanName,
+          panNumber: cleanPan,
+          ownerName: cleanOwner,
+          email: isEmail ? cleanIdentifier : undefined,
+          phone: !isEmail ? cleanIdentifier : undefined,
+        });
+      } catch (rpcErr: any) {
+        console.warn('Profile completion RPC notice:', rpcErr);
+        // Fallback: load the trigger-provisioned shop
+        const { data: existingShop } = await supabase
           .from('shops')
-          .update({
-            shop_name: newShop.shop_name,
-            owner_name: newShop.owner_name || null,
-            email: newShop.email || null,
-            phone: newShop.phone || null,
-          })
-          .eq('id', existingShop.id)
-          .select()
-          .single();
-
-        if (updateError) {
-          console.warn('Shop database update warning:', updateError);
+          .select('*')
+          .eq('user_id', authData.user.id)
+          .maybeSingle();
+        if (existingShop) {
           insertedShop = existingShop as Shop;
-        } else if (updatedShop) {
-          insertedShop = updatedShop as Shop;
-        }
-
-        // If the trigger defaulted pan_number or if user supplied a specific PAN that differs:
-        if (newShop.pan_number && newShop.pan_number !== (insertedShop?.pan_number || existingShop.pan_number)) {
-          try {
-            const panUpdated = await setShopPanNumber(existingShop.id, newShop.pan_number);
-            if (panUpdated) {
-              insertedShop = {
-                ...(insertedShop || (existingShop as Shop)),
-                ...panUpdated,
-                pan_number: newShop.pan_number,
-              };
-            }
-          } catch (panErr) {
-            console.warn('Failed to set shop PAN via RPC during registration:', panErr);
-          }
-        }
-      } else {
-        // No trigger-provisioned shop found; perform a single insert
-        const { data: dbShop, error: dbError } = await supabase
-          .from('shops')
-          .insert({
-            id: newShop.id,
-            user_id: authData.user.id,
-            shop_name: newShop.shop_name,
-            pan_number: newShop.pan_number,
-            owner_name: newShop.owner_name || null,
-            email: newShop.email || null,
-            phone: newShop.phone || null,
-            starting_bill_number: newShop.starting_bill_number,
-            next_bill_number: newShop.next_bill_number,
-            subscription_tier: newShop.subscription_tier,
-            subscription_status: newShop.subscription_status,
-            subscription_started_at: newShop.subscription_started_at,
-            subscription_expires_at: newShop.subscription_expires_at,
-            trial_expires_at: newShop.trial_expires_at,
-            created_at: newShop.created_at,
-            updated_at: newShop.updated_at
-          })
-          .select()
-          .single();
-
-        if (dbError) {
-          console.warn('Shop database insert warning:', dbError);
-        } else if (dbShop) {
-          insertedShop = dbShop as Shop;
         }
       }
     }
@@ -262,7 +196,7 @@ export const registerBusiness = async (params: RegisterParams): Promise<AuthResu
         : 'Registration submitted! Please confirm your account if email confirmation is required.',
       user: authData.user,
       session: authData.session,
-      shop: insertedShop || newShop,
+      shop: insertedShop || undefined,
       items: [],
       bills: []
     };
@@ -319,6 +253,7 @@ export const loginBusiness = async (params: LoginParams): Promise<AuthResult> =>
     }
 
     // Fetch the linked shop from Supabase 'shops' table strictly isolated by user_id = auth.uid()
+    // The DB trigger is the single creator of shop records.
     let shop: Shop | null = null;
     const { data: shopRows, error: shopError } = await supabase
       .from('shops')
@@ -329,65 +264,6 @@ export const loginBusiness = async (params: LoginParams): Promise<AuthResult> =>
 
     if (!shopError && shopRows && shopRows.length > 0) {
       shop = shopRows[0] as Shop;
-    } else {
-      // Securely provision a default shop linked to this authenticated user_id if none exists
-      try {
-        const meta = authData.user.user_metadata || {};
-        const newShopId = 'shop_' + generateId();
-        const now = new Date().toISOString();
-        const trialExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-        const rawMetaPan = (meta.pan_number || '').trim();
-        const validMetaPan = /^\d{9}$/.test(rawMetaPan) ? rawMetaPan : '123456789';
-        const defaultShop: Shop = {
-          id: newShopId,
-          user_id: authData.user.id,
-          shop_name: meta.business_name || meta.display_name || 'My Shop',
-          pan_number: validMetaPan,
-          owner_name: meta.owner_name || meta.full_name || '',
-          email: authData.user.email || (isEmail ? cleanIdentifier : undefined),
-          phone: authData.user.phone || (!isEmail ? cleanIdentifier : undefined),
-          starting_bill_number: 1,
-          next_bill_number: 1,
-          subscription_tier: 'free',
-          subscription_status: 'trial',
-          subscription_started_at: now,
-          subscription_expires_at: null,
-          trial_expires_at: trialExpiry,
-          created_at: now,
-          updated_at: now
-        };
-
-        const { data: createdShop, error: createError } = await supabase
-          .from('shops')
-          .insert({
-            id: defaultShop.id,
-            user_id: defaultShop.user_id,
-            shop_name: defaultShop.shop_name,
-            pan_number: defaultShop.pan_number,
-            owner_name: defaultShop.owner_name || null,
-            email: defaultShop.email || null,
-            phone: defaultShop.phone || null,
-            starting_bill_number: 1,
-            next_bill_number: 1,
-            subscription_tier: defaultShop.subscription_tier,
-            subscription_status: defaultShop.subscription_status,
-            subscription_started_at: defaultShop.subscription_started_at,
-            subscription_expires_at: defaultShop.subscription_expires_at,
-            trial_expires_at: defaultShop.trial_expires_at,
-            created_at: now,
-            updated_at: now
-          })
-          .select()
-          .single();
-
-        if (!createError && createdShop) {
-          shop = createdShop as Shop;
-        } else {
-          shop = defaultShop;
-        }
-      } catch (e) {
-        console.warn('Could not auto-provision fallback shop during login:', e);
-      }
     }
 
     let items: Item[] = [];

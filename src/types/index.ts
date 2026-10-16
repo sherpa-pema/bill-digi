@@ -1,8 +1,8 @@
 export interface Shop {
   id: string;
   user_id?: string;
-  shop_name: string;
-  pan_number: string;
+  shop_name?: string;
+  pan_number?: string;
   owner_name?: string;
   email?: string;
   phone?: string;
@@ -20,6 +20,10 @@ export interface Shop {
   total_revenue?: number;
   vat_enabled?: boolean;
   discount_enabled?: boolean;
+  vat_rate?: number;
+  discount_rate?: number;
+  vat_inclusive?: boolean;
+  simple_item_name?: string;
 }
 
 export interface SubscriptionPayment {

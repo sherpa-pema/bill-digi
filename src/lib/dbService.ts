@@ -61,83 +61,96 @@ export const fetchShop = async (userId?: string): Promise<Shop | null> => {
   return null;
 };
 
+export interface CompleteProfileParams {
+  shopId?: string;
+  shopName: string;
+  panNumber: string;
+  ownerName?: string;
+  email?: string;
+  phone?: string;
+}
+
 /**
- * Create a new default shop in Supabase if none exists
+ * Complete the shop profile in a single atomic RPC call.
+ * Strictly validates 9-digit PAN (rejects placeholder 123456789) and shop name.
  */
-export const createInitialShop = async (userId: string, shopName = 'My Shop', panNumber = '123456789'): Promise<Shop> => {
+export const completeShopProfile = async (params: CompleteProfileParams): Promise<Shop> => {
   const supabase = getSupabaseClient();
   if (!supabase) {
     throw new Error('Supabase client is not configured.');
   }
 
-  if (!userId) {
-    throw new Error('User ID is required to create a shop.');
+  const cleanName = (params.shopName || '').trim();
+  const cleanPan = (params.panNumber || '').trim();
+
+  if (!cleanName) {
+    throw new Error('Shop name is required.');
   }
 
-  const now = new Date().toISOString();
-  const cleanPan = /^\d{9}$/.test((panNumber || '').trim()) ? (panNumber || '').trim() : '123456789';
-  const newShop: Shop = {
-    id: 'shop_' + generateId(),
-    user_id: userId,
-    shop_name: shopName,
-    pan_number: cleanPan,
-    starting_bill_number: 1,
-    next_bill_number: 1,
-    vat_enabled: false,
-    discount_enabled: false,
-    created_at: now,
-    updated_at: now
+  if (!/^\d{9}$/.test(cleanPan) || cleanPan === '123456789') {
+    throw new Error('A valid 9-digit PAN number is required (cannot be placeholder 123456789).');
+  }
+
+  const rpcPayload = {
+    p_shop_name: cleanName,
+    p_pan_number: cleanPan,
+    p_owner_name: (params.ownerName || '').trim() || null,
+    p_email: (params.email || '').trim() || null,
+    p_phone: (params.phone || '').trim() || null,
+    p_shop_id: params.shopId || null,
   };
 
-  const insertPayload: Record<string, any> = {
-    id: newShop.id,
-    user_id: newShop.user_id,
-    shop_name: newShop.shop_name,
-    pan_number: newShop.pan_number,
-    starting_bill_number: newShop.starting_bill_number,
-    next_bill_number: newShop.next_bill_number,
-    vat_enabled: false,
-    discount_enabled: false,
-    created_at: newShop.created_at,
-    updated_at: newShop.updated_at
-  };
-
-  let { data, error } = await supabase
-    .from('shops')
-    .insert(insertPayload)
-    .select()
-    .single();
+  let { data, error } = await supabase.rpc('complete_shop_profile', rpcPayload);
 
   if (error) {
-    const isMissingToggleColumns = 
-      error.code === 'PGRST204' ||
-      error.message?.includes('discount_enabled') ||
-      error.message?.includes('vat_enabled') ||
-      error.message?.includes('schema cache');
-
-    if (isMissingToggleColumns) {
-      console.warn('vat_enabled / discount_enabled columns not found in schema cache. Inserting initial shop without toggle columns.');
-      delete insertPayload.vat_enabled;
-      delete insertPayload.discount_enabled;
-
-      const retryResult = await supabase
-        .from('shops')
-        .insert(insertPayload)
-        .select()
-        .single();
-
-      if (retryResult.error) {
-        console.error('Error creating initial shop:', retryResult.error);
-        throw retryResult.error;
-      }
-      data = retryResult.data;
+    if (error.code === 'PGRST202' || error.message?.includes('complete_shop_profile')) {
+      const fallback = await supabase.rpc('complete_profile', rpcPayload);
+      if (fallback.error) throw fallback.error;
+      data = fallback.data;
     } else {
-      console.error('Error creating initial shop:', error);
+      console.error('Error completing shop profile via RPC:', error);
       throw error;
     }
   }
 
-  return (data as Shop) || newShop;
+  const parsedData = typeof data === 'string' ? JSON.parse(data) : data;
+  return parsedData as Shop;
+};
+
+/**
+ * Resolves or completes initial shop for user.
+ * The DB trigger on auth.users is the single creator of shop records.
+ * Client completes profile through completeShopProfile RPC without racing into unique key errors.
+ */
+export const createInitialShop = async (userId: string, shopName?: string, panNumber?: string): Promise<Shop> => {
+  if (!userId) {
+    throw new Error('User ID is required.');
+  }
+
+  const existing = await fetchShop(userId);
+  if (existing) {
+    const cleanName = (shopName || '').trim();
+    const cleanPan = (panNumber || '').trim();
+    if (cleanName && /^\d{9}$/.test(cleanPan) && cleanPan !== '123456789') {
+      return await completeShopProfile({
+        shopId: existing.id,
+        shopName: cleanName,
+        panNumber: cleanPan,
+      });
+    }
+    return existing;
+  }
+
+  const cleanName = (shopName || '').trim();
+  const cleanPan = (panNumber || '').trim();
+  if (cleanName && /^\d{9}$/.test(cleanPan) && cleanPan !== '123456789') {
+    return await completeShopProfile({
+      shopName: cleanName,
+      panNumber: cleanPan,
+    });
+  }
+
+  throw new Error('Shop not found for this user. Please complete shop registration.');
 };
 
 /**
@@ -162,6 +175,10 @@ export const updateShop = async (shop: Shop): Promise<Shop> => {
     phone: shop.phone || null,
     vat_enabled: Boolean(shop.vat_enabled),
     discount_enabled: Boolean(shop.discount_enabled),
+    vat_rate: typeof shop.vat_rate === 'number' ? shop.vat_rate : 13.0,
+    discount_rate: typeof shop.discount_rate === 'number' ? shop.discount_rate : 10.0,
+    vat_inclusive: Boolean(shop.vat_inclusive),
+    simple_item_name: (shop.simple_item_name || '').trim() || 'General Item',
   };
 
   let { data, error } = await supabase
@@ -172,20 +189,28 @@ export const updateShop = async (shop: Shop): Promise<Shop> => {
     .single();
 
   if (error) {
-    const isMissingToggleColumns = 
+    const isMissingColumns = 
       error.code === 'PGRST204' ||
       error.message?.includes('discount_enabled') ||
       error.message?.includes('vat_enabled') ||
+      error.message?.includes('vat_rate') ||
+      error.message?.includes('discount_rate') ||
+      error.message?.includes('vat_inclusive') ||
+      error.message?.includes('simple_item_name') ||
       error.message?.includes('schema cache');
 
-    if (isMissingToggleColumns) {
-      console.warn('vat_enabled / discount_enabled columns not found in schema cache. Falling back to core shop fields and local storage.');
+    if (isMissingColumns) {
+      console.warn('Rate or toggle columns not found in schema cache. Falling back to core shop fields and local storage.');
       // Persist to local storage as fallback so user preference is preserved
       setItem(STORAGE_KEYS.VAT_ENABLED, Boolean(shop.vat_enabled));
       setItem(STORAGE_KEYS.DISCOUNT_ENABLED, Boolean(shop.discount_enabled));
 
       delete updatedData.vat_enabled;
       delete updatedData.discount_enabled;
+      delete updatedData.vat_rate;
+      delete updatedData.discount_rate;
+      delete updatedData.vat_inclusive;
+      delete updatedData.simple_item_name;
 
       const retryResult = await supabase
         .from('shops')
@@ -228,8 +253,8 @@ export const setShopPanNumber = async (
   }
 
   const cleanPan = (panNumber || '').trim();
-  if (!/^\d{9}$/.test(cleanPan)) {
-    throw new Error('Invalid PAN number: PAN must be exactly 9 numeric digits.');
+  if (!/^\d{9}$/.test(cleanPan) || cleanPan === '123456789') {
+    throw new Error('Invalid PAN number: PAN must be exactly 9 numeric digits and cannot be placeholder 123456789.');
   }
 
   let { data, error } = await supabase.rpc('set_shop_pan_number', {
@@ -751,6 +776,12 @@ export const generateBill = async (
     throw new Error('Bill items must contain between 1 and 200 items.');
   }
 
+  // Validate shop PAN before generating bill: reject fake, missing or placeholder PAN
+  const cleanPan = (shop.pan_number || '').trim();
+  if (!cleanPan || !/^\d{9}$/.test(cleanPan) || cleanPan === '123456789') {
+    throw new Error('InvalidPanNumber: Billing is disabled until a valid 9-digit PAN number is configured in shop settings.');
+  }
+
   for (const item of billData.items) {
     if (!item.name || typeof item.name !== 'string' || item.name.trim().length === 0) {
       throw new Error('All bill items must have a valid name.');
@@ -786,6 +817,10 @@ export const generateBill = async (
 
         if (rpcError) {
           lastError = rpcError;
+          // If PAN is missing, invalid or placeholder on server, halt immediately
+          if (rpcError.message?.includes('InvalidPanNumber') || rpcError.code === 'P0004') {
+            throw new Error('InvalidPanNumber: Billing is disabled until a valid 9-digit PAN number is configured in shop settings.');
+          }
           // If subscription or trial has expired on the server, halt immediately with typed error
           if (rpcError.message?.includes('SubscriptionExpired') || rpcError.code === 'P0003') {
             throw new Error('SubscriptionExpired: Your 7-day trial or Pro subscription has expired. Please upgrade to continue billing.');
@@ -1284,8 +1319,8 @@ export const activateShopSubscription = async (
   const newPayment: SubscriptionPayment = {
     id: 'pay_' + generateId(),
     shop_id: shop.id,
-    shop_name: shop.shop_name,
-    pan_number: shop.pan_number,
+    shop_name: shop.shop_name || 'N/A',
+    pan_number: shop.pan_number || 'N/A',
     amount: amount,
     duration_days: days,
     payment_method: 'bank_qr',

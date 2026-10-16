@@ -5,7 +5,7 @@ import { useBilling } from '../../hooks/useBilling';
 import { Keypad } from './Keypad';
 
 export const SimpleModeView: React.FC = () => {
-  const { isOnline, setShowItemsModal } = useShop();
+  const { isOnline, setShowItemsModal, shop } = useShop();
   const { 
     simpleAmount, 
     handleKeypadPress, 
@@ -25,6 +25,10 @@ export const SimpleModeView: React.FC = () => {
     isGeneratingBill, 
     handleGenerateBill 
   } = useBilling();
+
+  const vatRate = typeof shop?.vat_rate === 'number' ? shop.vat_rate : 13;
+  const discountRate = typeof shop?.discount_rate === 'number' ? shop.discount_rate : 10;
+  const vatInclusive = Boolean(shop?.vat_inclusive);
 
   const amountInputRef = useRef<HTMLInputElement>(null);
 
@@ -93,7 +97,7 @@ export const SimpleModeView: React.FC = () => {
                     : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700"
                 }`}
               >
-                +13% VAT
+                {vatInclusive ? `VAT (${vatRate}% incl.)` : `+${vatRate}% VAT`}
               </button>
             )}
             {isDiscountEnabled && (
@@ -106,7 +110,7 @@ export const SimpleModeView: React.FC = () => {
                     : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700"
                 }`}
               >
-                -10% Disc
+                -{discountRate}% Disc
               </button>
             )}
           </div>
@@ -121,14 +125,14 @@ export const SimpleModeView: React.FC = () => {
             </div>
             {isDiscountEnabled && isDiscount && (
               <div className="flex justify-between text-emerald-700 dark:text-emerald-400 font-medium">
-                <span>Discount (-10%)</span>
+                <span>Discount (-{discountRate}%)</span>
                 <span>- Rs {simpleDiscountAmount.toFixed(2)}</span>
               </div>
             )}
             {isVatEnabled && isVat && (
               <div className="flex justify-between text-emerald-700 dark:text-emerald-400 font-medium">
-                <span>VAT (+13%{isDiscountEnabled && isDiscount ? ` on Rs ${simpleTaxableAmount.toFixed(2)}` : ''})</span>
-                <span>+ Rs {simpleVatAmount.toFixed(2)}</span>
+                <span>VAT ({vatInclusive ? 'Incl. ' : '+'}{vatRate}%{isDiscountEnabled && isDiscount ? ` on Rs ${simpleTaxableAmount.toFixed(2)}` : ''})</span>
+                <span>{vatInclusive ? '' : '+'} Rs {simpleVatAmount.toFixed(2)}</span>
               </div>
             )}
             <div className="flex justify-between font-bold text-zinc-900 dark:text-zinc-100 border-t border-zinc-200/80 dark:border-zinc-700 pt-1.5">

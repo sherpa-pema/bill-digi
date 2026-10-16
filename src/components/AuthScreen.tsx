@@ -48,7 +48,7 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const isLoginValid = loginIdentifier.trim().length > 0 && loginPassword.length > 0;
-  const isPanValid = /^\d{9}$/.test(panNumber);
+  const isPanValid = /^\d{9}$/.test(panNumber) && panNumber !== '123456789';
   const isRegisterValid = 
     businessName.trim().length > 0 && 
     isPanValid && 
@@ -382,9 +382,15 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
                       PAN Number (9 digits) *
                     </label>
                     <span className={`text-[11px] font-medium transition ${
-                      panNumber.length === 9 ? 'text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1' : 'text-zinc-400 dark:text-zinc-500'
+                      panNumber === '123456789'
+                        ? 'text-red-500 dark:text-red-400 font-semibold'
+                        : isPanValid
+                        ? 'text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1'
+                        : 'text-zinc-400 dark:text-zinc-500'
                     }`}>
-                      {panNumber.length === 9 ? (
+                      {panNumber === '123456789' ? (
+                        'Fake PAN not allowed'
+                      ) : isPanValid ? (
                         <>
                           <Check className="w-3 h-3" /> 9/9 valid
                         </>
@@ -399,7 +405,7 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
                       inputMode="numeric"
                       value={panNumber}
                       onChange={(e) => setPanNumber(e.target.value.replace(/\D/g, '').slice(0, 9))}
-                      placeholder="123456789"
+                      placeholder="e.g. 601234567"
                       maxLength={9}
                       disabled={isSubmitting}
                       required
@@ -407,7 +413,9 @@ export default function AuthScreen({ initialMode = 'login', onClose, onSuccess }
                     />
                   </div>
                   <p className="mt-1 text-[10.5px] text-zinc-400 dark:text-zinc-500">
-                    Required for official IRD lottery QR code billing.
+                    {panNumber === '123456789'
+                      ? 'Placeholder PAN 123456789 is rejected. Please enter your genuine 9-digit PAN.'
+                      : 'Required for official IRD lottery QR code billing.'}
                   </p>
                 </div>
 
